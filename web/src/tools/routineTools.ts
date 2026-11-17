@@ -1,5 +1,5 @@
 import { chileNow, DAY_NAMES, parseHour, type ChileNow } from "../core/time";
-import { ALL_DAYS, daysLabel, type Routine, type Task } from "../routine/routine";
+import { ALL_DAYS, daysLabel, timeLabel, type Routine, type Task } from "../routine/routine";
 import type { Tool } from "./registry";
 
 const dayArray = {
@@ -17,7 +17,7 @@ export function shiftDate(date: string, days: number): string {
 }
 
 const list = (ts: Task[], n: ChileNow) =>
-  ts.map((t) => `${t.time} ${t.title}${t.done.includes(n.date) ? " (hecho)" : ""}`).join(", ");
+  ts.map((t) => `${timeLabel(t)} ${t.title}${t.done.includes(n.date) ? " (hecho)" : ""}`).join(", ");
 
 export function routineTools(r: Routine, clock: () => ChileNow = chileNow): Tool[] {
   const notFound = (q: string) => ({ ok: false, say: `No encontré "${q}" en tu rutina. ¿Cómo se llama exactamente?` });
@@ -29,17 +29,20 @@ export function routineTools(r: Routine, clock: () => ChileNow = chileNow): Tool
         type: "object",
         properties: {
           titulo: { type: "string", description: "Nombre corto de la tarea, por ejemplo 'estudiar inglés'." },
-          hora: { type: "string", description: "Hora en formato 24 h HH:MM, por ejemplo '18:00'." },
+          hora: { type: "string", description: "Hora de inicio en formato 24 h HH:MM, por ejemplo '18:00'." },
+          hora_fin: { type: "string", description: "Hora de término HH:MM, si dijo un rango (de 20 a 22)." },
           dias: dayArray,
         },
         required: ["titulo", "hora"],
       },
-      run({ titulo, hora, dias }) {
+      run({ titulo, hora, hora_fin, dias }) {
         const time = parseHour(String(hora || ""));
+        const end = hora_fin ? parseHour(String(hora_fin)) : null;
         if (!titulo || !time) return { ok: false, say: "Me faltó la hora o el nombre. Dime, por ejemplo: agrega estudiar inglés a las 18:00." };
         const days = Array.isArray(dias) && dias.length ? dias : ALL_DAYS;
-        const t = r.add(String(titulo), time, days);
-        return { ok: true, say: `Listo, agregué ${t.title} a las ${t.time}, ${daysLabel(t.days)}.`, data: t };
+        const t = r.add(String(titulo), time, days, end);
+        const when = t.end ? `de ${t.time} a ${t.end}` : `a las ${t.time}`;
+        return { ok: true, say: `Listo, agregué ${t.title} ${when}, ${daysLabel(t.days)}.${dias && dias.length ? "" : " Si es solo algunos días, dime cuáles."}`, data: t };
       },
     },
     {

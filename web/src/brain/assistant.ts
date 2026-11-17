@@ -4,7 +4,7 @@ import type { KV } from "../core/storage";
 import { norm, type Routine, type Task } from "../routine/routine";
 import type { ToolRegistry } from "../tools/registry";
 import { joinY } from "../tools/routineTools";
-import { isNo, isYes, parseCommand, type LocalCommand } from "./commands";
+import { fixVerb, isNo, isYes, parseCommand, type LocalCommand } from "./commands";
 import { askGemini, GeminiError, streamGemini, type Connection, type Content, type Part } from "./gemini";
 import { FRIENDLY, systemPrompt } from "./persona";
 
@@ -24,7 +24,8 @@ type Gemini = { stream: typeof streamGemini; ask: typeof askGemini };
 // Lo que JARVIS dejó "en el aire" esperando la respuesta de Diego.
 type Pending =
   | { kind: "confirm"; tool: string; args: any }
-  | { kind: "choose"; date: string; ids: string[] };
+  | { kind: "choose"; date: string; ids: string[] }
+  | { kind: "hour"; title: string };
 
 const NUM_WORDS: Record<string, number> = { uno: 1, una: 1, primera: 1, primero: 1, dos: 2, segunda: 2, segundo: 2, tres: 3, tercera: 3, tercero: 3, cuatro: 4, cuarta: 4, cinco: 5, quinta: 5, seis: 6, sexta: 6, siete: 7, septima: 7 };
 
@@ -78,6 +79,12 @@ export class Assistant {
       if (p.kind === "confirm") {
         if (isYes(said)) return this.local(said, (await this.tools.call(p.tool, p.args)).say, onText);
         if (isNo(said)) return this.local(said, "Ya, no hago nada.", onText);
+      } else if (p.kind === "hour") {
+        const ans = said.trim();
+        const phrase = /^(a las|a la|de|desde|entre|para las)\b/i.test(ans) ? ans : `a las ${ans}`;
+        const cmd = parseCommand(`agrega ${p.title} ${phrase}`, this.clock());
+        if (cmd?.tool === "agregar_tarea") return this.local(said, (await this.tools.call(cmd.tool, cmd.args)).say, onText);
+        if (isNo(said)) return this.local(said, "Ya, no agrego nada.", onText);
       } else {
         const answer = this.answerChoice(p, said);
         if (answer) return this.local(said, answer, onText);
@@ -99,6 +106,12 @@ export class Assistant {
     const n = this.clock();
     if (cmd.tool === "__elegir") return this.askWhich(n, "Ya, vamos por partes.");
     if (cmd.tool === "__nada") return this.nothingDone(n);
+    if (cmd.tool === "__falta_hora") {
+      const title = String(cmd.args.titulo || "").trim();
+      if (!title) return "¿Qué quieres que agregue, y a qué hora?";
+      this.pending = { kind: "hour", title };
+      return `¿A qué hora pongo ${title}? Puede ser una hora, como 18:00, o un rango, como de 20 a 22.`;
+    }
     const tool = this.tools.get(cmd.tool);
     const ask = tool?.needsConfirm?.(cmd.args);
     if (ask) {
@@ -177,6 +190,10 @@ export class Assistant {
 
   private async offlineHelp(cmd: LocalCommand | null, said: string): Promise<string> {
     if (cmd) return (await this.tools.call(cmd.tool, cmd.args)).say;
+    // Si parece una orden que no entendí, lo digo en vez de responder cualquier cosa.
+    if (/^(agrega|añade|anota|agenda|ponme|quita|borra|elimina|cambia|mueve|tacha)\b/.test(fixVerb(said.toLowerCase().trim()))) {
+      return 'Te entendí que quieres cambiar tu rutina, pero no me quedó clara la frase. Dímelo así: "agrega entrenamiento de 20 a 22", "cambia el gym a las 19:00" o "quita leer".';
+    }
     // Sin Gemini igual responde lo que sabe (datos guardados en la app).
     const k = await this.tools.call("consultar_datos", { tema: said });
     if (k.ok) return k.say;

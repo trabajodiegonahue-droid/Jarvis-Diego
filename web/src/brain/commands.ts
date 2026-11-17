@@ -25,16 +25,50 @@ const stripTitle = (s: string) =>
     .replace(/\s+(ya|po|nomas|nomás)$/, "")
     .trim();
 
+// Verbos que JARVIS reconoce aunque vengan con errores de tipeo ("agrga", "aregla", "quta").
+const VERBS = ["agrega", "agregar", "añade", "anota", "agenda", "agendame", "ponme", "quita", "borra", "elimina", "cambia", "mueve", "tacha", "termine", "complete"];
+
+function lev(a: string, b: string): number {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+
+export function fixVerb(raw: string): string {
+  const [first, ...rest] = raw.split(" ");
+  if (!first || first.length < 4 || VERBS.includes(first)) return raw;
+  const best = VERBS.map((v) => ({ v, d: lev(first, v) })).sort((a, b) => a.d - b.d)[0];
+  return best.d <= (first.length >= 6 ? 2 : 1) ? [best.v, ...rest].join(" ") : raw;
+}
+
+export const ADD_VERB = /^(agrega|agregar|añade|añadir|anade|pon|ponme|anota|anotame|anótame|agéndame|agendame|agenda)\b/;
+const HOUR = "(\\d{1,2}(?:[:.]\\d{2})?\\s*(?:hrs?\\.?|horas|h|am|pm|de la mañana|de la tarde|de la noche)?)";
+
 export function parseCommand(text: string, n: ChileNow): LocalCommand | null {
-  const raw = clean(text);
+  const raw = fixVerb(clean(text));
   const t = norm(raw);
   if (!t) return null;
 
   // ¿Qué me toca?
   if (/\bque me toca\b|\bque (hago|sigue) ahora\b|\bque hay ahora\b|\bque toca\b/.test(t)) return { tool: "que_me_toca_ahora", args: {} };
 
+  // Agregar con rango: "agrega entrenamiento de 20 hrs a 22 hrs", "entre las 8 y las 10"
+  let m = raw.match(new RegExp(`^(?:agrega|agregar|añade|añadir|anade|pon|ponme|anota|anotame|anótame|agéndame|agendame|agenda)\\s+(.+?)\\s+(?:de|desde|entre)\\s+(?:las\\s+|la\\s+)?${HOUR}\\s+(?:a|hasta|y)\\s+(?:las\\s+|la\\s+)?${HOUR}(.*)$`));
+  if (m) {
+    const time = parseHour(m[2]);
+    let end = parseHour(m[3]);
+    // "de 8 a 10 de la noche": la tarde/noche vale para las dos horas
+    if (time && end && /tarde|noche|pm/.test(m[3]) && !/tarde|noche|pm|mañana|am/.test(m[2])) {
+      const t2 = parseHour(m[2] + " pm");
+      if (t2) return addCmd(m[1], t2, end, m[4], n);
+    }
+    if (time && end) return addCmd(m[1], time, end, m[4], n);
+  }
+
   // Agregar: "agrega estudiar inglés a las 18:00 de lunes a viernes"
-  let m = raw.match(/^(agrega|agregar|añade|añadir|anade|pon|ponme|anota|anotame|anótame|agéndame|agendame)\s+(.+?)\s+(?:a las|a la|para las|tipo)\s+(.+)$/);
+  m = raw.match(/^(agrega|agregar|añade|añadir|anade|pon|ponme|anota|anotame|anótame|agéndame|agendame)\s+(.+?)\s+(?:a las|a la|para las|tipo)\s+(.+)$/);
   if (m) {
     const time = parseHour(m[3]);
     const title = stripTitle(m[2]);
@@ -43,6 +77,16 @@ export function parseCommand(text: string, n: ChileNow): LocalCommand | null {
       return { tool: "agregar_tarea", args: { titulo: title, hora: time, ...(days ? { dias: days } : {}) } };
     }
   }
+
+  // Agregar sin "a las": "agrega gym 18:00"
+  m = raw.match(new RegExp(`^(?:agrega|agregar|añade|anota|agenda|ponme)\\s+(.+?)\\s+${HOUR}(.*)$`));
+  if (m && /\d/.test(m[2])) {
+    const time = parseHour(m[2]);
+    if (time && stripTitle(m[1])) return addCmd(m[1], time, null, m[3], n);
+  }
+  // Quiere agregar algo pero no dijo la hora: JARVIS se la pregunta.
+  m = raw.match(/^(?:agrega|agregar|añade|añadir|anota|agenda|agendame|agéndame|ponme)\s+(.+)$/);
+  if (m && !/\d/.test(m[1])) return { tool: "__falta_hora", args: { titulo: stripTitle(m[1].replace(/\s+(todos los dias|todos los días|de lunes a viernes|los \w+)$/, "")), resto: m[1] } };
 
   // Cambiar: "cambia el gym a las 19:00"
   m = raw.match(/^(cambia|cambiar|mueve|mover|corre|pasa)\s+(.+?)\s+(?:a las|para las|a la)\s+(.+)$/);
@@ -90,6 +134,13 @@ export function parseCommand(text: string, n: ChileNow): LocalCommand | null {
   }
 
   return null;
+}
+
+function addCmd(title: string, time: string, end: string | null, rest: string, n: ChileNow): LocalCommand | null {
+  const t = stripTitle(title);
+  if (!t) return null;
+  const days = parseDays(rest || "", n);
+  return { tool: "agregar_tarea", args: { titulo: t, hora: time, ...(end ? { hora_fin: end } : {}), ...(days ? { dias: days } : {}) } };
 }
 
 export const isYes = (s: string) => /^(si|sí|dale|ya|ok|okay|confirmo|hazlo|bueno|de una|obvio)\b/.test(norm(s).replace(/^si$/, "si"));

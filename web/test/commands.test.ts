@@ -28,7 +28,7 @@ describe("intérprete local", () => {
   it("lo demás se lo deja a Gemini", () => {
     expect(p("¿cuánto es 15% de 2000?")).toBeNull();
     expect(p("cuéntame un chiste")).toBeNull();
-    expect(p("agrega algo")).toBeNull();
+    expect(p("agrega algo")?.tool).toBe("__falta_hora"); // le pregunta la hora
   });
   it("sí y no", () => {
     expect(isYes("Sí")).toBe(true);

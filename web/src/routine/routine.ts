@@ -5,6 +5,7 @@ export interface Task {
   id: string;
   title: string;
   time: string; // "HH:MM"
+  end?: string; // "HH:MM" si la tarea dura un rato (de 20:00 a 22:00)
   days: number[]; // 0 = lunes … 6 = domingo
   done: string[]; // fechas AAAA-MM-DD en que se tachó
 }
@@ -34,11 +35,12 @@ export class Routine {
     this.kv.set(KEY, this.tasks);
   }
 
-  add(title: string, time: string, days: number[] = ALL_DAYS): Task {
+  add(title: string, time: string, days: number[] = ALL_DAYS, end?: string | null): Task {
     const t: Task = {
       id: Math.random().toString(36).slice(2, 10),
       title: title.trim(),
       time,
+      ...(end && end !== time ? { end } : {}),
       days: uniqDays(days),
       done: [],
     };
@@ -95,9 +97,10 @@ export class Routine {
     return n;
   }
 
-  update(task: Task, patch: Partial<Pick<Task, "title" | "time" | "days">>): void {
+  update(task: Task, patch: Partial<Pick<Task, "title" | "time" | "days" | "end">>): void {
     if (patch.title) task.title = patch.title.trim();
     if (patch.time) task.time = patch.time;
+    if (patch.end) task.end = patch.end;
     if (patch.days && patch.days.length) task.days = uniqDays(patch.days);
     this.sort();
     this.save();
@@ -119,7 +122,9 @@ export class Routine {
     const today = this.forDay(n.dow);
     const isDone = (t: Task) => t.done.includes(n.date);
     const started = today.filter((t) => toMinutes(t.time) <= n.minutes && !isDone(t));
-    const current = started.filter((t) => n.minutes - toMinutes(t.time) <= 120).pop() || null;
+    // Una tarea con hora de término "toca" hasta que termina; sin término, hasta 2 horas después.
+    const until = (t: Task) => (t.end ? (toMinutes(t.end) - toMinutes(t.time) + 1440) % 1440 || 120 : 120);
+    const current = started.filter((t) => n.minutes - toMinutes(t.time) <= until(t)).pop() || null;
     const pending = started.filter((t) => t !== current);
     const next = today.find((t) => toMinutes(t.time) > n.minutes && !isDone(t)) || null;
     return { current, next, pending };
@@ -152,6 +157,7 @@ function sanitize(list: unknown): Task[] {
       id: String(t.id || Math.random().toString(36).slice(2, 10)),
       title: t.title,
       time: t.time,
+      ...(typeof t.end === "string" && /^\d{2}:\d{2}$/.test(t.end) ? { end: t.end } : {}),
       days: uniqDays(Array.isArray(t.days) && t.days.length ? t.days : ALL_DAYS),
       done: Array.isArray(t.done) ? t.done.filter((d: unknown) => typeof d === "string") : [],
     }))
@@ -191,3 +197,5 @@ export function daysLabel(days: number[]): string {
   const names = d.map((i) => DAY_NAMES[i] + (i >= 5 ? "s" : ""));
   return "los " + (names.length > 1 ? names.slice(0, -1).join(", ") + " y " + names[names.length - 1] : names[0]);
 }
+
+export const timeLabel = (t: Task) => (t.end ? `${t.time} a ${t.end}` : t.time);

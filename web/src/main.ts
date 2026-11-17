@@ -6,7 +6,7 @@ import { GEMINI_MODEL } from "./config";
 import { isConnected, loadSettings, saveSettings, type Settings } from "./core/settings";
 import { localKV } from "./core/storage";
 import { chileNow, DAY_NAMES, parseHour } from "./core/time";
-import { ALL_DAYS, daysLabel, Routine } from "./routine/routine";
+import { ALL_DAYS, daysLabel, Routine, timeLabel } from "./routine/routine";
 import { ToolRegistry } from "./tools/registry";
 import { routineTools } from "./tools/routineTools";
 import { knowledgeTools } from "./tools/knowledgeTools";
@@ -205,7 +205,7 @@ function viewRutina() {
               const done = isToday && t.done.includes(n.date);
               return `<div class="task ${done ? "done" : ""} ${current?.id === t.id ? "now" : ""}">
           <button class="chk" data-check="${t.id}" ${isToday ? "" : "disabled"} aria-pressed="${done}" aria-label="Tachar ${esc(t.title)}">${done ? "✓" : ""}</button>
-          <div><div class="tt">${esc(t.title)}</div><div class="tm">${t.time} · ${esc(daysLabel(t.days))}</div></div>
+          <div><div class="tt">${esc(t.title)}</div><div class="tm">${timeLabel(t)} · ${esc(daysLabel(t.days))}</div></div>
           <button class="x" data-del="${t.id}" aria-label="Quitar ${esc(t.title)}">✕</button></div>`;
             })
             .join("")

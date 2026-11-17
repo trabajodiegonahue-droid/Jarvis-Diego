@@ -107,3 +107,34 @@ describe("conversación con casos ambiguos", () => {
     expect(systemPrompt(at("10:00")())).toMatch(/Hice la rutina a medias/);
   });
 });
+
+describe("frases con errores y rangos", () => {
+  it("'agrga entrenamieto de 20 hrs a 22 hrs' (la frase de la captura)", async () => {
+    const { a, r } = setup();
+    const rep = await a.handle("agrga entrenamieto de 20 hrs a 22 hrs");
+    expect(rep.text).toMatch(/agregué entrenamieto de 20:00 a 22:00, todos los días/);
+    expect(r.tasks.find((t) => t.title === "entrenamieto")).toMatchObject({ time: "20:00", end: "22:00" });
+  });
+  it("rango con 'de la noche' y días", async () => {
+    const { a, r } = setup();
+    await a.handle("agrega fútbol de 8 a 10 de la noche los martes y jueves");
+    expect(r.tasks.find((t) => t.title === "fútbol")).toMatchObject({ time: "20:00", end: "22:00", days: [1, 3] });
+  });
+  it("sin hora: pregunta la hora y después agrega", async () => {
+    const { a, r } = setup();
+    let rep = await a.handle("agrega estudiar matemáticas");
+    expect(rep.text).toMatch(/¿A qué hora pongo estudiar matemáticas\?/);
+    rep = await a.handle("de 17 a 18");
+    expect(r.tasks.find((t) => t.title === "estudiar matemáticas")).toMatchObject({ time: "17:00", end: "18:00" });
+  });
+  it("una orden que no entiende no responde datos al azar", async () => {
+    const { a } = setup();
+    const rep = await a.handle("quta el entrenamiento ese raro");
+    expect(rep.text).not.toMatch(/proteína/);
+  });
+  it("una tarea con término 'toca' hasta que termina", async () => {
+    const { r } = setup();
+    r.add("Entrenamiento", "20:00", undefined, "22:00");
+    expect(r.now(at("21:30")()).current?.title).toBe("Entrenamiento");
+  });
+});
