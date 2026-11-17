@@ -20,8 +20,7 @@ export function Bienvenida() {
   async function listo() {
     if (ejemplo) {
       const d = datosEjemplo(hoy);
-      await store.put("movimientos", ...d.movimientos!);
-      await store.put("presupuestos", ...d.presupuestos!);
+      for (const k of Object.keys(d) as (keyof typeof d)[]) if (d[k]?.length) await store.put(k, ...(d[k] as any[]));
     }
     void pedirPersistencia();
     setPrefs({ onboarded: true, areas, startMonth: inicio });

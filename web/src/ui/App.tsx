@@ -1,13 +1,17 @@
 import { useEffect, useState } from "preact/hooks";
 import { hasPin } from "../core/pin";
 import { store } from "../data/store";
-import { MovimientoForm, Sheet, Toast } from "./components";
+import { Sheet, Toast } from "./components";
 import { Icon } from "./icons";
 import { Dinero } from "./screens/Dinero";
 import { Bienvenida, Bloqueo } from "./screens/Entrada";
 import { Inicio } from "./screens/Inicio";
 import { JarvisSheet } from "./screens/Jarvis";
 import { Ajustes, Mas, Pronto } from "./screens/Mas";
+import { Metas } from "./screens/Metas";
+import { Trabajo } from "./screens/Trabajo";
+import { Estudios } from "./screens/Estudios";
+import { Registrar } from "./screens/Registrar";
 import { kv, useApp, useRoute } from "./state";
 
 const TABS = [
@@ -48,7 +52,7 @@ export function App() {
       case "/dinero":
         return <Dinero onAdd={() => setAdd(true)} />;
       case "/metas":
-        return <Pronto titulo="Metas" fase={2} texto="Aquí vas a ver tus metas con su porcentaje y fecha, y lo que te falta esta semana." />;
+        return <Metas />;
       case "/futbol":
         return <Pronto titulo="Fútbol" fase={3} texto="Partidos, estadísticas, pruebas y clubes, y tu preparación física." />;
       case "/mas":
@@ -56,9 +60,9 @@ export function App() {
       case "/mas/ajustes":
         return <Ajustes />;
       case "/mas/estudios":
-        return <Pronto titulo="Estudios" fase={2} texto="Materias, horas de estudio, pruebas y metas de puntaje." />;
+        return <Estudios />;
       case "/mas/trabajo":
-        return <Pronto titulo="Trabajo" fase={2} texto="Turnos, horas trabajadas e ingresos conectados con Dinero." />;
+        return <Trabajo />;
       case "/mas/habitos":
         return <Pronto titulo="Hábitos y bienestar" fase={5} texto="Hábitos con racha, sueño, energía, ánimo y agua." />;
       case "/mas/calendario":
@@ -72,7 +76,7 @@ export function App() {
   return (
     <>
       {screen}
-      <button class="fab plus" aria-label="Registrar un gasto o ingreso" onClick={() => setAdd(true)}>
+      <button class="fab plus" aria-label="Registrar algo" onClick={() => setAdd(true)}>
         <Icon name="plus" size={26} />
       </button>
       <button class="fab jarvis" aria-label="Hablar con JARVIS" onClick={() => setJarvis(true)}>
@@ -88,7 +92,7 @@ export function App() {
       </nav>
       {add && (
         <Sheet title="Registrar" onClose={() => setAdd(false)}>
-          <MovimientoForm onDone={() => setAdd(false)} />
+          <Registrar onDone={() => setAdd(false)} />
         </Sheet>
       )}
       {jarvis && <JarvisSheet onClose={() => setJarvis(false)} />}

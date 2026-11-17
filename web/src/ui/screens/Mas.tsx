@@ -3,6 +3,7 @@ import { chileNow } from "../../core/time";
 import { applyExtra, exportCSV, exportJSON, readJSON } from "../../data/backup";
 import { clearPin, hasPin, setPin } from "../../core/pin";
 import { store } from "../../data/store";
+import { emptyDatos } from "../../data/types";
 import { reloadJarvis, settings, updateSettings } from "../../jarvis/instance";
 import { GEMINI_MODEL } from "../../config";
 import { askGemini } from "../../brain/gemini";
@@ -228,7 +229,7 @@ export function Ajustes() {
           <button
             class="btn danger full"
             onClick={async () => {
-              await store.replaceAll({ movimientos: [], categorias: [], presupuestos: [], recurrentes: [] });
+              await store.replaceAll(emptyDatos());
               setBorrar(false);
               toast("Listo, partimos de cero.");
             }}

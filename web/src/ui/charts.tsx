@@ -85,31 +85,37 @@ export function BarsH({ data, total, label }: { data: { nombre: string; valor: n
 }
 
 // Línea de tendencia (ahorro acumulado, notas, peso…).
-export function Line({ data, label, fmt = clp }: { data: { etiqueta: string; valor: number }[]; label: string; fmt?: (n: number) => string }) {
+// cero: el eje parte en 0 (plata); sin cero se ajusta a los valores (notas, puntajes, peso).
+export function Line({ data, label, fmt = clp, cero = true }: { data: { etiqueta: string; valor: number }[]; label: string; fmt?: (n: number) => string; cero?: boolean }) {
   const W = 320;
   const H = 130;
   if (!data.length) return null;
   const vals = data.map((d) => d.valor);
-  let lo = Math.min(0, ...vals);
-  let hi = Math.max(0, ...vals);
+  let lo = cero ? Math.min(0, ...vals) : Math.min(...vals);
+  let hi = cero ? Math.max(0, ...vals) : Math.max(...vals);
+  if (!cero) {
+    const pad = Math.max((hi - lo) * 0.25, Math.abs(hi) * 0.05, 1);
+    lo -= pad;
+    hi += pad;
+  }
   if (lo === hi) hi = lo + 1;
-  const X = (i: number) => (data.length === 1 ? W / 2 : 12 + (i * (W - 24)) / (data.length - 1));
-  const Y = (v: number) => 8 + (1 - (v - lo) / (hi - lo)) * (H - 16);
+  const X = (i: number) => (data.length === 1 ? W / 2 : 24 + (i * (W - 48)) / (data.length - 1));
+  const Y = (v: number) => 22 + (1 - (v - lo) / (hi - lo)) * (H - 30);
   const d = data.map((p, i) => `${i ? "L" : "M"}${X(i).toFixed(1)} ${Y(p.valor).toFixed(1)}`).join("");
   const last = data[data.length - 1];
   const alt = data.map((p) => `${p.etiqueta}: ${fmt(p.valor)}`).join(", ");
   return (
     <svg viewBox={`0 0 ${W} ${H + 22}`} width="100%" role="img" aria-label={`${label}. ${alt}`}>
-      <line x1="0" x2={W} y1={Y(0)} y2={Y(0)} stroke="var(--line)" stroke-dasharray="3 4" />
+      {cero && <line x1="0" x2={W} y1={Y(0)} y2={Y(0)} stroke="var(--line)" stroke-dasharray="3 4" />}
       <path d={d} fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
       {data.map((p, i) => (
         <circle key={p.etiqueta} cx={X(i)} cy={Y(p.valor)} r="3.5" fill="var(--green)" />
       ))}
-      <text x={X(data.length - 1)} y={Y(last.valor) - 10} text-anchor="end" font-size="12" font-weight="700" fill="var(--ink)">
+      <text x={Math.min(W - 2, X(data.length - 1) + 6)} y={Y(last.valor) - 10} text-anchor="end" font-size="12" font-weight="700" fill="var(--ink)">
         {fmt(last.valor)}
       </text>
       {data.map((p, i) => (
-        <text key={"t" + p.etiqueta} x={X(i)} y={H + 16} text-anchor="middle" font-size="11" fill="var(--muted)">
+        <text key={"t" + p.etiqueta + i} x={X(i)} y={H + 16} text-anchor="middle" font-size="11" fill="var(--muted)">
           {p.etiqueta}
         </text>
       ))}
@@ -119,3 +125,36 @@ export function Line({ data, label, fmt = clp }: { data: { etiqueta: string; val
 
 export const colorEstado = (e: "ok" | "atencion" | "excedido") => (e === "excedido" ? "var(--red)" : e === "atencion" ? "var(--amber)" : "var(--green)");
 export const textoEstado = (e: "ok" | "atencion" | "excedido") => (e === "excedido" ? "Pasado" : e === "atencion" ? "Ojo" : "Bien");
+
+// Barras verticales simples (horas por mes, horas por semana), con una línea de meta opcional.
+export function Bars({ data, label, fmt = (n: number) => String(Math.round(n)), meta, color = "var(--blue)" }: { data: { etiqueta: string; valor: number }[]; label: string; fmt?: (n: number) => string; meta?: number; color?: string }) {
+  const W = 320;
+  const H = 130;
+  const max = Math.max(1, meta || 0, ...data.map((d) => d.valor));
+  const slot = W / Math.max(1, data.length);
+  const bw = Math.min(26, slot * 0.55);
+  const y = (v: number) => H - (v / max) * (H - 14);
+  const alt = data.map((d) => `${d.etiqueta}: ${fmt(d.valor)}`).join(", ");
+  return (
+    <svg viewBox={`0 0 ${W} ${H + 22}`} width="100%" role="img" aria-label={`${label}. ${alt}${meta ? `. Meta: ${fmt(meta)}` : ""}`}>
+      <line x1="0" x2={W} y1={H} y2={H} stroke="var(--line)" />
+      {meta ? <line x1="0" x2={W} y1={y(meta)} y2={y(meta)} stroke="var(--gold)" stroke-dasharray="4 4" /> : null}
+      {data.map((d, i) => {
+        const x = i * slot + slot / 2;
+        return (
+          <g key={d.etiqueta + i}>
+            <rect x={x - bw / 2} y={y(d.valor)} width={bw} height={H - y(d.valor)} rx="4" fill={meta && d.valor >= meta ? "var(--green)" : color} />
+            {d.valor > 0 && (
+              <text x={x} y={meta && Math.abs(y(d.valor) - y(meta)) < 14 && H - y(d.valor) > 18 ? y(d.valor) + 13 : y(d.valor) - 4} text-anchor="middle" font-size="10" fill={meta && Math.abs(y(d.valor) - y(meta)) < 14 && H - y(d.valor) > 18 ? "var(--bg)" : "var(--muted)"}>
+                {fmt(d.valor)}
+              </text>
+            )}
+            <text x={x} y={H + 16} text-anchor="middle" font-size="11" fill="var(--muted)">
+              {d.etiqueta}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}

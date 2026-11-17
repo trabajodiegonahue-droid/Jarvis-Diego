@@ -8,6 +8,12 @@ import { Progress } from "../charts";
 import { Empty } from "../components";
 import { Icon } from "../icons";
 import { AREAS, cardReady, go, useApp, type CardId } from "../state";
+import { diffDays, fechaCorta } from "../../core/dates";
+import { equilibrioMetas, metasPrincipales } from "../../goals/calc";
+import { equilibrioEstudios, proximasEvaluaciones, tareasPendientes } from "../../study/calc";
+import { equilibrioTrabajo, proximoTurno, turnoDeHoy } from "../../work/calc";
+import { MetaCard } from "./Metas";
+import { TareaFila } from "./Estudios";
 
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
@@ -44,13 +50,21 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
           )}
         </button>
       ),
-    metas: () =>
-      !hay("metas") ? null : (
+    metas: () => {
+      if (!hay("metas")) return null;
+      const top = metasPrincipales(data.metas, n.date);
+      return (
         <div class="card">
-          <h2>Mis metas</h2>
-          <Empty text="Las metas llegan en la fase 2: ahorro, prueba física, inglés y lo que quieras." />
+          <div class="between">
+            <span class="lbl">Mis metas</span>
+            <a href="#/metas" class="small" style={{ color: "var(--blue)", minHeight: "32px", display: "inline-flex", alignItems: "center" }}>
+              Ver todas
+            </a>
+          </div>
+          {top.length ? top.map((m) => <MetaCard key={m.id} m={m} compacta onOpen={() => go("/metas")} />) : <Empty text="Todavía no tienes metas." action="Crear una meta" onAction={() => go("/metas")} />}
         </div>
-      ),
+      );
+    },
     entreno: () => {
       if (!hay("cuerpo")) return null;
       return (
@@ -72,13 +86,47 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
           <span class="small">Tu próximo partido aparecerá aquí (fase 3).</span>
         </div>
       ),
-    pendientes: () =>
-      !hay("estudios") && !hay("trabajo") ? null : (
+    pendientes: () => {
+      if (!hay("estudios") && !hay("trabajo")) return null;
+      const turno = hay("trabajo") ? turnoDeHoy(data.turnos, n.date) : null;
+      const prox = hay("trabajo") && !turno ? proximoTurno(data.turnos, n.date) : null;
+      const tareas = hay("estudios") ? tareasPendientes(data.tareas, n.date).slice(0, 3) : [];
+      const pruebas = hay("estudios") ? proximasEvaluaciones(data.evaluaciones, n.date, 7) : [];
+      const nada = !turno && !prox && !tareas.length && !pruebas.length;
+      return (
         <div class="card">
-          <span class="lbl">Pendientes de hoy</span>
-          <span class="small">Estudios y turnos llegan en la fase 2.</span>
+          <span class="lbl">Hoy en estudios y trabajo</span>
+          {turno && (
+            <a href="#/mas/trabajo" class="between" style={{ color: "inherit", textDecoration: "none", minHeight: "36px" }}>
+              <span>Turno de hoy</span>
+              <span class="num">
+                {turno.inicio}–{turno.fin}
+              </span>
+            </a>
+          )}
+          {prox && (
+            <a href="#/mas/trabajo" class="between small" style={{ color: "inherit", textDecoration: "none", minHeight: "32px" }}>
+              <span>Hoy libre. Próximo turno</span>
+              <span>
+                {fechaCorta(prox.fecha)} · {prox.inicio}
+              </span>
+            </a>
+          )}
+          {pruebas.map((e) => (
+            <a key={e.id} href="#/mas/estudios" class="between" style={{ color: "inherit", textDecoration: "none", minHeight: "36px" }}>
+              <span>{e.nombre}</span>
+              <span class="small" style={{ color: "var(--amber)" }}>
+                {e.fecha === n.date ? "hoy" : `en ${diffDays(e.fecha, n.date)} días`}
+              </span>
+            </a>
+          ))}
+          {tareas.map((t) => (
+            <TareaFila key={t.id} t={t} hoy={n.date} />
+          ))}
+          {nada && <span class="small">Nada pendiente para hoy.</span>}
         </div>
-      ),
+      );
+    },
     jarvis: () =>
       !frase ? null : (
         <div class="card" style={{ flexDirection: "row", alignItems: "flex-start" }}>
@@ -88,7 +136,19 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
           <span style={{ fontSize: "14px" }}>{frase}</span>
         </div>
       ),
-    equilibrio: () => <Equilibrio din={equilibrioDinero(estados)} areas={prefs.areas} />,
+    equilibrio: () => (
+      <Equilibrio
+        vals={{
+          dinero: equilibrioDinero(estados),
+          metas: equilibrioMetas(data.metas, data, n.date),
+          cuerpo: null,
+          futbol: null,
+          estudios: equilibrioEstudios(data.materias, data.sesiones, n.date),
+          trabajo: equilibrioTrabajo(data.turnos, mes, n.date),
+        }}
+        areas={prefs.areas}
+      />
+    ),
   };
 
   const fecha = `${DAY_NAMES[n.dow][0].toUpperCase() + DAY_NAMES[n.dow].slice(1)} ${dia} de ${MESES[Number(mes.slice(5)) - 1]}`;
@@ -138,8 +198,7 @@ function IO({ label, valor, max, color }: { label: string; valor: number; max: n
   );
 }
 
-function Equilibrio({ din, areas }: { din: number | null; areas: string[] }) {
-  const vals: Record<string, number | null> = { dinero: din, metas: null, cuerpo: null, futbol: null, estudios: null, trabajo: null };
+function Equilibrio({ vals, areas }: { vals: Record<string, number | null>; areas: string[] }) {
   const list = AREAS.filter((a) => areas.includes(a.id) && vals[a.id] != null);
   if (!list.length) return null;
   return (
@@ -162,7 +221,7 @@ function Equilibrio({ din, areas }: { din: number | null; areas: string[] }) {
           ¿Cómo se calcula?
         </summary>
         <p class="small" style={{ margin: "4px 0 0" }}>
-          Cada área va de 0 a 100 y compara lo que hiciste con lo que te propusiste. No es una nota sobre tu vida, es solo una guía. Dinero: si a esta altura del mes gastaste lo que te tocaba según tu presupuesto o menos, 100; si te pasaste, baja en proporción. Metas, entrenamiento, fútbol, estudios y trabajo aparecen aquí cuando lleguen sus fases.
+          Cada área va de 0 a 100 y compara lo que hiciste con lo que te propusiste. No es una nota sobre tu vida, es solo una guía. Dinero: si a esta altura del mes gastaste lo que te tocaba según tu presupuesto o menos, 100; si te pasaste, baja en proporción. Metas: qué tan al día va cada meta (su avance contra el tiempo que pasó), en promedio. Estudios: horas de esta semana contra las que tocaban hasta hoy según tu meta semanal. Trabajo: turnos a los que fuiste contra los que tenías hasta hoy. Un área aparece cuando tiene datos; entrenamiento y fútbol llegan en la fase 3.
         </p>
       </details>
     </div>
