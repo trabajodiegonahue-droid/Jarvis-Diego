@@ -13,7 +13,7 @@ Los briefs están en [`docs/APP_VIDA.md`](docs/APP_VIDA.md) (manda este) y [`doc
 |---|---|---|
 | 0 | Sistema de diseño (tema oscuro y claro), navegación, IndexedDB, respaldo JSON/CSV, PWA, bienvenida y PIN | ✅ |
 | 1 | Inicio (maqueta A) y Dinero: movimientos, presupuesto, fijos, gráficos e importación de cartola CSV | ✅ |
-| 2 | Metas, Trabajo y Estudios | Pendiente |
+| 2 | Metas (plata, cantidad, hábito y pasos; avance contra el tiempo; qué falta esta semana; revisión mensual), Trabajo (turnos, horas, sueldo estimado, propinas que pasan a Dinero) y Estudios (materias, horas por semana, pendientes, pruebas y resultados) | ✅ |
 | 3 | Fútbol y Entrenamiento | Pendiente |
 | 4 | JARVIS integrado: registrar hablando («gasté 5 mil en comida»), Atajo de Siri | Parcial: chat, voz y rutina ya funcionan |
 | 5 | Hábitos, calendario unificado y resúmenes | Pendiente |
@@ -26,6 +26,7 @@ web/        la app (TypeScript + Vite + Preact)
   src/ui/              pantallas, componentes, gráficos SVG propios y tema (theme.css)
   src/data/            tipos de datos, IndexedDB, respaldo, datos de ejemplo
   src/money/           cálculos de dinero (funciones puras, con pruebas), formato $1.234.567, CSV
+  src/goals/ work/ study/   cálculos de metas, trabajo y estudios (funciones puras, con pruebas)
   src/core/            hora de Chile, ajustes, PIN
   src/jarvis/          la instancia de JARVIS que comparten las pantallas
   src/brain/ tools/ routine/ voice/ knowledge/   el asistente (ver abajo)
@@ -42,7 +43,7 @@ docs/       los briefs
 
 **Datos y seguridad:**
 - Todo vive en IndexedDB, en el teléfono.
-- Se guarda en IndexedDB: movimientos, categorías, presupuestos y fijos. La rutina, los ajustes y las preferencias van en `localStorage` porque son pocos datos.
+- Se guarda en IndexedDB: movimientos, categorías, presupuestos, fijos, metas y sus avances, turnos, materias, sesiones de estudio, pendientes y pruebas. La rutina, los ajustes y las preferencias van en `localStorage` porque son pocos datos.
 - La app pide al navegador almacenamiento persistente. En iOS, una app instalada en la pantalla de inicio no se borra a los 7 días sin uso, como pasa con Safari, pero el sistema puede liberar espacio si el teléfono se llena. Por eso hay respaldo y la app te lo recuerda cada 14 días.
 - El **PIN** pide un código al abrir la app y al volver después de 5 minutos fuera. Es una pantalla de privacidad: no cifra los datos. Si lo olvidas, borras los datos del sitio y restauras tu respaldo.
 
@@ -170,7 +171,7 @@ Ese repositorio dice MIT en el README, pero no tiene archivo LICENSE, así que n
 
 ## Pendientes
 
-- **Fases 2 a 6** de `docs/APP_VIDA.md`.
+- **Fases 3 a 6** de `docs/APP_VIDA.md`.
 - **Versión 2 de JARVIS (avisos):** notificaciones push de la PWA. En iOS 16.4 o más nuevo funcionan solo con la app instalada en el inicio y con el permiso pedido desde un botón. Necesitan el intermediario: un cron de Cloudflare envía el aviso a su hora, con una copia mínima de la rutina (nombre, hora y día). Como alternativa sin servidor: exportar los avisos al Calendario del iPhone (.ics).
 - **Versión 3 (Siri):** un Atajo «Jarvis» que dicta, consulta al intermediario y lee la respuesta en voz alta, con los pasos exactos para crearlo en la app Atajos. Escuchar siempre sin decir «Oye Siri» no es posible en el iPhone.
 - **Versiones 4 a 6:** resumen de la mañana con el clima de Puerto Varas (Open-Meteo), memoria, fotos, Google Calendar (solo lectura) y el preparador físico, reutilizando la biblioteca de ejercicios y la lógica de progresión de la app «Atleta Híbrido».
