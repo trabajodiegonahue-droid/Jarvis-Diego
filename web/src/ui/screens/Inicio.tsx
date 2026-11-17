@@ -14,6 +14,8 @@ import { equilibrioEstudios, proximasEvaluaciones, tareasPendientes } from "../.
 import { equilibrioTrabajo, proximoTurno, turnoDeHoy } from "../../work/calc";
 import { MetaCard } from "./Metas";
 import { TareaFila } from "./Estudios";
+import { cargaDelDia, equilibrioCuerpo, semanaEntreno, sesionDeHoy } from "../../training/calc";
+import { equilibrioFutbol, proximoEvento, sinRegistrar } from "../../futbol/calc";
 
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
@@ -67,25 +69,56 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
     },
     entreno: () => {
       if (!hay("cuerpo")) return null;
+      const plan = data.planes.find((p) => p.id === "activo");
+      const sem = semanaEntreno(plan, data.entrenos, n.date);
+      const hechas = sem.filter((x) => x.hecho).length;
+      const tocan = sem.filter((x) => x.plan).length;
+      const hoyS = sesionDeHoy(plan, n.date);
+      const carga = cargaDelDia(data.chequeos.find((c) => c.id === n.date), data.partidos, n.date, data.chequeos);
       return (
-        <div class="card">
-          <span class="lbl">Entrenamiento de la semana</span>
-          <div class="row" style={{ gap: "8px" }} aria-hidden="true">
-            {DAY_NAMES.map((d, i) => (
-              <span key={d} title={d} style={{ width: "16px", height: "16px", borderRadius: "8px", boxSizing: "border-box", border: i === n.dow ? "2px solid var(--blue)" : "0", background: i === n.dow ? "transparent" : "var(--line)" }} />
+        <button class="card" onClick={() => go("/futbol?fisico")} aria-label={`Entrenamiento: ${hechas} de ${tocan} sesiones esta semana`}>
+          <div class="between">
+            <span class="lbl">Entrenamiento de la semana</span>
+            <span class="num" style={{ fontWeight: 700 }}>
+              {plan ? `${hechas} de ${tocan}` : ""}
+            </span>
+          </div>
+          <div class="row" style={{ gap: "10px" }} aria-hidden="true">
+            {sem.map((x) => (
+              <span key={x.dia} class="stack" style={{ alignItems: "center", gap: "4px" }}>
+                <span style={{ width: "18px", height: "18px", borderRadius: "9px", boxSizing: "border-box", background: x.hecho ? "var(--green)" : "transparent", border: x.hecho ? "0" : x.plan ? "2px solid var(--muted)" : "2px dashed var(--line)", outline: x.dia === n.dow ? "2px solid var(--blue)" : "none", outlineOffset: "2px" }} />
+                <span class="small">{DAY_NAMES[x.dia][0].toUpperCase()}</span>
+              </span>
             ))}
           </div>
-          <span class="small">El registro de entrenamientos llega en la fase 3.</span>
-        </div>
+          <span class="small">{!plan ? "Arma tu rutina en Fútbol → Físico." : hoyS ? `Hoy: ${hoyS.nombre.replace(/^\w+: /, "")}${carga.nivel !== "normal" ? ` · ${carga.nivel === "parar" ? "hoy no, cuida esa zona" : "versión suave"}` : ""}` : "Hoy toca descanso."}</span>
+        </button>
       );
     },
-    futbol: () =>
-      !hay("futbol") ? null : (
-        <div class="card">
+    futbol: () => {
+      if (!hay("futbol")) return null;
+      const prox = proximoEvento(data.partidos, n.date);
+      const pend = sinRegistrar(data.partidos, n.date);
+      return (
+        <button class="card" onClick={() => go("/futbol")}>
           <span class="lbl">Fútbol</span>
-          <span class="small">Tu próximo partido aparecerá aquí (fase 3).</span>
-        </div>
-      ),
+          {prox ? (
+            <>
+              <span class="mid">{prox.tipo === "partido" ? `vs. ${prox.rival || "—"}` : "Entrenamiento con el equipo"}</span>
+              <span class="small">
+                {prox.fecha === n.date ? "Hoy" : fechaCorta(prox.fecha)}
+                {prox.hora ? ` · ${prox.hora}` : ""}
+                {prox.lugar ? ` · ${prox.lugar}` : ""}
+                {prox.importante ? " · ★ importante" : ""}
+              </span>
+            </>
+          ) : (
+            <span class="small">No hay partidos anotados. Agrégalos en Fútbol.</span>
+          )}
+          {pend.length > 0 && <span class="small" style={{ color: "var(--amber)" }}>Tienes {pend.length} sin registrar: ¿cómo te fue?</span>}
+        </button>
+      );
+    },
     pendientes: () => {
       if (!hay("estudios") && !hay("trabajo")) return null;
       const turno = hay("trabajo") ? turnoDeHoy(data.turnos, n.date) : null;
@@ -141,8 +174,8 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
         vals={{
           dinero: equilibrioDinero(estados),
           metas: equilibrioMetas(data.metas, data, n.date),
-          cuerpo: null,
-          futbol: null,
+          cuerpo: equilibrioCuerpo(data.planes.find((p) => p.id === "activo"), data.entrenos, n.date),
+          futbol: equilibrioFutbol(data.partidos, mes, n.date),
           estudios: equilibrioEstudios(data.materias, data.sesiones, n.date),
           trabajo: equilibrioTrabajo(data.turnos, mes, n.date),
         }}
@@ -221,7 +254,7 @@ function Equilibrio({ vals, areas }: { vals: Record<string, number | null>; area
           ¿Cómo se calcula?
         </summary>
         <p class="small" style={{ margin: "4px 0 0" }}>
-          Cada área va de 0 a 100 y compara lo que hiciste con lo que te propusiste. No es una nota sobre tu vida, es solo una guía. Dinero: si a esta altura del mes gastaste lo que te tocaba según tu presupuesto o menos, 100; si te pasaste, baja en proporción. Metas: qué tan al día va cada meta (su avance contra el tiempo que pasó), en promedio. Estudios: horas de esta semana contra las que tocaban hasta hoy según tu meta semanal. Trabajo: turnos a los que fuiste contra los que tenías hasta hoy. Un área aparece cuando tiene datos; entrenamiento y fútbol llegan en la fase 3.
+          Cada área va de 0 a 100 y compara lo que hiciste con lo que te propusiste. No es una nota sobre tu vida, es solo una guía. Dinero: si a esta altura del mes gastaste lo que te tocaba según tu presupuesto o menos, 100; si te pasaste, baja en proporción. Metas: qué tan al día va cada meta (su avance contra el tiempo que pasó), en promedio. Estudios: horas de esta semana contra las que tocaban hasta hoy según tu meta semanal. Trabajo: turnos a los que fuiste contra los que tenías hasta hoy. Entrenamiento: sesiones hechas esta semana contra las de tu rutina hasta hoy. Fútbol: partidos y entrenamientos del mes a los que fuiste. Un área aparece cuando tiene datos.
         </p>
       </details>
     </div>

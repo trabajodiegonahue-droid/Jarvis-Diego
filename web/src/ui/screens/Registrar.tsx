@@ -11,17 +11,19 @@ import { Empty, MovimientoForm } from "../components";
 import { go, toast, useApp } from "../state";
 import { SesionForm } from "./Estudios";
 import { TurnoForm } from "./Trabajo";
+import { PartidoForm } from "./Futbol";
+import { sinRegistrar } from "../../futbol/calc";
 
-type Que = "plata" | "turno" | "estudio" | "meta";
+type Que = "plata" | "turno" | "estudio" | "meta" | "entreno" | "partido";
 
 export function Registrar({ onDone }: { onDone: () => void }) {
   const [que, setQue] = useState<Que>("plata");
   return (
     <>
-      <div class="seg tabs4" role="tablist" aria-label="Qué registrar">
-        {(["plata", "turno", "estudio", "meta"] as Que[]).map((q) => (
+      <div class="seg" role="tablist" aria-label="Qué registrar" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: "6px" }}>
+        {(["plata", "entreno", "partido", "turno", "estudio", "meta"] as Que[]).map((q) => (
           <button key={q} role="tab" aria-selected={que === q} class={que === q ? "on" : ""} onClick={() => setQue(q)}>
-            {{ plata: "Plata", turno: "Turno", estudio: "Estudio", meta: "Meta" }[q]}
+            {{ plata: "Plata", turno: "Turno", estudio: "Estudio", meta: "Meta", entreno: "Entreno", partido: "Partido" }[q]}
           </button>
         ))}
       </div>
@@ -29,6 +31,17 @@ export function Registrar({ onDone }: { onDone: () => void }) {
       {que === "turno" && <TurnoForm onDone={onDone} />}
       {que === "estudio" && <SesionForm onDone={onDone} />}
       {que === "meta" && <AvanceMeta onDone={onDone} />}
+      {que === "partido" && <PartidoForm partido={sinRegistrar(store.data.partidos, chileNow().date).slice(-1)[0]} onDone={onDone} />}
+      {que === "entreno" && (
+        <Empty
+          text={store.data.planes.length ? "El entreno se registra serie por serie en Fútbol → Físico → Entrenar hoy." : "Primero arma tu rutina en Fútbol → Físico."}
+          action="Ir a Físico"
+          onAction={() => {
+            onDone();
+            go("/futbol?fisico");
+          }}
+        />
+      )}
     </>
   );
 }

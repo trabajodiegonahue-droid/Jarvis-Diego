@@ -12,6 +12,7 @@ import { Metas } from "./screens/Metas";
 import { Trabajo } from "./screens/Trabajo";
 import { Estudios } from "./screens/Estudios";
 import { Registrar } from "./screens/Registrar";
+import { Futbol } from "./screens/Futbol";
 import { kv, useApp, useRoute } from "./state";
 
 const TABS = [
@@ -54,7 +55,7 @@ export function App() {
       case "/metas":
         return <Metas />;
       case "/futbol":
-        return <Pronto titulo="Fútbol" fase={3} texto="Partidos, estadísticas, pruebas y clubes, y tu preparación física." />;
+        return <Futbol />;
       case "/mas":
         return <Mas />;
       case "/mas/ajustes":

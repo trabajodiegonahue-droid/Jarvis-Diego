@@ -1,7 +1,8 @@
 // Datos de ejemplo para la bienvenida (opcionales). Todos llevan demo: true y se borran con un toque.
 import { sumarMeses } from "../money/calc";
 import { addDays, dow, lunesDe } from "../core/dates";
-import type { Datos, Movimiento, Sesion, Turno } from "./types";
+import type { Datos, Entreno, Movimiento, Partido, Sesion, Turno } from "./types";
+import { generarRutina } from "../training/calc";
 
 export function datosEjemplo(hoy: string): Partial<Datos> {
   const mes = hoy.slice(0, 7);
@@ -32,6 +33,48 @@ export function datosEjemplo(hoy: string): Partial<Datos> {
     ],
     recurrentes: [],
     ...ejemploFase2(hoy),
+    ...ejemploFase3(hoy),
+  };
+}
+
+function ejemploFase3(hoy: string): Partial<Datos> {
+  const D = { demo: true as const };
+  const t = hoy.slice(0, 4);
+  const partidos: Partido[] = [];
+  const rivales = ["Llanquihue FC", "Deportes Frutillar", "Unión Ensenada", "Puerto Octay", "Club Alerce", "Los Muermos"];
+  // Partidos los sábados de las últimas 6 semanas y los próximos 2; entrenamientos los miércoles.
+  for (let k = -6; k <= 2; k++) {
+    const sab = addDays(lunesDe(hoy), 5 + 7 * k);
+    const mie = addDays(lunesDe(hoy), 2 + 7 * k);
+    const jugado = sab < hoy;
+    const i = (k + 6) % rivales.length;
+    partidos.push({
+      id: `demo-p${k}`, tipo: "partido", fecha: sab, hora: "11:00", rival: rivales[i], lugar: "Cancha municipal", temporada: sab.slice(0, 4), importante: k === 0,
+      ...(jugado ? { fui: true, minutos: [90, 75, 90, 60, 90, 85][i], goles: [0, 1, 0, 0, 1, 0][i], asistencias: [1, 0, 2, 0, 0, 1][i], pases: [42, 35, 51, 28, 47, 39][i], calificacion: [7, 6, 8, 5, 7, 7][i], golesFavor: [2, 1, 3, 0, 2, 1][i], golesContra: [1, 1, 1, 2, 2, 0][i], bien: "Buen primer toque", mejorar: "Llegar más al área" } : {}),
+      ...D,
+    });
+    if (mie < hoy || k >= 0) partidos.push({ id: `demo-e${k}`, tipo: "entrenamiento", fecha: mie, hora: "19:30", lugar: "Cancha municipal", temporada: mie.slice(0, 4), ...(mie < hoy ? { fui: k !== -3 } : {}), ...D });
+  }
+  partidos.push({ id: "demo-pv", tipo: "partido", fecha: `${Number(t) - 1}-11-08`, rival: "Llanquihue FC", temporada: String(Number(t) - 1), fui: true, minutos: 45, goles: 0, asistencias: 1, calificacion: 6, ...D });
+  const sesiones = generarRutina({ objetivo: "futbol", dias: [0, 2, 4], minutos: 60, equipo: ["mancuernas", "banda", "barra-dominadas", "mochila", "cajon"], nivel: 2, diasPartido: [2, 5] });
+  const entrenos: Entreno[] = [];
+  for (let w = 3; w >= 0; w--) {
+    for (const s of sesiones) {
+      const f = addDays(lunesDe(hoy), s.dia - 7 * w);
+      if (f >= hoy) continue;
+      entrenos.push({
+        id: `demo-en${w}-${s.dia}`, fecha: f, nombre: s.nombre.replace(/^\w+: /, ""), sesionId: s.id, rpe: 7,
+        items: s.items.map((it) => ({ ejId: it.ejId, series: Array.from({ length: it.series }, () => ({ reps: Math.min(it.repsMax, it.repsMin + (3 - w)) })) })),
+        ...D,
+      });
+    }
+  }
+  return {
+    partidos,
+    planes: [{ id: "activo", objetivo: "futbol", dias: [0, 2, 4], minutos: 60, equipo: ["mancuernas", "banda", "barra-dominadas", "mochila", "cajon"], nivel: 2, sesiones, creado: hoy }],
+    entrenos,
+    clubes: [{ id: "demo-c1", club: "Deportes Puerto Montt (juveniles)", estado: "postule", fecha: addDays(hoy, 20), contacto: "Coordinador de cadetes", ...D }],
+    videos: [{ id: "demo-v1", titulo: "Asistencia vs. Unión Ensenada", url: "https://www.youtube.com/", nota: "Minuto 2:15, pase al espacio", ...D }],
   };
 }
 

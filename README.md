@@ -14,7 +14,7 @@ Los briefs están en [`docs/APP_VIDA.md`](docs/APP_VIDA.md) (manda este) y [`doc
 | 0 | Sistema de diseño (tema oscuro y claro), navegación, IndexedDB, respaldo JSON/CSV, PWA, bienvenida y PIN | ✅ |
 | 1 | Inicio (maqueta A) y Dinero: movimientos, presupuesto, fijos, gráficos e importación de cartola CSV | ✅ |
 | 2 | Metas (plata, cantidad, hábito y pasos; avance contra el tiempo; qué falta esta semana; revisión mensual), Trabajo (turnos, horas, sueldo estimado, propinas que pasan a Dinero) y Estudios (materias, horas por semana, pendientes, pruebas y resultados) | ✅ |
-| 3 | Fútbol y Entrenamiento | Pendiente |
+| 3 | Fútbol y Entrenamiento | ✅ |
 | 4 | JARVIS integrado: registrar hablando («gasté 5 mil en comida»), Atajo de Siri | Parcial: chat, voz y rutina ya funcionan |
 | 5 | Hábitos, calendario unificado y resúmenes | Pendiente |
 | 6 | Pulido final | Pendiente |

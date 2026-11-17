@@ -16,7 +16,7 @@ export const CARDS: { id: CardId; nombre: string; fase: number }[] = [
   { id: "jarvis", nombre: "Frase de JARVIS", fase: 1 },
   { id: "equilibrio", nombre: "Equilibrio", fase: 1 },
 ];
-export const FASE_ACTUAL = 2;
+export const FASE_ACTUAL = 3;
 export const cardReady = (id: CardId) => (CARDS.find((c) => c.id === id)?.fase ?? 99) <= FASE_ACTUAL;
 export const AREAS = [
   { id: "dinero", nombre: "Dinero" },
@@ -36,6 +36,7 @@ export interface Prefs {
   lastBackup: string; // AAAA-MM-DD
   privacy: boolean; // modo privado: no mandar datos de dinero a Gemini
   tarifaHora: number; // valor por hora del trabajo (para estimar el sueldo)
+  futbol: { posicion: string; equipo: string; objetivos: string; diasPartido: number[] };
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -47,6 +48,7 @@ const DEFAULT_PREFS: Prefs = {
   lastBackup: "",
   privacy: false,
   tarifaHora: 0,
+  futbol: { posicion: "Mediocampista", equipo: "", objetivos: "", diasPartido: [] },
 };
 
 let prefs: Prefs = loadPrefs();

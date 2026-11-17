@@ -141,6 +141,105 @@ export interface Evaluacion {
   demo?: boolean;
 }
 
+// ---------- Fútbol ----------
+export interface Partido {
+  id: string;
+  tipo: "partido" | "entrenamiento"; // entrenamiento = con el equipo
+  fecha: string;
+  hora?: string;
+  rival?: string;
+  lugar?: string;
+  importante?: boolean;
+  temporada: string; // "2026"
+  fui?: boolean; // se marca al registrar; un evento pasado sin registrar queda pendiente
+  golesFavor?: number;
+  golesContra?: number;
+  minutos?: number;
+  goles?: number;
+  asistencias?: number;
+  pases?: number;
+  calificacion?: number; // 1 a 10
+  bien?: string;
+  mejorar?: string;
+  demo?: boolean;
+}
+
+export interface Club {
+  id: string;
+  club: string;
+  fecha?: string;
+  estado: "pendiente" | "postule" | "prueba" | "aceptado" | "no-quede";
+  contacto?: string;
+  nota?: string;
+  demo?: boolean;
+}
+
+export interface Video {
+  id: string;
+  titulo: string;
+  url: string;
+  fecha?: string;
+  nota?: string;
+  demo?: boolean;
+}
+
+// ---------- Entrenamiento ----------
+export type Objetivo = "futbol" | "fuerza" | "masa";
+
+export interface ItemPlan {
+  ejId: string;
+  series: number;
+  repsMin: number;
+  repsMax: number; // en ejercicios por tiempo: segundos
+  descanso: number; // segundos
+}
+
+export interface SesionPlan {
+  id: string;
+  dia: number; // 0 = lunes … 6 = domingo
+  nombre: string;
+  items: ItemPlan[];
+  minutos: number; // estimado
+}
+
+export interface Plan {
+  id: string; // "activo"
+  objetivo: Objetivo;
+  dias: number[];
+  minutos: number;
+  equipo: string[];
+  nivel: 1 | 2 | 3;
+  sesiones: SesionPlan[];
+  creado: string;
+}
+
+export interface SerieHecha {
+  reps: number; // o segundos
+  kg?: number;
+}
+
+export interface Entreno {
+  id: string;
+  fecha: string;
+  nombre: string;
+  sesionId?: string;
+  items: { ejId: string; series: SerieHecha[] }[];
+  rpe?: number; // esfuerzo percibido 1 a 10
+  nota?: string;
+  demo?: boolean;
+}
+
+// Cómo me siento hoy (carga y descanso).
+export interface Chequeo {
+  id: string; // fecha AAAA-MM-DD
+  cansancio: number; // 1 (fresco) a 5 (reventado)
+  dolor: number; // 0 a 10
+  zona?: string;
+  agudo?: boolean; // dolor punzante o que no se va
+  sueno?: number; // horas
+  demo?: boolean;
+}
+
 export interface Datos {
   movimientos: Movimiento[];
   categorias: Categoria[];
@@ -154,12 +253,18 @@ export interface Datos {
   sesiones: Sesion[];
   tareas: Tarea[];
   evaluaciones: Evaluacion[];
+  partidos: Partido[];
+  clubes: Club[];
+  videos: Video[];
+  planes: Plan[];
+  entrenos: Entreno[];
+  chequeos: Chequeo[];
 }
 
 export type StoreName = keyof Datos;
-export const STORES: StoreName[] = ["movimientos", "categorias", "presupuestos", "recurrentes", "metas", "aportes", "revisiones", "turnos", "materias", "sesiones", "tareas", "evaluaciones"];
+export const STORES: StoreName[] = ["movimientos", "categorias", "presupuestos", "recurrentes", "metas", "aportes", "revisiones", "turnos", "materias", "sesiones", "tareas", "evaluaciones", "partidos", "clubes", "videos", "planes", "entrenos", "chequeos"];
 
-export const emptyDatos = (): Datos => ({ movimientos: [], categorias: [], presupuestos: [], recurrentes: [], metas: [], aportes: [], revisiones: [], turnos: [], materias: [], sesiones: [], tareas: [], evaluaciones: [] });
+export const emptyDatos = (): Datos => ({ movimientos: [], categorias: [], presupuestos: [], recurrentes: [], metas: [], aportes: [], revisiones: [], turnos: [], materias: [], sesiones: [], tareas: [], evaluaciones: [], partidos: [], clubes: [], videos: [], planes: [], entrenos: [], chequeos: [] });
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
