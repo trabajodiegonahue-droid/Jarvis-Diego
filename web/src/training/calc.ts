@@ -91,7 +91,8 @@ const CALENTAR_MIN = 10;
 const CALMA_MIN = 5;
 
 export function generarRutina(p: ParamsRutina): SesionPlan[] {
-  const dias = [...new Set(p.dias)].filter((d) => d >= 0 && d <= 6).sort();
+  // Máximo 6 días: siempre queda al menos uno de descanso.
+  const dias = [...new Set(p.dias)].filter((d) => d >= 0 && d <= 6).sort().slice(0, 6);
   if (!dias.length) return [];
   const pls = plantillas(p.objetivo, dias.length);
   const partido = new Set(p.diasPartido || []);

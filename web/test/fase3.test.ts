@@ -20,6 +20,9 @@ describe("biblioteca de ejercicios", () => {
 });
 
 describe("generador de rutinas", () => {
+  it("con 7 días deja uno de descanso y no se cae", () => {
+    for (const objetivo of ["futbol", "fuerza", "masa"] as const) expect(generarRutina({ objetivo, dias: [0, 1, 2, 3, 4, 5, 6], minutos: 45, equipo: ["mancuernas"], nivel: 1 }).length).toBe(6);
+  });
   it("reparte las sesiones en los días elegidos y deja descanso", () => {
     const s = generarRutina({ objetivo: "masa", dias: [0, 2, 4], minutos: 60, equipo: ["mancuernas", "barra-dominadas", "banda"], nivel: 2 });
     expect(s.map((x) => x.dia)).toEqual([0, 2, 4]);
