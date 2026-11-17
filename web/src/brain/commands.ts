@@ -51,10 +51,23 @@ export function parseCommand(text: string, n: ChileNow): LocalCommand | null {
     if (time) return { tool: "cambiar_tarea", args: { titulo: stripTitle(m[2]), nueva_hora: time } };
   }
 
+  // Casos que piden razonar o preguntar (los maneja el asistente con un diálogo).
+  if (/\ba medias\b|\bla mitad\b|\buna parte\b|\balgunas?\b|\balgunos\b|\bcasi todo\b|\bno (hice|termine|alcance a hacer) todo\b|\bno la termine\b|\bincomplet/.test(t)) return { tool: "__elegir", args: {} };
+  if (/\bno (hice|alcance|pude hacer|pude) nada\b|\bme salte todo\b|\bno hice ninguna\b/.test(t)) return { tool: "__nada", args: {} };
+  if (/^(ya )?(hice|termine|cumpli|complete|tache|tacha|marca) (todo|todas|toda la rutina|la rutina completa|todo lo de hoy)\b|^(ya )?(hice|cumpli) (con )?todo\b|\bdia completo\b/.test(t)) return { tool: "tachar_todo_hoy", args: {} };
+  if (/\bcomo voy\b|\bque me falta\b|\bque me queda\b|\bque (he hecho|hice) hoy\b|\bresumen\b|\bcomo (va|ando)\b/.test(t)) {
+    if (/\bsemana\b/.test(t)) return { tool: "ver_semana", args: {} };
+    return { tool: "resumen_dia", args: /\bayer\b/.test(t) ? { dias_atras: 1 } : {} };
+  }
+  if (/\bque (hice|me falto|deje pendiente) ayer\b|\bcomo me fue ayer\b/.test(t)) return { tool: "resumen_dia", args: { dias_atras: 1 } };
+
   // Tachar: "ya hice el gym", "tacha el gym", "listo el gym", "terminé de estudiar"
   m = raw.match(/^(?:ya\s+)?(?:hice|termine|terminé|acabé|acabe|tacha|tachar|tachame|táchame|marca|completé|complete|listo)\s+(?:de\s+)?(.+)$/);
   if (m && !/^(todo|toda|todas)\b/.test(m[1])) {
     const title = stripTitle(m[1]);
+    if (/^(la )?rutina( de hoy)?$/.test(norm(title))) return { tool: "__elegir", args: {} };
+    const many = title.split(/\s*(?:,|\by\b|\be\b|\btambien\b|\btambién\b)\s*/).map(stripTitle).filter(Boolean);
+    if (many.length > 1) return { tool: "tachar_tareas", args: { titulos: many } };
     if (title) return { tool: "tachar_tarea", args: { titulo: title } };
   }
 

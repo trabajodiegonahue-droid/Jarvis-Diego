@@ -31,6 +31,14 @@ data/       ejemplo de respaldo de rutina
 
 **Cómo responde.** Primero, un intérprete en el teléfono intenta entender las órdenes comunes: «agrega estudiar inglés a las 18:00», «ya hice el gym», «quita el gym», «cambia el gym a las 19:30», «qué me toca ahora» o «qué tengo el viernes». Esas órdenes son instantáneas, funcionan sin internet y no gastan cuota. Todo lo demás va a Gemini, que puede usar las mismas herramientas (`agregar_tarea`, `tachar_tarea`, `quitar_tarea`, `cambiar_tarea`, `ver_rutina`, `que_me_toca_ahora` y `borrar_toda_la_rutina`) con function calling. En cada consulta Gemini recibe la fecha y la hora de Chile.
 
+**Cómo razona y conversa:**
+- En casos ambiguos pregunta en vez de adivinar. Por ejemplo, con «hice la rutina a medias» te lee lo pendiente numerado y te pregunta cuáles hiciste. Le puedes responder «la 1 y el perro», «todas menos el inglés» o «ninguna».
+- Entiende «hice todo», «ya hice el gym y el inglés», «no hice nada, estoy reventado», «cómo voy», «qué me faltó ayer» y «cómo voy esta semana».
+- Con Gemini conectado, piensa antes de responder (razonamiento con un tope de tokens, en `THINKING_BUDGET`). Recibe tu rutina completa, lo hecho, lo pendiente, lo de ayer y ejemplos de cómo actuar.
+- Sabe datos útiles sin internet (`web/src/knowledge/facts.ts`): Servicio Militar 2027, Working Holiday en Australia, Puerto Varas, entrenamiento, inglés y números de emergencia.
+- Con internet, busca información actual con la herramienta `buscar_en_internet`, que usa Google Search a través de Gemini.
+- **Sobre mí** (en Ajustes): lo que JARVIS sabe de ti. Se guarda solo en tu teléfono, nunca en este repositorio público, y se le pasa a Gemini en cada consulta. No pongas nada que no quieras que Google pueda leer.
+
 **Seguridad y cuota:**
 - Las respuestas tienen un tope de 300 tokens.
 - Las conversaciones largas se resumen.

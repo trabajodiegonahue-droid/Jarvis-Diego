@@ -11,6 +11,10 @@ export const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta
 // Tope de tokens por respuesta: las respuestas se escuchan, así que cortas.
 export const MAX_OUTPUT_TOKENS = 300;
 
+// Tokens que Gemini puede usar para "pensar" antes de responder (razonar los casos
+// ambiguos). Más = mejores respuestas pero más lento y más cuota. 0 = sin razonar.
+export const THINKING_BUDGET = 1024;
+
 // Con más de este número de mensajes se resume lo antiguo para no gastar cuota.
 export const HISTORY_LIMIT = 16;
 export const HISTORY_KEEP = 6;

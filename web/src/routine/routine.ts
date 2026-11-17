@@ -49,10 +49,11 @@ export class Routine {
   }
 
   // Busca la tarea que más se parece a lo dicho. Si hay empate, null (mejor preguntar).
-  find(query: string, dow?: number): Task | null {
+  find(query: string, dow?: number, among?: Task[]): Task | null {
     const q = norm(query);
     if (!q) return null;
-    const pool = dow == null ? this.tasks : this.tasks.filter((t) => t.days.includes(dow));
+    const base = among || this.tasks;
+    const pool = dow == null ? base : base.filter((t) => t.days.includes(dow));
     const exact = pool.filter((t) => norm(t.title) === q);
     if (exact.length === 1) return exact[0];
     const qw = words(query);
@@ -65,7 +66,7 @@ export class Routine {
       })
       .filter((x) => x.score > 0.3)
       .sort((a, b) => b.score - a.score);
-    if (!scored.length) return dow != null ? this.find(query) : null;
+    if (!scored.length) return dow != null ? this.find(query, undefined, among) : null;
     if (scored.length > 1 && scored[0].score === scored[1].score) return null;
     return scored[0].t;
   }
@@ -100,6 +101,12 @@ export class Routine {
     if (patch.days && patch.days.length) task.days = uniqDays(patch.days);
     this.sort();
     this.save();
+  }
+
+  // Lo hecho y lo pendiente de un día (fecha + día de la semana).
+  dayStatus(date: string, dow: number): { done: Task[]; pending: Task[] } {
+    const list = this.forDay(dow);
+    return { done: list.filter((t) => t.done.includes(date)), pending: list.filter((t) => !t.done.includes(date)) };
   }
 
   forDay(dow: number): Task[] {

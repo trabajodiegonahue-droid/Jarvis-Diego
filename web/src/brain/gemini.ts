@@ -1,4 +1,4 @@
-import { GEMINI_API_BASE, GEMINI_MODEL, MAX_OUTPUT_TOKENS } from "../config";
+import { GEMINI_API_BASE, GEMINI_MODEL, MAX_OUTPUT_TOKENS, THINKING_BUDGET } from "../config";
 
 // Cliente mínimo de la API de Gemini, con respuesta en streaming (texto a medida
 // que llega) y function calling. Habla directo con Google o con el intermediario
@@ -29,6 +29,7 @@ export interface Request {
   contents: Content[];
   tools?: unknown[];
   maxTokens?: number;
+  think?: boolean; // razonar antes de responder (por defecto sí)
 }
 
 export interface StreamResult {
@@ -47,26 +48,43 @@ function endpoint(c: Connection, method: "streamGenerateContent" | "generateCont
   return { url: GEMINI_API_BASE + path, headers: { "x-goog-api-key": c.apiKey } };
 }
 
-function body(r: Request) {
+function body(r: Request, think: boolean) {
+  const max = r.maxTokens ?? MAX_OUTPUT_TOKENS;
   return JSON.stringify({
     systemInstruction: { parts: [{ text: r.system }] },
     contents: r.contents,
     ...(r.tools ? { tools: r.tools } : {}),
-    generationConfig: { maxOutputTokens: r.maxTokens ?? MAX_OUTPUT_TOKENS, temperature: 0.7 },
+    generationConfig: {
+      temperature: 0.7,
+      // Con razonamiento, el modelo piensa primero (hasta THINKING_BUDGET tokens) y después responde corto.
+      ...(think ? { maxOutputTokens: max + THINKING_BUDGET, thinkingConfig: { thinkingBudget: THINKING_BUDGET } } : { maxOutputTokens: max }),
+    },
   });
 }
 
 async function post(c: Connection, method: "streamGenerateContent" | "generateContent", r: Request, signal?: AbortSignal) {
   const { url, headers } = endpoint(c, method);
-  let res: Response;
-  try {
-    res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: body(r), signal });
-  } catch (e) {
-    if ((e as Error).name === "AbortError") throw e;
-    throw new GeminiError("network", "Sin conexión.");
+  const send = async (think: boolean) => {
+    try {
+      return await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: body(r, think), signal });
+    } catch (e) {
+      if ((e as Error).name === "AbortError") throw e;
+      throw new GeminiError("network", "Sin conexión.");
+    }
+  };
+  const think = r.think !== false && THINKING_BUDGET > 0;
+  let res = await send(think);
+  let txt = "";
+  // Si el modelo vigente no acepta el ajuste de razonamiento, se reintenta sin él.
+  if (!res.ok && think && res.status === 400) {
+    txt = await res.text().catch(() => "");
+    if (/thinking/i.test(txt)) {
+      res = await send(false);
+      txt = "";
+    }
   }
   if (!res.ok) {
-    const txt = await res.text().catch(() => "");
+    txt = txt || (await res.text().catch(() => ""));
     if (res.status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(txt)) throw new GeminiError("quota", "Se acabó la cuota gratis por ahora.");
     if (res.status === 401 || res.status === 403 || /API_KEY_INVALID|API key not valid/i.test(txt)) throw new GeminiError("auth", "La clave no sirve.");
     if (res.status >= 500) throw new GeminiError("down", "Gemini no responde.");
@@ -128,4 +146,24 @@ export async function askGemini(c: Connection, r: Request): Promise<string> {
   const res = await post(c, "generateContent", r);
   const json = await res.json();
   return (json?.candidates?.[0]?.content?.parts || []).map((p: Part) => p.text || "").join("").trim();
+}
+
+// Búsqueda en internet: una llamada aparte con la herramienta de Google Search de Gemini.
+// Devuelve un resumen corto y las fuentes que usó.
+export async function searchGemini(c: Connection, query: string): Promise<{ text: string; sources: { title: string; url: string }[] }> {
+  const res = await post(c, "generateContent", {
+    system: "Busca en internet y responde en español de Chile en máximo 3 frases cortas, para escuchar en voz alta. Incluye fechas o cifras concretas si las hay. Si no encuentras nada confiable, dilo.",
+    contents: [{ role: "user", parts: [{ text: query }] }],
+    tools: [{ google_search: {} }],
+    maxTokens: 350,
+    think: false,
+  });
+  const json = await res.json();
+  const cand = json?.candidates?.[0];
+  const text = (cand?.content?.parts || []).map((p: Part) => p.text || "").join("").trim();
+  const sources = (cand?.groundingMetadata?.groundingChunks || [])
+    .map((g: any) => ({ title: g?.web?.title || "", url: g?.web?.uri || "" }))
+    .filter((s: any) => s.url)
+    .slice(0, 4);
+  return { text, sources };
 }

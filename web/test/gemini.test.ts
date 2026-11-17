@@ -30,7 +30,16 @@ describe("cliente Gemini", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toMatch(/generativelanguage\.googleapis\.com\/v1beta\/models\/.+:streamGenerateContent\?alt=sse/);
     expect(init.headers["x-goog-api-key"]).toBe("K");
-    expect(JSON.parse(init.body).generationConfig.maxOutputTokens).toBe(300);
+    const gc = JSON.parse(init.body).generationConfig;
+    expect(gc.thinkingConfig.thinkingBudget).toBe(1024);
+    expect(gc.maxOutputTokens).toBe(300 + 1024);
+  });
+  it("si el modelo no acepta razonamiento, reintenta sin él", async () => {
+    const f = vi.fn().mockResolvedValueOnce(new Response("thinking_budget is not supported", { status: 400 })).mockResolvedValueOnce(sse([{ candidates: [{ content: { parts: [{ text: "ok" }] } }] }]));
+    vi.stubGlobal("fetch", f);
+    const r = await streamGemini({ mode: "key", apiKey: "K" }, { system: "s", contents: [] }, () => {});
+    expect(r.text).toBe("ok");
+    expect(JSON.parse(f.mock.calls[1][1].body).generationConfig.thinkingConfig).toBeUndefined();
   });
   it("por el intermediario no manda la clave", async () => {
     const fetchMock = vi.fn().mockResolvedValue(sse([]));

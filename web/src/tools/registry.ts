@@ -14,7 +14,7 @@ export interface Tool {
   parameters: Record<string, unknown>; // JSON Schema (formato que entiende Gemini)
   // Si devuelve un texto, la acción pide confirmación antes de hacerse.
   needsConfirm?: (args: any) => string | null;
-  run: (args: any) => ToolResult;
+  run: (args: any) => ToolResult | Promise<ToolResult>;
 }
 
 export class ToolRegistry {
@@ -32,11 +32,11 @@ export class ToolRegistry {
   declarations() {
     return [{ functionDeclarations: this.list().map(({ name, description, parameters }) => ({ name, description, parameters })) }];
   }
-  call(name: string, args: any): ToolResult {
+  async call(name: string, args: any): Promise<ToolResult> {
     const t = this.tools.get(name);
     if (!t) return { ok: false, say: "Esa herramienta todavía no la tengo." };
     try {
-      return t.run(args || {});
+      return await t.run(args || {});
     } catch (e) {
       return { ok: false, say: "Algo falló haciendo eso. Prueba de nuevo." };
     }

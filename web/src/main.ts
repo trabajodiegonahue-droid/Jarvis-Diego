@@ -9,6 +9,7 @@ import { chileNow, DAY_NAMES, parseHour } from "./core/time";
 import { ALL_DAYS, daysLabel, Routine } from "./routine/routine";
 import { ToolRegistry } from "./tools/registry";
 import { routineTools } from "./tools/routineTools";
+import { knowledgeTools } from "./tools/knowledgeTools";
 import { canListen, listenOnce, pickVoice, Speaker, type ListenError } from "./voice/speech";
 
 // ---------- Armado ----------
@@ -16,7 +17,7 @@ const kv = localKV;
 let settings: Settings = loadSettings(kv);
 const routine = new Routine(kv);
 const tools = new ToolRegistry();
-tools.register(...routineTools(routine));
+tools.register(...routineTools(routine), ...knowledgeTools(() => settings.about, () => settings));
 const assistant = new Assistant(tools, routine, () => settings, kv);
 const speaker = new Speaker();
 speaker.voiceURI = settings.voiceURI;
@@ -246,6 +247,12 @@ function viewAjustes() {
     <p class="hint">Modelo: ${esc(GEMINI_MODEL)} · nivel gratuito. Lo que le preguntas a Gemini gratis puede usarse para mejorar productos de Google: no le cuentes datos sensibles.</p>
   </div>
   <div class="card">
+    <h2>Sobre mí</h2>
+    <div class="field"><label class="lbl" for="s-about">Lo que JARVIS sabe de ti</label><textarea id="s-about" rows="4" maxlength="800" style="padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);font-size:16px">${esc(s.about || "")}</textarea></div>
+    <p class="hint">Se lo paso a Gemini en cada consulta para que te responda mejor. Nada sensible: ni claves, ni datos de salud, ni de otras personas.</p>
+    <button class="btn sm" data-saveabout>Guardar</button>
+  </div>
+  <div class="card">
     <h2>Voz</h2>
     <div class="seg"><button class="${s.speak ? "on" : ""}" data-speak="1">Responder hablando</button><button class="${!s.speak ? "on" : ""}" data-speak="0">Solo texto</button></div>
     <div class="field"><label class="lbl" for="s-voice">Voz</label><select id="s-voice">${
@@ -341,6 +348,11 @@ app.addEventListener("click", (e) => {
       .then(() => toast("Conectado con Gemini. Bien ahí."))
       .catch((err) => toast(FRIENDLY[err?.kind] || FRIENDLY.generic));
     return;
+  }
+  if (D.saveabout !== undefined) {
+    settings.about = ((document.getElementById("s-about") as HTMLTextAreaElement)?.value || "").trim().slice(0, 800);
+    saveSettings(kv, settings);
+    return toast("Listo, ya lo sé.");
   }
   if (D.speak) {
     settings.speak = D.speak === "1";
