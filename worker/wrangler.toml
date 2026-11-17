@@ -11,3 +11,11 @@ compatibility_date = "2025-06-01"
 ALLOWED_ORIGIN = "https://trabajodiegonahue-droid.github.io"
 # El modelo lo decide el intermediario, no el teléfono (así nadie puede pedir uno de pago).
 GEMINI_MODEL = "gemini-flash-lite-latest"
+
+# Buzón para el Atajo de Siri (opcional, gratis): lo que dictas para anotar queda aquí
+# hasta que abres la app. Para activarlo:
+#   1. npx wrangler kv namespace create BUZON
+#   2. Copia el "id" que te muestra y descomenta estas tres líneas:
+# [[kv_namespaces]]
+# binding = "BUZON"
+# id = "pega-aqui-el-id"
