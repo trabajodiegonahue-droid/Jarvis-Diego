@@ -82,9 +82,10 @@ export function pickVoice(voices: SpeechSynthesisVoice[], preferred?: string): S
   return es.find((v) => /es[-_]CL/i.test(v.lang)) || es.find((v) => /es[-_](419|MX|US)/i.test(v.lang)) || es.find((v) => /es[-_]ES/i.test(v.lang)) || es[0] || null;
 }
 
-// Para leer en voz alta: horas "18:00" → "18 horas", sin símbolos raros.
+// Para leer en voz alta: horas "18:00" → "18 horas", plata "$5.000" → "5000 pesos", sin símbolos raros.
 export const forSpeech = (s: string) =>
   s
+    .replace(/(-|\+)?\$(\d{1,3}(?:\.\d{3})*|\d+)\b/g, (_, sg, n) => `${sg === "-" ? "menos " : ""}${n.replace(/\./g, "")} pesos`)
     .replace(/\b(\d{1,2}):00\b/g, "$1 horas")
     .replace(/\b(\d{1,2}):(\d{2})\b/g, "$1 y $2")
     .replace(/[*_#`>]/g, "")

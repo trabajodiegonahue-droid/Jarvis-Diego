@@ -2,7 +2,7 @@ import { HISTORY_KEEP, HISTORY_LIMIT } from "../config";
 import { chileNow, toMinutes, type ChileNow } from "../core/time";
 import type { KV } from "../core/storage";
 import { norm, type Routine, type Task } from "../routine/routine";
-import type { ToolRegistry } from "../tools/registry";
+import type { ToolRegistry, ToolResult } from "../tools/registry";
 import { joinY } from "../tools/routineTools";
 import { fixVerb, isNo, isYes, parseCommand, type LocalCommand } from "./commands";
 import { askGemini, GeminiError, streamGemini, type Connection, type Content, type Part } from "./gemini";
@@ -17,7 +17,18 @@ export interface Reply {
   text: string;
   source: "local" | "gemini" | "error";
   error?: string;
+  undo?: () => Promise<void> | void; // si la respuesta anotó algo, cómo deshacerlo
 }
+
+export interface AssistantOptions {
+  // Intérprete extra que se prueba antes que el de la rutina (en la app: plata, entrenos, fútbol, metas).
+  parse?: (text: string, n: ChileNow) => LocalCommand | null;
+  // Modo privado: las cifras de dinero no se le mandan a Gemini.
+  privado?: () => boolean;
+}
+
+// Frases que hablan de plata: en modo privado no salen del teléfono.
+const DE_PLATA = /\$\s?\d|\d\s*(mil|lucas?|palos?|pesos)\b|\b(plata|gast|pagu|sueldo|propina|presupuesto|ahorr|deuda|lucas)/i;
 
 type Gemini = { stream: typeof streamGemini; ask: typeof askGemini };
 
@@ -25,7 +36,8 @@ type Gemini = { stream: typeof streamGemini; ask: typeof askGemini };
 type Pending =
   | { kind: "confirm"; tool: string; args: any }
   | { kind: "choose"; date: string; ids: string[] }
-  | { kind: "hour"; title: string };
+  | { kind: "hour"; title: string }
+  | { kind: "monto"; tipo: "ingreso" | "egreso"; descripcion?: string };
 
 const NUM_WORDS: Record<string, number> = { uno: 1, una: 1, primera: 1, primero: 1, dos: 2, segunda: 2, segundo: 2, tres: 3, tercera: 3, tercero: 3, cuatro: 4, cuarta: 4, cinco: 5, quinta: 5, seis: 6, sexta: 6, siete: 7, septima: 7 };
 
@@ -37,6 +49,8 @@ export class Assistant {
   history: Turn[];
   summary: string;
   private pending: Pending | null = null;
+  private lastUndo: { undo: () => Promise<void> | void } | null = null;
+  private turnUndo: (() => Promise<void> | void) | undefined;
 
   constructor(
     private tools: ToolRegistry,
@@ -45,6 +59,7 @@ export class Assistant {
     private kv: KV,
     private clock: () => ChileNow = chileNow,
     private gemini: Gemini = { stream: streamGemini, ask: askGemini },
+    private opts: AssistantOptions = {},
   ) {
     this.history = kv.get<Turn[]>("history", []);
     this.summary = kv.get<string>("summary", "");
@@ -68,42 +83,79 @@ export class Assistant {
     this.kv.set("summary", "");
   }
 
+  // Llama a una herramienta y guarda cómo deshacer lo que hizo.
+  private async call(name: string, args: any): Promise<ToolResult> {
+    const r = await this.tools.call(name, args);
+    if (r.ok && r.undo) {
+      this.lastUndo = { undo: r.undo };
+      this.turnUndo = r.undo;
+    }
+    return r;
+  }
+
   async handle(text: string, onText: (delta: string) => void = () => {}): Promise<Reply> {
     const said = text.trim();
     if (!said) return { text: "", source: "local" };
+    this.turnUndo = undefined;
 
     // ¿Es la respuesta a algo que JARVIS preguntó?
     if (this.pending) {
       const p = this.pending;
       this.pending = null;
       if (p.kind === "confirm") {
-        if (isYes(said)) return this.local(said, (await this.tools.call(p.tool, p.args)).say, onText);
+        if (isYes(said)) return this.local(said, (await this.call(p.tool, p.args)).say, onText);
         if (isNo(said)) return this.local(said, "Ya, no hago nada.", onText);
       } else if (p.kind === "hour") {
         const ans = said.trim();
         const phrase = /^(a las|a la|de|desde|entre|para las)\b/i.test(ans) ? ans : `a las ${ans}`;
         const cmd = parseCommand(`agrega ${p.title} ${phrase}`, this.clock());
-        if (cmd?.tool === "agregar_tarea") return this.local(said, (await this.tools.call(cmd.tool, cmd.args)).say, onText);
+        if (cmd?.tool === "agregar_tarea") return this.local(said, (await this.call(cmd.tool, cmd.args)).say, onText);
         if (isNo(said)) return this.local(said, "Ya, no agrego nada.", onText);
+      } else if (p.kind === "monto") {
+        const v = this.opts.parse?.(`${p.tipo === "egreso" ? "gasté" : "me pagaron"} ${said}${p.descripcion ? ` de ${p.descripcion}` : ""}`, this.clock());
+        if (v && /^registrar_(gasto|ingreso)$/.test(v.tool)) {
+          const local = await this.runLocal(v, true);
+          if (local) return this.local(said, local, onText);
+        }
+        if (isNo(said)) return this.local(said, "Ya, no anoto nada.", onText);
       } else {
         const answer = this.answerChoice(p, said);
         if (answer) return this.local(said, answer, onText);
       }
     }
 
+    const vida = this.opts.parse?.(said, this.clock());
+    if (vida) {
+      const local = await this.runLocal(vida, true);
+      if (local) return this.local(said, local, onText);
+    }
     const cmd = parseCommand(said, this.clock());
     if (cmd) {
       const local = await this.runLocal(cmd);
       if (local) return this.local(said, local, onText);
     }
+    // Modo privado: una frase con plata que no entendí no se manda a Gemini.
+    if (this.opts.privado?.() && DE_PLATA.test(said))
+      return this.local(said, 'Estás en modo privado, así que no mando frases de plata a Gemini. Dímelo así y lo anoto yo: "gasté 5 mil en comida", "me pagaron 40 mil de propina" o "¿cuánto llevo gastado este mes?".', onText);
     if (connected(this.conn())) return this.viaGemini(said, onText);
     // Sin Gemini: igual intenta ayudar con lo que sabe.
     return this.local(said, await this.offlineHelp(cmd, said), onText);
   }
 
   // Devuelve lo que JARVIS dice, o null si conviene que lo resuelva Gemini.
-  private async runLocal(cmd: LocalCommand): Promise<string | null> {
+  private async runLocal(cmd: LocalCommand, vida = false): Promise<string | null> {
     const n = this.clock();
+    if (cmd.tool === "__deshacer") {
+      const u = this.lastUndo;
+      if (!u) return "No tengo nada reciente que deshacer.";
+      this.lastUndo = null;
+      await u.undo();
+      return "Listo, lo deshice.";
+    }
+    if (cmd.tool === "__falta_monto") {
+      this.pending = { kind: "monto", tipo: cmd.args.tipo as "ingreso" | "egreso", descripcion: cmd.args.descripcion as string | undefined };
+      return cmd.args.tipo === "egreso" ? "¿Cuánto fue y en qué? Por ejemplo: 5 mil en almuerzo." : "¿De cuánto fue?";
+    }
     if (cmd.tool === "__elegir") return this.askWhich(n, "Ya, vamos por partes.");
     if (cmd.tool === "__nada") return this.nothingDone(n);
     if (cmd.tool === "__falta_hora") {
@@ -118,8 +170,8 @@ export class Assistant {
       this.pending = { kind: "confirm", tool: cmd.tool, args: cmd.args };
       return ask;
     }
-    const r = await this.tools.call(cmd.tool, cmd.args);
-    if (r.ok) return r.say;
+    const r = await this.call(cmd.tool, cmd.args);
+    if (r.ok || vida) return r.say;
     // No encontró la tarea: Gemini puede razonarlo; si no hay Gemini, pregunta con opciones.
     if (connected(this.conn())) return null;
     if (/^(tachar_tarea|tachar_tareas)$/.test(cmd.tool)) {
@@ -189,7 +241,7 @@ export class Assistant {
   }
 
   private async offlineHelp(cmd: LocalCommand | null, said: string): Promise<string> {
-    if (cmd) return (await this.tools.call(cmd.tool, cmd.args)).say;
+    if (cmd) return (await this.call(cmd.tool, cmd.args)).say;
     // Si parece una orden que no entendí, lo digo en vez de responder cualquier cosa.
     if (/^(agrega|añade|anota|agenda|ponme|quita|borra|elimina|cambia|mueve|tacha)\b/.test(fixVerb(said.toLowerCase().trim()))) {
       return 'Te entendí que quieres cambiar tu rutina, pero no me quedó clara la frase. Dímelo así: "agrega entrenamiento de 20 a 22", "cambia el gym a las 19:00" o "quita leer".';
@@ -203,7 +255,7 @@ export class Assistant {
   private local(user: string, say: string, onText: (d: string) => void): Reply {
     onText(say);
     this.remember(user, say);
-    return { text: say, source: "local" };
+    return { text: say, source: "local", ...(this.turnUndo ? { undo: this.turnUndo } : {}) };
   }
 
   private async viaGemini(said: string, onText: (d: string) => void): Promise<Reply> {
@@ -230,7 +282,15 @@ export class Assistant {
             responses.push({ functionResponse: { name: call.name, response: { ok: false, resultado: "Esperando que Diego confirme." } } });
             continue;
           }
-          const r = await this.tools.call(call.name, call.args);
+          const r = await this.call(call.name, call.args);
+          if (r.privado && this.opts.privado?.()) {
+            // Modo privado: Diego ve la respuesta con las cifras; Gemini solo sabe que se respondió.
+            const sep = spoken ? " " : "";
+            spoken += sep + r.say;
+            onText(sep + r.say);
+            responses.push({ functionResponse: { name: call.name, response: { ok: r.ok, resultado: "Respuesta con cifras privadas: ya se la mostré a Diego tal cual. No repitas ni inventes cifras; si quieres, agrega algo muy breve sin números." } } });
+            continue;
+          }
           responses.push({ functionResponse: { name: call.name, response: { ok: r.ok, resultado: r.say, datos: r.data ?? null } } });
         }
         if (confirmMsg) {
@@ -249,7 +309,7 @@ export class Assistant {
       const final = spoken.trim() || "Listo.";
       this.remember(said, final);
       void this.maybeSummarize(conn);
-      return { text: final, source: "gemini" };
+      return { text: final, source: "gemini", ...(this.turnUndo ? { undo: this.turnUndo } : {}) };
     } catch (e) {
       const kind = e instanceof GeminiError ? e.kind : "generic";
       // Si Gemini falla, igual intenta resolverlo en el teléfono.

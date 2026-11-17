@@ -6,6 +6,10 @@ export interface ToolResult {
   // Frase corta que JARVIS puede decir tal cual (el intérprete local la usa sin gastar cuota).
   say: string;
   data?: unknown;
+  // Trae cifras de dinero: con el modo privado no se le pasan a Gemini.
+  privado?: boolean;
+  // Para deshacer lo que se anotó ("deshaz eso" o el botón Deshacer).
+  undo?: () => Promise<void> | void;
 }
 
 export interface Tool {
