@@ -44,17 +44,122 @@ export interface Recurrente {
   demo?: boolean;
 }
 
+// ---------- Metas ----------
+export type Area = "dinero" | "cuerpo" | "futbol" | "estudios" | "trabajo" | "otro";
+// monto: plata; cantidad: un número (horas, kilos, libros); habito: veces por semana; pasos: lista de cosas por hacer.
+export type TipoMeta = "monto" | "cantidad" | "habito" | "pasos";
+// De dónde sale el avance: a mano, o solo desde otro módulo.
+export type FuenteMeta = "manual" | "ahorro" | "horas-estudio" | "horas-trabajo";
+
+export interface Paso {
+  id: string;
+  texto: string;
+  hecho: boolean;
+}
+
+export interface Meta {
+  id: string;
+  nombre: string;
+  area: Area;
+  tipo: TipoMeta;
+  objetivo: number; // monto en pesos, cantidad, o veces por semana (hábito); en pasos no se usa
+  unidad?: string; // "horas", "kg", "libros"…
+  inicio: string; // AAAA-MM-DD
+  fechaLimite: string; // AAAA-MM-DD
+  fuente: FuenteMeta;
+  pasos?: Paso[];
+  principal?: boolean; // aparece en el inicio
+  archivada?: boolean;
+  demo?: boolean;
+  creado: number;
+}
+
+// Avance anotado a mano (un aporte de plata, horas, una vez que cumpliste el hábito).
+export interface Aporte {
+  id: string;
+  metaId: string;
+  fecha: string;
+  valor: number;
+  nota?: string;
+  demo?: boolean;
+}
+
+// Revisión mensual: qué cambio para el mes siguiente.
+export interface Revision {
+  id: string; // AAAA-MM
+  nota: string;
+}
+
+// ---------- Trabajo ----------
+export interface Turno {
+  id: string;
+  fecha: string; // día en que empieza
+  inicio: string; // HH:MM
+  fin: string; // HH:MM (si es menor que el inicio, terminó al día siguiente)
+  pausaMin: number;
+  falte?: boolean; // turno planificado al que no fui
+  propinas?: number; // pesos; si se anotan, pasan a Dinero como ingreso
+  nota?: string;
+  demo?: boolean;
+}
+
+// ---------- Estudios ----------
+export interface Materia {
+  id: string;
+  nombre: string;
+  metaHorasSemana?: number;
+  demo?: boolean;
+}
+
+export interface Sesion {
+  id: string;
+  materiaId: string;
+  fecha: string;
+  minutos: number;
+  nota?: string;
+  demo?: boolean;
+}
+
+export interface Tarea {
+  id: string;
+  texto: string;
+  materiaId?: string;
+  fecha?: string; // para cuándo
+  hecho: boolean;
+  demo?: boolean;
+}
+
+// Prueba, ensayo o certificación. Escala: nota chilena 1,0 a 7,0, puntaje o porcentaje.
+export interface Evaluacion {
+  id: string;
+  materiaId: string;
+  nombre: string;
+  fecha: string;
+  escala: "nota" | "puntaje" | "porcentaje";
+  resultado?: number;
+  meta?: number;
+  demo?: boolean;
+}
+
 export interface Datos {
   movimientos: Movimiento[];
   categorias: Categoria[];
   presupuestos: Presupuesto[];
   recurrentes: Recurrente[];
+  metas: Meta[];
+  aportes: Aporte[];
+  revisiones: Revision[];
+  turnos: Turno[];
+  materias: Materia[];
+  sesiones: Sesion[];
+  tareas: Tarea[];
+  evaluaciones: Evaluacion[];
 }
 
 export type StoreName = keyof Datos;
-export const STORES: StoreName[] = ["movimientos", "categorias", "presupuestos", "recurrentes"];
+export const STORES: StoreName[] = ["movimientos", "categorias", "presupuestos", "recurrentes", "metas", "aportes", "revisiones", "turnos", "materias", "sesiones", "tareas", "evaluaciones"];
 
-export const emptyDatos = (): Datos => ({ movimientos: [], categorias: [], presupuestos: [], recurrentes: [] });
+export const emptyDatos = (): Datos => ({ movimientos: [], categorias: [], presupuestos: [], recurrentes: [], metas: [], aportes: [], revisiones: [], turnos: [], materias: [], sesiones: [], tareas: [], evaluaciones: [] });
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 

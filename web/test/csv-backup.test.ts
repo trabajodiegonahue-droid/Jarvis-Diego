@@ -96,3 +96,47 @@ describe("PIN", () => {
     await expect(setPin(kv, "12")).rejects.toThrow();
   });
 });
+
+describe("actualización de la base de datos", () => {
+  it("los datos de la versión 1 sobreviven y aparecen las tablas nuevas", async () => {
+    resetDB();
+    await new Promise<void>((res) => {
+      const r = indexedDB.deleteDatabase("vida");
+      r.onsuccess = r.onerror = () => res();
+    });
+    // Base vieja (versión 1) con un movimiento.
+    await new Promise<void>((res) => {
+      const r = indexedDB.open("vida", 1);
+      r.onupgradeneeded = () => {
+        for (const s of ["movimientos", "categorias", "presupuestos", "recurrentes"]) r.result.createObjectStore(s, { keyPath: "id" });
+        r.result.createObjectStore("x", { keyPath: "id" });
+      };
+      r.onsuccess = () => {
+        const tx = r.result.transaction("movimientos", "readwrite");
+        tx.objectStore("movimientos").put({ id: "viejo", tipo: "egreso", monto: 1000, categoriaId: "c-comida", fecha: "2026-11-01", creado: 1 });
+        tx.oncomplete = () => (r.result.close(), res());
+      };
+    });
+    const s = new AppStore();
+    await s.load();
+    expect(s.data.movimientos.map((m) => m.id)).toEqual(["viejo"]);
+    await s.put("metas", { id: "g", nombre: "Meta", area: "otro", tipo: "cantidad", objetivo: 1, inicio: "2026-11-01", fechaLimite: "2026-12-01", fuente: "manual", creado: 1 });
+    expect(s.data.metas.length).toBe(1);
+  });
+  it("los ejemplos de todas las secciones se borran con un toque", async () => {
+    resetDB();
+    await new Promise<void>((res) => {
+      const r = indexedDB.deleteDatabase("vida");
+      r.onsuccess = r.onerror = () => res();
+    });
+    const s = new AppStore();
+    await s.load();
+    const d = datosEjemplo("2026-11-17");
+    for (const k of Object.keys(d) as (keyof typeof d)[]) if (d[k]?.length) await s.put(k, ...(d[k] as any[]));
+    expect(s.data.turnos.length).toBeGreaterThan(10);
+    expect(s.data.metas.length).toBe(4);
+    await s.removeDemo();
+    expect(s.hasDemo()).toBe(false);
+    expect([s.data.turnos.length, s.data.metas.length, s.data.sesiones.length, s.data.aportes.length]).toEqual([0, 0, 0, 0]);
+  });
+});
