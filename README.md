@@ -1,33 +1,54 @@
-# JARVIS
+# Vida, con JARVIS
 
-Asistente personal de Diego. Es una página web que se instala en el iPhone como una app (PWA). Le hablas con un botón y te responde con voz en español chileno. Maneja tu rutina diaria y conversa contigo usando **Gemini** en su nivel gratuito.
+El panel de control de la vida de Diego: dinero, metas, entrenamiento, fútbol, estudios y trabajo en un solo lugar, con gráficos claros. **JARVIS** va integrado: el asistente de voz en español chileno que usa **Gemini** en su nivel gratuito. Es una PWA, una página web que se instala en el iPhone como una app.
 
-Costo esperado al usarlo: **US$0**. Se hospeda gratis en GitHub Pages, usa la voz del navegador y Gemini gratis. El intermediario de Cloudflare es opcional y también es gratis.
+- **Costo al usarla: US$0.** Se hospeda en GitHub Pages, usa la voz del navegador y Gemini gratis.
+- **Privada:** tus datos se quedan en el teléfono.
+
+Los briefs están en [`docs/APP_VIDA.md`](docs/APP_VIDA.md) (manda este) y [`docs/JARVIS.md`](docs/JARVIS.md).
 
 ## Estado
 
-| Versión | Qué hace | Estado |
+| Fase | Qué incluye | Estado |
 |---|---|---|
-| 1 | Botón para hablar, voz, rutina, conversación y respaldo | ✅ Lista y probada |
-| 2 | Avisos a la hora de cada tarea | Pendiente |
-| 3 | «Oye Siri, Jarvis» con un Atajo | Pendiente |
-| 4–6 | Resumen de la mañana, memoria, visión, agenda y preparador físico | Pendiente |
+| 0 | Sistema de diseño (tema oscuro y claro), navegación, IndexedDB, respaldo JSON/CSV, PWA, bienvenida y PIN | ✅ |
+| 1 | Inicio (maqueta A) y Dinero: movimientos, presupuesto, fijos, gráficos e importación de cartola CSV | ✅ |
+| 2 | Metas, Trabajo y Estudios | Pendiente |
+| 3 | Fútbol y Entrenamiento | Pendiente |
+| 4 | JARVIS integrado: registrar hablando («gasté 5 mil en comida»), Atajo de Siri | Parcial: chat, voz y rutina ya funcionan |
+| 5 | Hábitos, calendario unificado y resúmenes | Pendiente |
+| 6 | Pulido final | Pendiente |
 
 ## Cómo está armado
 
 ```
-web/        la página (TypeScript + Vite, sin framework)
-  src/config.ts        modelo de Gemini, tope de tokens y zona horaria (todo en un lugar)
-  src/core/            hora de Chile, guardado en el teléfono y ajustes
-  src/routine/         la rutina: tareas con hora y días, y qué toca ahora
-  src/tools/           registro de herramientas (cada versión agrega las suyas aquí)
-  src/brain/           intérprete local de órdenes, cliente de Gemini, personalidad y orquestador
-  src/voice/           escuchar (Web Speech API) y hablar frase por frase
-  src/main.ts          la pantalla
+web/        la app (TypeScript + Vite + Preact)
+  src/ui/              pantallas, componentes, gráficos SVG propios y tema (theme.css)
+  src/data/            tipos de datos, IndexedDB, respaldo, datos de ejemplo
+  src/money/           cálculos de dinero (funciones puras, con pruebas), formato $1.234.567, CSV
+  src/core/            hora de Chile, ajustes, PIN
+  src/jarvis/          la instancia de JARVIS que comparten las pantallas
+  src/brain/ tools/ routine/ voice/ knowledge/   el asistente (ver abajo)
   test/                pruebas automáticas (Vitest)
 worker/     intermediario opcional en Cloudflare Workers (guarda la clave de Gemini)
-data/       ejemplo de respaldo de rutina
+docs/       los briefs
 ```
+
+**Por qué estas decisiones:**
+- **Preact** (unos 4 KB) para armar las pantallas sin el peso de React.
+- **Gráficos hechos a mano en SVG**: no pesan nada, tienen un solo estilo y traen texto alternativo. Chart.js pesa unos 70 KB y cuesta más dejarlo con un solo estilo.
+- **Montos en pesos enteros**, para que nunca haya errores de redondeo.
+- **Los totales y porcentajes se calculan en el teléfono**, nunca en Gemini.
+
+**Datos y seguridad:**
+- Todo vive en IndexedDB, en el teléfono.
+- Se guarda en IndexedDB: movimientos, categorías, presupuestos y fijos. La rutina, los ajustes y las preferencias van en `localStorage` porque son pocos datos.
+- La app pide al navegador almacenamiento persistente. En iOS, una app instalada en la pantalla de inicio no se borra a los 7 días sin uso, como pasa con Safari, pero el sistema puede liberar espacio si el teléfono se llena. Por eso hay respaldo y la app te lo recuerda cada 14 días.
+- El **PIN** pide un código al abrir la app y al volver después de 5 minutos fuera. Es una pantalla de privacidad: no cifra los datos. Si lo olvidas, borras los datos del sitio y restauras tu respaldo.
+
+**Qué se envía a Gemini:** la frase que le dices a JARVIS, tu rutina de hoy y el texto de «Sobre mí». Nunca tus movimientos. Con el **modo privado** no se manda nada de dinero; se ocupa desde la fase 4, que es cuando JARVIS empieza a manejar dinero.
+
+## JARVIS
 
 **Cómo responde.** Primero, un intérprete en el teléfono intenta entender las órdenes comunes: «agrega estudiar inglés a las 18:00», «ya hice el gym», «quita el gym», «cambia el gym a las 19:30», «qué me toca ahora» o «qué tengo el viernes». Esas órdenes son instantáneas, funcionan sin internet y no gastan cuota. Todo lo demás va a Gemini, que puede usar las mismas herramientas (`agregar_tarea`, `tachar_tarea`, `quitar_tarea`, `cambiar_tarea`, `ver_rutina`, `que_me_toca_ahora` y `borrar_toda_la_rutina`) con function calling. En cada consulta Gemini recibe la fecha y la hora de Chile.
 
@@ -125,8 +146,9 @@ El intermediario solo acepta pedidos que vienen de tu página (`ALLOWED_ORIGIN` 
 
 1. Abre la dirección de arriba en **Safari**.
 2. Toca **Compartir → Agregar a inicio**.
-3. Abre JARVIS desde el ícono, ve a **Ajustes** y conecta Gemini.
-4. Toca el botón grande: la primera vez te saluda y después te escucha.
+3. Abre **Vida** desde el ícono y sigue la bienvenida (3 pasos).
+4. Para JARVIS: **Más → Ajustes → JARVIS y Gemini**, pega tu clave o el intermediario y toca «Probar conexión».
+5. El botón verde abre JARVIS; el botón + registra un gasto o ingreso.
 
 **Qué esperar en el iPhone:**
 - **Escuchar:** el reconocimiento de voz de Safari a veces falla dentro de una app instalada en el inicio. Si pasa, usa el cuadro de texto con el **micrófono del teclado** (el dictado de Apple), que funciona siempre.
@@ -134,7 +156,7 @@ El intermediario solo acepta pedidos que vienen de tu página (`ALLOWED_ORIGIN` 
 
 ## Respaldo
 
-Tu rutina vive solo en el teléfono. En **Rutina → Descargar copia** guardas un archivo (en Archivos, Drive o un correo para ti) y con **Restaurar copia** lo recuperas.
+Todo vive solo en el teléfono. En **Más → Ajustes → Respaldo** guardas un archivo JSON con todo: movimientos, presupuestos, fijos, rutina y preferencias, sin tu clave de Gemini. Guárdalo en Archivos, Drive o un correo para ti; con **Restaurar** lo recuperas en otro teléfono. También puedes exportar los movimientos a CSV para abrirlos en Excel o Sheets.
 
 ## Créditos y referencias
 
@@ -148,6 +170,7 @@ Ese repositorio dice MIT en el README, pero no tiene archivo LICENSE, así que n
 
 ## Pendientes
 
-- **Versión 2 (avisos):** notificaciones push de la PWA. En iOS 16.4 o más nuevo funcionan solo con la app instalada en el inicio y con el permiso pedido desde un botón. Necesitan el intermediario: un cron de Cloudflare envía el aviso a su hora, con una copia mínima de la rutina (nombre, hora y día). Como alternativa sin servidor: exportar los avisos al Calendario del iPhone (.ics).
+- **Fases 2 a 6** de `docs/APP_VIDA.md`.
+- **Versión 2 de JARVIS (avisos):** notificaciones push de la PWA. En iOS 16.4 o más nuevo funcionan solo con la app instalada en el inicio y con el permiso pedido desde un botón. Necesitan el intermediario: un cron de Cloudflare envía el aviso a su hora, con una copia mínima de la rutina (nombre, hora y día). Como alternativa sin servidor: exportar los avisos al Calendario del iPhone (.ics).
 - **Versión 3 (Siri):** un Atajo «Jarvis» que dicta, consulta al intermediario y lee la respuesta en voz alta, con los pasos exactos para crearlo en la app Atajos. Escuchar siempre sin decir «Oye Siri» no es posible en el iPhone.
 - **Versiones 4 a 6:** resumen de la mañana con el clima de Puerto Varas (Open-Meteo), memoria, fotos, Google Calendar (solo lectura) y el preparador físico, reutilizando la biblioteca de ejercicios y la lógica de progresión de la app «Atleta Híbrido».
