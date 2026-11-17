@@ -15,7 +15,7 @@ Los briefs están en [`docs/APP_VIDA.md`](docs/APP_VIDA.md) (manda este) y [`doc
 | 1 | Inicio (maqueta A) y Dinero: movimientos, presupuesto, fijos, gráficos e importación de cartola CSV | ✅ |
 | 2 | Metas (plata, cantidad, hábito y pasos; avance contra el tiempo; qué falta esta semana; revisión mensual), Trabajo (turnos, horas, sueldo estimado, propinas que pasan a Dinero) y Estudios (materias, horas por semana, pendientes, pruebas y resultados) | ✅ |
 | 3 | Fútbol y Entrenamiento | ✅ |
-| 4 | JARVIS integrado: registrar hablando («gasté 5 mil en comida»), Atajo de Siri | Parcial: chat, voz y rutina ya funcionan |
+| 4 | JARVIS integrado: registrar hablando (gastos, ingresos, entrenos, goles, metas, estudio, turnos) con deshacer, consultas y resúmenes, resumen de la mañana, modo manos libres para entrenar, modo privado y Atajo de Siri | ✅ |
 | 5 | Hábitos, calendario unificado y resúmenes | Pendiente |
 | 6 | Pulido final | Pendiente |
 
@@ -28,7 +28,7 @@ web/        la app (TypeScript + Vite + Preact)
   src/money/           cálculos de dinero (funciones puras, con pruebas), formato $1.234.567, CSV
   src/goals/ work/ study/   cálculos de metas, trabajo y estudios (funciones puras, con pruebas)
   src/core/            hora de Chile, ajustes, PIN
-  src/jarvis/          la instancia de JARVIS que comparten las pantallas
+  src/jarvis/          JARVIS dentro de la app: intérprete de lo que registras, herramientas, resúmenes, buzón de Siri
   src/brain/ tools/ routine/ voice/ knowledge/   el asistente (ver abajo)
   test/                pruebas automáticas (Vitest)
 worker/     intermediario opcional en Cloudflare Workers (guarda la clave de Gemini)
@@ -47,7 +47,11 @@ docs/       los briefs
 - La app pide al navegador almacenamiento persistente. En iOS, una app instalada en la pantalla de inicio no se borra a los 7 días sin uso, como pasa con Safari, pero el sistema puede liberar espacio si el teléfono se llena. Por eso hay respaldo y la app te lo recuerda cada 14 días.
 - El **PIN** pide un código al abrir la app y al volver después de 5 minutos fuera. Es una pantalla de privacidad: no cifra los datos. Si lo olvidas, borras los datos del sitio y restauras tu respaldo.
 
-**Qué se envía a Gemini:** la frase que le dices a JARVIS, tu rutina de hoy y el texto de «Sobre mí». Nunca tus movimientos. Con el **modo privado** no se manda nada de dinero; se ocupa desde la fase 4, que es cuando JARVIS empieza a manejar dinero.
+**Qué se envía a Gemini** (también está en la app, en Ajustes → «Qué se le envía a Gemini»):
+- Anotar y las consultas típicas se resuelven en el teléfono, sin enviar nada: «gasté 5 mil en comida», «hice gym», «metí un gol», «¿cuánto llevo gastado?», «resumen de la semana».
+- Cuando JARVIS no entiende una frase, a Gemini va esa frase, tu rutina de hoy, el texto de «Sobre mí» y un resumen corto de la conversación.
+- Si Gemini necesita un dato de la app, recibe solo el resultado ya calculado («llevas $80.000 este mes»), nunca la lista de movimientos.
+- Con el **modo privado** ni eso sale: tú ves las cifras en pantalla, Gemini solo sabe que se respondió, y las frases con plata que JARVIS no entiende no se envían.
 
 ## JARVIS
 
@@ -60,6 +64,16 @@ docs/       los briefs
 - Sabe datos útiles sin internet (`web/src/knowledge/facts.ts`): Servicio Militar 2027, Working Holiday en Australia, Puerto Varas, entrenamiento, inglés y números de emergencia.
 - Con internet, busca información actual con la herramienta `buscar_en_internet`, que usa Google Search a través de Gemini.
 - **Sobre mí** (en Ajustes): lo que JARVIS sabe de ti. Se guarda solo en tu teléfono, nunca en este repositorio público, y se le pasa a Gemini en cada consulta. No pongas nada que no quieras que Google pueda leer.
+
+**Registrar y preguntar hablando (fase 4).** Toca el botón verde y dile, por ejemplo:
+- Plata: «gasté 5 lucas en almuerzo», «pagué 30 mil de luz ayer», «me pagaron 40 mil de propina». La categoría la adivina por palabras del día a día (almuerzo → comida, uber → transporte); si no está claro, o el monto es muy alto, pregunta antes de anotar. Al anotar te dice cómo vas con el presupuesto de esa categoría.
+- Entreno y fútbol: «hice gym» (también tacha el gimnasio de la rutina), «salí a correr 5 km», «metí un gol y una asistencia», «ganamos 3 a 1, jugué 80 minutos y me pongo un 7». Se suma al partido de ese día si ya existe.
+- Metas, estudio y trabajo: «agrega una meta de ahorrar 200 mil para marzo», «aporté 20 mil a la meta», «estudié una hora de inglés», «trabajé de 18 a 23 y saqué 15 mil de propina».
+- Preguntas: «¿qué me toca hoy?», «¿cuánto llevo gastado en comida?», «¿cómo voy con mis metas?», «¿cuántos goles llevo?», «¿qué entreno hoy?», «resumen de la semana», «¿cómo me fue este mes?».
+- Todo lo que anota trae **Deshacer** en el chat, y también le puedes decir «deshaz eso».
+- La primera vez que lo abres en el día te saluda con el **resumen de la mañana**: rutina, turno, entreno, partido, pruebas cercanas, lo pendiente de ayer y un aviso de presupuesto si corresponde.
+
+**Manos libres en el gimnasio.** En la sesión guiada (Fútbol → Físico → Entrenar hoy), toca «Entrenar con voz». JARVIS dice el ejercicio, la serie y la meta. Le respondes «listo», «hice 8» o «10 con 22,5 kilos», y él anota la serie, inicia el descanso, te avisa a los 10 segundos y te dice la siguiente. También entiende «siguiente ejercicio», «salta el descanso», «repite» y «terminé el entreno». Si el iPhone no deja escuchar dentro de la app, igual te habla y usas los botones grandes.
 
 **Seguridad y cuota:**
 - Las respuestas tienen un tope de 300 tokens.
@@ -137,6 +151,41 @@ npx wrangler deploy
 
 El intermediario solo acepta pedidos que vienen de tu página (`ALLOWED_ORIGIN` en `worker/wrangler.toml`) y que traen el código. Además, el modelo lo decide el intermediario: nadie puede pedir otro modelo.
 
+### Atajo de Siri: «Oye Siri, Jarvis»
+
+**Qué es posible y qué no.** En el iPhone, un atajo que abre una dirección web la abre en Safari, no en la app instalada en el inicio. Además, Safari y la app instalada guardan sus datos por separado. Por eso el atajo no abre la app: le habla al intermediario.
+- **Para anotar** («gasté 5 mil en almuerzo», «hice gym», «metí un gol»): el intermediario lo deja en un **buzón** y responde «Listo, lo dejé anotado». Al abrir Vida, la app lo lee, lo anota (con Deshacer) y lo borra del buzón.
+- **Preguntas generales:** las responde Gemini al tiro, y Siri te lee la respuesta.
+- **Tus datos** (gastos, rutina, metas): viven solo en el teléfono, así que Siri no los puede leer. Esas preguntas házlas dentro de la app.
+- Escuchar siempre sin decir «Oye Siri» no es posible en el iPhone.
+
+**1. Crear el buzón** (gratis, en Cloudflare KV), desde la carpeta `worker`:
+
+```bash
+npx wrangler kv namespace create BUZON
+```
+
+Copia el `id` que te muestra, pégalo en `worker/wrangler.toml` (descomenta las tres líneas de `kv_namespaces`) y vuelve a publicar:
+
+```bash
+npx wrangler deploy
+```
+
+El buzón guarda solo la frase dictada, hasta que abres la app o por un máximo de 2 semanas. Si no lo creas, el atajo igual sirve para preguntas generales.
+
+**2. Crear el atajo** en la app **Atajos** → **+** → nombre «Jarvis»:
+1. **Dictar texto**, con el idioma en español (Chile) y «Dejar de escuchar» en «Después de una pausa».
+2. **Obtener contenido de URL**:
+   - URL: `https://jarvis.<tu-usuario>.workers.dev/siri`
+   - Método: POST
+   - Encabezado: `Authorization` con el valor `Bearer <tu código de acceso>`
+   - Cuerpo: JSON, con la clave `texto` y el valor «Texto dictado».
+3. **Leer texto**, con «Contenido de URL».
+
+Dile «Oye Siri, Jarvis», espera el sonido y habla. Si quieres un código distinto solo para el atajo (por si alguna vez se lo muestras a alguien), crea `SIRI_TOKEN` con `npx wrangler secret put SIRI_TOKEN` y úsalo en el encabezado: el atajo acepta ese o el de la app.
+
+La app también abre JARVIS con un texto si entras a `…/#/jarvis?q=gasté 5 mil en comida`. Sirve, por ejemplo, desde un atajo cuando usas Vida en Safari sin instalarla.
+
 ## Publicarlo gratis (GitHub Pages)
 
 1. En GitHub, ve al repositorio → **Settings → Pages → Source: GitHub Actions**.
@@ -171,7 +220,6 @@ Ese repositorio dice MIT en el README, pero no tiene archivo LICENSE, así que n
 
 ## Pendientes
 
-- **Fases 3 a 6** de `docs/APP_VIDA.md`.
+- **Fases 5 y 6** de `docs/APP_VIDA.md`: hábitos, calendario unificado, resúmenes automáticos y pulido.
 - **Versión 2 de JARVIS (avisos):** notificaciones push de la PWA. En iOS 16.4 o más nuevo funcionan solo con la app instalada en el inicio y con el permiso pedido desde un botón. Necesitan el intermediario: un cron de Cloudflare envía el aviso a su hora, con una copia mínima de la rutina (nombre, hora y día). Como alternativa sin servidor: exportar los avisos al Calendario del iPhone (.ics).
-- **Versión 3 (Siri):** un Atajo «Jarvis» que dicta, consulta al intermediario y lee la respuesta en voz alta, con los pasos exactos para crearlo en la app Atajos. Escuchar siempre sin decir «Oye Siri» no es posible en el iPhone.
-- **Versiones 4 a 6:** resumen de la mañana con el clima de Puerto Varas (Open-Meteo), memoria, fotos, Google Calendar (solo lectura) y el preparador físico, reutilizando la biblioteca de ejercicios y la lógica de progresión de la app «Atleta Híbrido».
+- **Versiones 4 y 5 de JARVIS:** el clima de Puerto Varas en el resumen de la mañana (Open-Meteo), memoria de lo que le cuentas, fotos y Google Calendar (solo lectura).
