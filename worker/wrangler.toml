@@ -1,0 +1,13 @@
+# Intermediario gratuito en Cloudflare Workers.
+# Los secretos NO van aquí: se cargan con
+#   npx wrangler secret put GEMINI_API_KEY
+#   npx wrangler secret put ACCESS_TOKEN
+name = "jarvis"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+
+[vars]
+# Solo esta página puede usar el intermediario (tu GitHub Pages).
+ALLOWED_ORIGIN = "https://trabajodiegonahue-droid.github.io"
+# El modelo lo decide el intermediario, no el teléfono (así nadie puede pedir uno de pago).
+GEMINI_MODEL = "gemini-flash-lite-latest"
