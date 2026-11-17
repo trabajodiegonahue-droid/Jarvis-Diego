@@ -10,6 +10,23 @@ import { Progress } from "../charts";
 import { Empty, Sheet } from "../components";
 import { Icon } from "../icons";
 import { toast, useApp } from "../state";
+import { speaker } from "../../jarvis/instance";
+import { canListen, listenOnce } from "../../voice/speech";
+import { comandoEntreno, type ComandoEntreno } from "../../training/voz";
+
+// Dice algo y espera a que termine (si la voz está apagada, sigue al tiro).
+function hablar(t: string): Promise<void> {
+  return new Promise((res) => {
+    if (!speaker.enabled || !speaker.supported) return res();
+    const prev = speaker.onEnd;
+    speaker.onEnd = () => {
+      speaker.onEnd = prev;
+      res();
+    };
+    speaker.feed(t + " ");
+    speaker.flush();
+  });
+}
 
 const inp = { minHeight: "44px", borderRadius: "12px", border: "1px solid var(--line)", background: "var(--card2)", padding: "0 10px", width: "100%" };
 
@@ -185,7 +202,7 @@ function Generador({ plan, onDone }: { plan?: Plan; onDone: () => void }) {
           {DAY_NAMES.map((d, i) => {
             const on = dias.includes(i);
             return (
-              <button key={d} class={on ? "on" : ""} aria-pressed={on} onClick={() => setDias(on ? dias.filter((x) => x !== i) : [...dias, i].sort())}>
+              <button key={d} class={on ? "on" : ""} aria-pressed={on} onClick={() => (on ? setDias(dias.filter((x) => x !== i)) : dias.length >= 6 ? toast("Máximo 6 días: deja al menos uno de descanso.") : setDias([...dias, i].sort()))}>
                 {d.slice(0, 3)}
                 {partido.includes(i) ? " ⚽" : ""}
               </button>
@@ -297,8 +314,101 @@ function SesionGuiada({ s, onClose, onEj }: { s: SesionPlan; onClose: () => void
         navigator.vibrate?.(300);
       } catch {}
       setTimer(null);
+      if (manosRef.current) void decir(manosRef.current);
     }
+    if (timer && quedan === 10 && manosRef.current) void hablar("10 segundos.");
   }, [quedan]);
+
+  // ---------- Manos libres: JARVIS dice el ejercicio y la serie; Diego responde hablando ----------
+  const [manos, setManos] = useState<{ i: number; j: number } | null>(null);
+  const [oido, setOido] = useState("");
+  const manosRef = useRef(manos);
+  manosRef.current = manos;
+  const regRef = useRef(reg);
+  regRef.current = reg;
+  const stopEsc = useRef<null | (() => void)>(null);
+  useEffect(() => () => {
+    manosRef.current = null;
+    stopEsc.current?.();
+    speaker.stop();
+  }, []);
+
+  const metaTxt = (it: ItemPlan) => `${it.repsMin === it.repsMax ? it.repsMax : `${it.repsMin} a ${it.repsMax}`} ${ejercicio(it.ejId)?.porTiempo ? "segundos" : "repeticiones"}`;
+  async function decir(c: { i: number; j: number }) {
+    const it = items[c.i];
+    if (!it) return;
+    const e = ejercicio(it.ejId)!;
+    const total = (regRef.current[it.ejId] || []).length;
+    const sug = sugerencia(data.entrenos, it, gimnasio);
+    const t = `${c.j === 0 ? `${e.nombre.split(" (")[0]}. ` : ""}Serie ${c.j + 1} de ${total}: ${metaTxt(it)}${sug.kg ? ` con ${String(sug.kg).replace(".", ",")} kilos` : ""}. Cuando termines, dime listo o cuántas hiciste.`;
+    setOido(t);
+    await hablar(t);
+    escuchar();
+  }
+  function escuchar() {
+    if (!manosRef.current) return;
+    if (!canListen()) return setOido((o) => `${o} (Aquí no puedo escucharte: usa los botones.)`);
+    stopEsc.current?.();
+    const l = listenOnce((p) => setOido(`Escuché: ${p}`));
+    stopEsc.current = l.stop;
+    l.promise
+      .then((txt) => {
+        const cmd = comandoEntreno(txt);
+        if (cmd) return manejar(cmd);
+        setOido(`No te entendí ("${txt}"). Di listo, siguiente o terminar.`);
+        return hablar("No te entendí. Di listo, siguiente, o terminar.").then(escuchar);
+      })
+      .catch(() => setOido("No te escuché. Toca el micrófono o usa los botones."));
+  }
+  async function manejar(cmd: ComandoEntreno) {
+    const c = manosRef.current;
+    if (!c) return;
+    if (cmd.tipo === "salir") {
+      setManos(null);
+      speaker.stop();
+      return;
+    }
+    if (cmd.tipo === "terminar") {
+      setManos(null);
+      return guardar();
+    }
+    if (cmd.tipo === "repite") return decir(c);
+    if (cmd.tipo === "saltar") {
+      setTimer(null);
+      return decir(c);
+    }
+    if (cmd.tipo === "siguiente") {
+      setTimer(null);
+      const n = { i: c.i + 1, j: 0 };
+      if (n.i >= items.length) return fin();
+      setManos(n);
+      return decir(n);
+    }
+    // Serie hecha: se anota lo que dijo (o la meta sugerida) y empieza el descanso.
+    const it = items[c.i];
+    const sug = sugerencia(data.entrenos, it, gimnasio);
+    const filas = regRef.current[it.ejId] || [];
+    const reps = String(cmd.reps ?? sug.reps);
+    const nuevas = filas.map((x, k) => (k === c.j ? { reps, kg: cmd.kg != null ? String(cmd.kg).replace(".", ",") : x.kg } : x));
+    setReg((r) => ({ ...r, [it.ejId]: nuevas }));
+    regRef.current = { ...regRef.current, [it.ejId]: nuevas };
+    const n = c.j + 1 < filas.length ? { i: c.i, j: c.j + 1 } : { i: c.i + 1, j: 0 };
+    if (n.i >= items.length) return fin();
+    setManos(n);
+    manosRef.current = n;
+    setTimer({ fin: Date.now() + it.descanso * 1000, total: it.descanso });
+    const t = `Anotada: ${reps} ${ejercicio(it.ejId)?.porTiempo ? "segundos" : "repeticiones"}${cmd.kg ? ` con ${String(cmd.kg).replace(".", ",")} kilos` : ""}. Descansa ${it.descanso >= 60 && it.descanso % 60 === 0 ? `${it.descanso / 60} ${it.descanso === 60 ? "minuto" : "minutos"}` : `${it.descanso} segundos`}.`;
+    setOido(t);
+    await hablar(t);
+  }
+  async function fin() {
+    setManos(null);
+    manosRef.current = null;
+    setTimer(null);
+    const t = "Listo, terminaste todo. Haz la vuelta a la calma, marca qué tan duro fue y toca Terminar y guardar.";
+    setOido(t);
+    await hablar(t);
+  }
 
   async function guardar() {
     const en: Entreno = {
@@ -321,6 +431,46 @@ function SesionGuiada({ s, onClose, onEj }: { s: SesionPlan; onClose: () => void
   return (
     <Sheet title={s.nombre.replace(/^\w+: /, "")} onClose={onClose}>
       {carga.nivel !== "normal" && <p style={{ margin: 0, fontSize: "14px", borderLeft: "3px solid var(--amber)", paddingLeft: "10px" }}>{carga.motivo}</p>}
+      {manos ? (
+        <div class="card" style={{ gap: "10px", borderColor: "var(--green)" }} aria-live="polite">
+          <div class="between">
+            <strong>Manos libres</strong>
+            <span class="small num">
+              {ejercicio(items[manos.i]?.ejId)?.nombre.split(" (")[0]} · serie {manos.j + 1}
+            </span>
+          </div>
+          {oido && <span class="small">{oido}</span>}
+          <div class="row" style={{ gap: "8px", flexWrap: "wrap" }}>
+            <button class="btn main" aria-label="Hablar" onClick={escuchar}>
+              <Icon name="mic" size={18} />
+            </button>
+            <button class="btn main" onClick={() => manejar({ tipo: "serie" })}>
+              Serie hecha
+            </button>
+            <button class="btn" onClick={() => manejar({ tipo: "siguiente" })}>
+              Siguiente
+            </button>
+            <button class="btn" onClick={() => manejar({ tipo: "salir" })}>
+              Salir
+            </button>
+          </div>
+        </div>
+      ) : (
+        items.length > 0 && (
+          <button
+            class="btn full"
+            onClick={() => {
+              speaker.unlock();
+              const c = { i: 0, j: Math.max(0, (reg[items[0].ejId] || []).findIndex((x) => !x.reps)) };
+              setManos(c);
+              manosRef.current = c;
+              void decir(c);
+            }}
+          >
+            <Icon name="mic" size={18} /> Entrenar con voz (manos libres)
+          </button>
+        )
+      )}
       <details>
         <summary style={{ cursor: "pointer", minHeight: "36px", fontWeight: 600 }}>Calentamiento (10 min)</summary>
         <ul class="small" style={{ margin: "4px 0 0", paddingLeft: "18px" }}>

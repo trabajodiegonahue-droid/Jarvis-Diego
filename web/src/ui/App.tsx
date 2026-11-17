@@ -6,14 +6,16 @@ import { Icon } from "./icons";
 import { Dinero } from "./screens/Dinero";
 import { Bienvenida, Bloqueo } from "./screens/Entrada";
 import { Inicio } from "./screens/Inicio";
-import { JarvisSheet } from "./screens/Jarvis";
+import { alChat, JarvisSheet } from "./screens/Jarvis";
+import { revisarBuzon } from "../jarvis/buzon";
+import { assistant, settings } from "../jarvis/instance";
 import { Ajustes, Mas, Pronto } from "./screens/Mas";
 import { Metas } from "./screens/Metas";
 import { Trabajo } from "./screens/Trabajo";
 import { Estudios } from "./screens/Estudios";
 import { Registrar } from "./screens/Registrar";
 import { Futbol } from "./screens/Futbol";
-import { kv, useApp, useRoute } from "./state";
+import { kv, toast, useApp, useRoute } from "./state";
 
 const TABS = [
   { path: "/", nombre: "Inicio", icon: "inicio" },
@@ -31,7 +33,38 @@ export function App() {
   const route = useRoute();
   const [locked, setLocked] = useState(hasPin(kv));
   const [add, setAdd] = useState(false);
-  const [jarvis, setJarvis] = useState(false);
+  const [jarvis, setJarvis] = useState<false | { inicial?: string }>(false);
+  const listo = store.ready && !locked && prefs.onboarded;
+
+  // "Oye Siri, Jarvis": el atajo puede abrir la app con lo dictado (#/jarvis?q=...),
+  // o dejarlo en el buzón del intermediario, que se revisa al abrir y al volver a la app.
+  useEffect(() => {
+    if (!listo) return;
+    const abrirDesdeEnlace = () => {
+      const m = location.hash.match(/^#\/jarvis(?:\?(.*))?$/);
+      if (!m) return;
+      const q = new URLSearchParams(m[1] || "").get("q")?.trim();
+      history.replaceState(null, "", location.pathname + location.search + "#/");
+      dispatchEvent(new HashChangeEvent("hashchange"));
+      setJarvis(q ? { inicial: q.slice(0, 300) } : {});
+    };
+    const buzon = async () => {
+      const r = await revisarBuzon(settings, assistant);
+      if (!r.length) return;
+      alChat(...r.flatMap((x) => [{ who: "u" as const, text: `Desde Siri: ${x.texto}` }, { who: "a" as const, text: x.respuesta, undo: x.undo }]));
+      if (r.length === 1 && r[0].undo) toast(`Desde Siri. ${r[0].respuesta}`, () => void r[0].undo!());
+      else setJarvis({});
+    };
+    abrirDesdeEnlace();
+    void buzon();
+    const vis = () => !document.hidden && void buzon();
+    addEventListener("hashchange", abrirDesdeEnlace);
+    document.addEventListener("visibilitychange", vis);
+    return () => {
+      removeEventListener("hashchange", abrirDesdeEnlace);
+      document.removeEventListener("visibilitychange", vis);
+    };
+  }, [listo]);
 
   useEffect(() => {
     const f = () => {
@@ -80,7 +113,7 @@ export function App() {
       <button class="fab plus" aria-label="Registrar algo" onClick={() => setAdd(true)}>
         <Icon name="plus" size={26} />
       </button>
-      <button class="fab jarvis" aria-label="Hablar con JARVIS" onClick={() => setJarvis(true)}>
+      <button class="fab jarvis" aria-label="Hablar con JARVIS" onClick={() => setJarvis({})}>
         <Icon name="mic" size={24} />
       </button>
       <nav class="tabs" aria-label="Secciones">
@@ -96,7 +129,7 @@ export function App() {
           <Registrar onDone={() => setAdd(false)} />
         </Sheet>
       )}
-      {jarvis && <JarvisSheet onClose={() => setJarvis(false)} />}
+      {jarvis && <JarvisSheet inicial={jarvis.inicial} onClose={() => setJarvis(false)} />}
       <Toast />
     </>
   );

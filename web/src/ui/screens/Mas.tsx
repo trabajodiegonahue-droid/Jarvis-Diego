@@ -356,9 +356,29 @@ function JarvisAjustes() {
           Probar conexión
         </button>
       </div>
-      <p class="small" style={{ margin: 0 }}>
-        Modelo: {GEMINI_MODEL}, nivel gratis. Qué se envía: la frase que le dices a JARVIS, tu rutina de hoy y el texto de arriba. Los totales de dinero se calculan en el teléfono. Gemini gratis puede usar lo que recibe para mejorar productos de Google: no le cuentes nada sensible. La clave queda solo en este teléfono.
-      </p>
+      <details>
+        <summary style={{ cursor: "pointer", minHeight: "40px", fontWeight: 600 }}>Qué se le envía a Gemini</summary>
+        <ul class="small" style={{ margin: "4px 0 0", paddingLeft: "18px", display: "grid", gap: "6px" }}>
+          <li>Modelo {GEMINI_MODEL}, nivel gratis. Google puede usar lo que recibe para mejorar sus productos: no le cuentes nada sensible.</li>
+          <li>Anotar ("gasté 5 mil en comida", "hice gym", "metí un gol") y las consultas típicas ("¿cuánto llevo gastado?", "resumen de la semana") se resuelven en el teléfono: no se envía nada.</li>
+          <li>Cuando JARVIS no entiende la frase, se envía esa frase, tu rutina de hoy, lo que JARVIS sabe de ti (el texto de arriba) y un resumen corto de la conversación.</li>
+          <li>Si Gemini necesita un dato de la app, se le pasa solo el resultado ya calculado (por ejemplo "llevas $80.000 este mes"), nunca tu lista de movimientos.</li>
+          <li>Con el modo privado, ni ese resultado de dinero sale: tú lo ves en pantalla y Gemini solo sabe que respondiste. Las frases con plata que JARVIS no entiende tampoco se envían.</li>
+          <li>La clave o el código de acceso quedan solo en este teléfono. Los respaldos no los incluyen.</li>
+        </ul>
+      </details>
+      <details>
+        <summary style={{ cursor: "pointer", minHeight: "40px", fontWeight: 600 }}>Atajo de Siri: "Oye Siri, Jarvis"</summary>
+        <div class="small stack" style={{ gap: "6px", marginTop: "4px" }}>
+          <span>Necesita el intermediario de Cloudflare (modo "intermediario" arriba). En la app Atajos crea un atajo llamado Jarvis con estas acciones:</span>
+          <ol style={{ margin: 0, paddingLeft: "18px", display: "grid", gap: "4px" }}>
+            <li>Dictar texto (idioma español).</li>
+            <li>Obtener contenido de URL: {(settings.workerUrl || "https://tu-intermediario.workers.dev").replace(/\/+$/, "")}/siri, método POST, encabezado Authorization con el valor "Bearer " más tu código de acceso, y cuerpo JSON con la clave texto = Texto dictado.</li>
+            <li>Leer texto en voz alta: Contenido de URL.</li>
+          </ol>
+          <span>Lo que es para anotar ("gasté 5 mil en almuerzo", "hice gym") queda en un buzón y se anota acá apenas abres Vida. Las preguntas generales las responde Gemini al tiro. Lo que vive en el teléfono (tus gastos, tu rutina) Siri no lo puede leer: eso pregúntalo dentro de la app.</span>
+        </div>
+      </details>
     </section>
   );
 }

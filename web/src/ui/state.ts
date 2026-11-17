@@ -16,7 +16,7 @@ export const CARDS: { id: CardId; nombre: string; fase: number }[] = [
   { id: "jarvis", nombre: "Frase de JARVIS", fase: 1 },
   { id: "equilibrio", nombre: "Equilibrio", fase: 1 },
 ];
-export const FASE_ACTUAL = 3;
+export const FASE_ACTUAL = 4;
 export const cardReady = (id: CardId) => (CARDS.find((c) => c.id === id)?.fase ?? 99) <= FASE_ACTUAL;
 export const AREAS = [
   { id: "dinero", nombre: "Dinero" },

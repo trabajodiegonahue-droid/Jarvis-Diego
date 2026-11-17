@@ -1,17 +1,42 @@
-// Chat y voz de JARVIS dentro de la app (lo de la versión 1, ahora en una hoja).
+// Chat y voz de JARVIS dentro de la app: registrar hablando, preguntar y pedir resúmenes.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { GREETING } from "../../brain/persona";
-import { assistant, speaker } from "../../jarvis/instance";
+import { chileNow } from "../../core/time";
+import { assistant, speaker, tools } from "../../jarvis/instance";
 import { canListen, listenOnce, type ListenError } from "../../voice/speech";
 import { Sheet } from "../components";
 import { Icon } from "../icons";
+import { getPrefs, kv } from "../state";
 
 type Estado = "idle" | "listening" | "thinking" | "speaking" | "error";
 const TXT: Record<Estado, string> = { idle: "Toca para hablar", listening: "Escuchando…", thinking: "Pensando…", speaking: "Hablando…", error: "Algo pasó" };
-let chat: { who: "u" | "a"; text: string }[] = [{ who: "a", text: GREETING }];
-let greeted = false;
+export interface Msg {
+  who: "u" | "a";
+  text: string;
+  undo?: () => Promise<void> | void;
+  deshecho?: boolean;
+}
+let chat: Msg[] = [];
 
-export function JarvisSheet({ onClose }: { onClose: () => void }) {
+// Para lo que llega desde el Atajo de Siri: queda en la conversación con su "Deshacer".
+export function alChat(...ms: Msg[]) {
+  chat.push(...ms);
+  chat = chat.slice(-30);
+}
+
+const SUGERENCIAS = ["¿Qué me toca hoy?", "Gasté 5 mil en almuerzo", "¿Cuánto llevo gastado este mes?", "Hice gym", "Metí un gol", "¿Cómo voy con mis metas?", "Resumen de la semana"];
+
+// El primer saludo del día es el resumen de la mañana (o de lo que queda del día). Después, el saludo corto.
+async function saludo(): Promise<string> {
+  const n = chileNow();
+  if (kv.get<string>("saludo", "") === n.date) return GREETING;
+  kv.set("saludo", n.date);
+  const r = await tools.call("resumen", { tipo: n.minutes < 13 * 60 ? "manana" : "hoy" });
+  if (!r.ok) return GREETING;
+  return n.minutes < 13 * 60 ? r.say : `Hola Diego. ${r.say}`;
+}
+
+export function JarvisSheet({ onClose, inicial }: { onClose: () => void; inicial?: string }) {
   const [, redraw] = useState(0);
   const [estado, setEstado] = useState<Estado>("idle");
   const [detalle, setDetalle] = useState("");
@@ -21,11 +46,15 @@ export function JarvisSheet({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     speaker.onStart = () => setEstado("speaking");
     speaker.onEnd = () => setEstado((e) => (e === "speaking" ? "idle" : e));
-    if (!greeted) {
-      greeted = true;
-      speaker.unlock();
-      speaker.feed(GREETING + " ");
-      speaker.flush();
+    speaker.unlock();
+    if (inicial) void send(inicial);
+    else if (!chat.length || kv.get<string>("saludo", "") !== chileNow().date) {
+      void saludo().then((t) => {
+        chat.push({ who: "a", text: t });
+        redraw((n) => n + 1);
+        speaker.feed(t + " ");
+        speaker.flush();
+      });
     }
     return () => {
       speaker.stop();
@@ -38,7 +67,7 @@ export function JarvisSheet({ onClose }: { onClose: () => void }) {
     if (!said) return;
     speaker.stop();
     chat.push({ who: "u", text: said });
-    const msg = { who: "a" as const, text: "" };
+    const msg: Msg = { who: "a", text: "" };
     chat.push(msg);
     chat = chat.slice(-30);
     setEstado("thinking");
@@ -50,10 +79,19 @@ export function JarvisSheet({ onClose }: { onClose: () => void }) {
       redraw((n) => n + 1);
     });
     msg.text = r.text;
+    msg.undo = r.undo;
     speaker.flush();
     redraw((n) => n + 1);
     if (r.source === "error") setEstado("error");
     else if (!speaker.enabled || !speaker.supported) setEstado("idle");
+  }
+
+  async function deshacer(m: Msg) {
+    if (!m.undo || m.deshecho) return;
+    await m.undo();
+    m.deshecho = true;
+    chat.push({ who: "a", text: "Listo, lo deshice." });
+    redraw((n) => n + 1);
   }
 
   function escuchar() {
@@ -82,6 +120,8 @@ export function JarvisSheet({ onClose }: { onClose: () => void }) {
       });
   }
 
+  const pocos = chat.filter((m) => m.who === "u").length < 2;
+
   return (
     <Sheet title="JARVIS" onClose={onClose}>
       <div class="stack" style={{ alignItems: "center", gap: "8px" }}>
@@ -109,15 +149,37 @@ export function JarvisSheet({ onClose }: { onClose: () => void }) {
           <Icon name="send" size={18} />
         </button>
       </form>
+      {pocos && (
+        <div class="chips" style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "2px" }}>
+          {SUGERENCIAS.map((s) => (
+            <button key={s} class="chip" style={{ whiteSpace: "nowrap", flex: "none", minHeight: "36px", padding: "0 12px", borderRadius: "18px", border: "1px solid var(--line)", background: "var(--card2)", color: "var(--text)", fontSize: "14px" }} onClick={() => send(s)}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
       <div class="stack" aria-live="polite">
         {[...chat].reverse().slice(0, 12).map((m, i) => (
-          <div key={i} style={{ alignSelf: m.who === "u" ? "flex-end" : "flex-start", maxWidth: "88%", padding: "10px 13px", borderRadius: "14px", border: "1px solid var(--line)", background: m.who === "u" ? "var(--card2)" : "var(--card)", fontSize: "15px" }}>
+          <div key={chat.length - i} style={{ alignSelf: m.who === "u" ? "flex-end" : "flex-start", maxWidth: "88%", padding: "10px 13px", borderRadius: "14px", border: "1px solid var(--line)", background: m.who === "u" ? "var(--card2)" : "var(--card)", fontSize: "15px" }}>
             {m.text || "…"}
+            {m.undo && (
+              <div style={{ marginTop: "6px" }}>
+                {m.deshecho ? (
+                  <span class="small">Deshecho</span>
+                ) : (
+                  <button class="link" style={{ background: "none", border: 0, padding: 0, color: "var(--blue)", fontSize: "14px", fontWeight: 600 }} onClick={() => deshacer(m)}>
+                    Deshacer
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
       <p class="small" style={{ margin: 0 }}>
-        Por ahora JARVIS maneja tu rutina y conversa. Anotar gastos hablando ("gasté 5 mil en comida") llega en la fase 4.
+        {getPrefs().privacy
+          ? "Modo privado: tus cifras de dinero no salen del teléfono. Lo que anotas y consultas de plata lo resuelvo aquí mismo."
+          : "Lo que anotas (gastos, entrenos, goles, metas) y los números los calculo en el teléfono. A Gemini solo va la frase cuando no la entiendo yo."}
       </p>
     </Sheet>
   );
