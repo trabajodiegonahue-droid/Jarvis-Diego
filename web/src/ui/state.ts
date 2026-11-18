@@ -20,7 +20,7 @@ export const CARDS: { id: CardId; nombre: string; fase: number }[] = [
   { id: "jarvis", nombre: "Frase de JARVIS", fase: 1 },
   { id: "equilibrio", nombre: "Equilibrio", fase: 1 },
 ];
-export const FASE_ACTUAL = 5;
+export const FASE_ACTUAL = 6;
 export const cardReady = (id: CardId) => (CARDS.find((c) => c.id === id)?.fase ?? 99) <= FASE_ACTUAL;
 export const AREAS = [
   { id: "dinero", nombre: "Dinero" },
@@ -105,10 +105,14 @@ export function applyTheme() {
 // Se redibuja cuando cambian los datos o las preferencias.
 export function useApp() {
   const [, set] = useState(0);
+  // Se recuerda cómo estaban los datos al dibujar: si cambiaron antes de alcanzar a suscribirse
+  // (por ejemplo, la carga inicial terminó muy rápido), se vuelve a dibujar al tiro.
+  const visto = { ready: store.ready, data: store.data };
   useEffect(() => {
     const f = () => set((n) => n + 1);
     listeners.add(f);
     const off = store.subscribe(f);
+    if (visto.ready !== store.ready || visto.data !== store.data) f();
     return () => {
       listeners.delete(f);
       off();
