@@ -1,5 +1,7 @@
 // Frases de ejemplo de "¿Qué le puedo decir?". Las pruebas revisan que JARVIS entienda todas sin Gemini.
 export const GUIA: [string, string[]][] = [
+  ["Recordatorios y memoria", ["recuérdame pagar la luz mañana a las 10", "avísame en 30 minutos que saque la ropa", "recuérdame la creatina todos los días a las 8", "qué recordatorios tengo", "qué se viene los próximos días", "acuérdate que el viernes tengo prueba de inglés", "qué recuerdas"]],
+  ["Fechas, compras y más", ["el cumpleaños de mi mamá es el 3 de mayo", "próximos cumpleaños", "agrega pan, leche y huevos a la lista", "qué hay en la lista", "compré el pan", "si ahorro 50 lukas al mes cuándo llego", "toy en una semana pesada", "mis logros"]],
   ["Plata", ["gasté 5 lukas en completos", "pagué 30 mil de luz ayer", "me pagaron 15 lukas de propina", "¿cuánto llevo gastado este mes?", "cuánto gasté en comida esta semana"]],
   ["Tu tiempo", ["toy en el gym", "empecé a estudiar inglés", "terminé", "estuve 1 hora en el celu", "de 14 a 16 estuve estudiando", "¿en qué se me fue el día?", "cuánto tiempo estuve en el celu esta semana"]],
   ["Cuerpo y fútbol", ["hice gym nms", "salí a correr 5 km", "metí un gol y una asistencia", "jugué 80 y me pongo un 7", "¿qué entreno hoy?", "¿cuántos goles llevo?"]],

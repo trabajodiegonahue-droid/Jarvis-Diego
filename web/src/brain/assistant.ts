@@ -28,6 +28,8 @@ export interface AssistantOptions {
   parse?: (text: string, n: ChileNow) => LocalCommand | null;
   // Modo privado: las cifras de dinero no se le mandan a Gemini.
   privado?: () => boolean;
+  // Contexto extra para Gemini según lo que dijo Diego (por ejemplo, los recuerdos que tienen que ver).
+  contexto?: (texto: string, n: ChileNow) => string;
 }
 
 // Frases que hablan de plata: en modo privado no salen del teléfono.
@@ -300,7 +302,7 @@ export class Assistant {
     const conn = this.conn();
     const contents: Content[] = this.history.map((t) => ({ role: t.role, parts: [{ text: t.text }] }));
     contents.push({ role: "user", parts: [{ text: said }] });
-    const system = systemPrompt(this.clock(), this.routine, this.summary, conn.about);
+    const system = systemPrompt(this.clock(), this.routine, this.summary, conn.about) + (this.opts.contexto?.(said, this.clock()) || "");
     let spoken = "";
     try {
       for (let round = 0; round < 4; round++) {

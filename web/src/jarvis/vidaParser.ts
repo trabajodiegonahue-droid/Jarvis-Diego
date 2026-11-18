@@ -1,3 +1,4 @@
+import { parseExtras } from "./extrasParser";
 // Intérprete local de lo que Diego registra o pregunta sobre su vida (plata, entrenos,
 // fútbol, metas, estudio, trabajo). Funciona sin internet y sin gastar cuota de Gemini.
 // Si no entiende la frase devuelve null y sigue el intérprete de la rutina o Gemini.
@@ -105,6 +106,8 @@ export interface CtxVida {
   habitos?: string[]; // nombres de los hábitos
   rutina?: string[]; // nombres de las tareas de la rutina
   corriendo?: string | null; // categoría del cronómetro que corre, si hay
+  compras?: string[];
+  dificil?: boolean;
 }
 
 const DIAS_SEM = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
@@ -126,6 +129,8 @@ export function parseVida(text: string, hoy: string, ctx: CtxVida = {}): LocalCo
   const tSal = suave(text.toLowerCase().replace(/[¿?¡!.,]/g, " "));
   if (!t0 || /^(hola|holi|wena|buenas|buenas tardes|buenas noches|que onda|que tal|como estai|como estas|como estay|oye|oe|hey|ey)( jarvis)?$/.test(tSal) || /^(hola |wena |buenas |oye |oe |hey )?jarvis$/.test(tSal)) return { tool: "__saludo", args: {} };
   if (/^(gracias|muchas gracias|grax|vale|buena|bacan|filete|perfecto|genial|ok gracias)( jarvis)?$/.test(t0)) return { tool: "__gracias", args: {} };
+  const x = parseExtras(text, ctx);
+  if (x) return x;
   const r = parseVidaBase(text, hoy, ctx);
   if (r) return r;
   // "anota que dormí 7 horas", "pon que gasté 5 lucas", "registra que hice gym": se saca el "anota que".
@@ -174,7 +179,7 @@ function parseVidaBase(text: string, hoy: string, ctx: CtxVida): LocalCommand | 
     }
     const agua = t.match(new RegExp(`^(?:ya )?(?:tome|me tome|anota) (?:(\\d+|${NUM_RE}) )?(?:vasos?|botellas?)? ?(?:de )?agua\\b`));
     if (agua) return { tool: "registrar_dia", args: { agua_suma: (num(agua[1]) || 1) * (/botella/.test(t) ? 2 : 1) } };
-    const animo = t.match(/^(?:hoy )?(?:me siento|me senti|ando|estoy|me encuentro|quede|amaneci)( muy| super| re| bastante| mas o menos| medio| un poco)? (bien|mal|normal|feliz|contento|triste|bajoneado|bajon|chato|aburrido|pesimo|increible|la raja|filete|bacan|piola|tranqui|tranquilo|como el pico|como las weas|para la caga|pal pico|pal gato|hecho bolsa|hecho pico|enfermo|resfriado|con sueno|cansado|reventado|muerto|sin pilas|con energia|a full|motivado|prendido|estresado|colapsado|ansioso)$/);
+    const animo = t.match(/^(?:ya )?(?:hoy )?(?:me siento|me senti|ando|estoy|me encuentro|quede|amaneci)( muy| super| re| bastante| mas o menos| medio| un poco)? (bien|mal|normal|feliz|contento|triste|bajoneado|bajon|chato|aburrido|pesimo|increible|la raja|filete|bacan|piola|tranqui|tranquilo|como el pico|como las weas|para la caga|pal pico|pal gato|hecho bolsa|hecho pico|enfermo|resfriado|con sueno|cansado|reventado|muerto|sin pilas|con energia|a full|motivado|prendido|estresado|colapsado|ansioso)$/);
     if (animo) {
       const w = animo[2];
       const muy = /muy|super|bastante/.test(animo[1] || "");

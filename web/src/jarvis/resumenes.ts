@@ -19,6 +19,7 @@ import { cat, horasTxt, tiempoPeriodo } from "../time/calc";
 import { recordsNuevos, volumenPorMusculo } from "../training/calc";
 import { MUSCULOS, type Musculo } from "../training/ejercicios";
 import type { CatTiempo } from "../data/types";
+import { fraseFecha, proximasFechas, recuerdosDeHoy } from "../extras/calc";
 
 // Lo que más tiempo se llevó en un periodo (de la bitácora), en una frase.
 function lineaTiempo(d: Datos, desde: string, hasta: string, ahora: string): string | null {
@@ -226,6 +227,12 @@ export function resumenHoy(d: Datos, hoy: string, minutos: number, r: RutinaHoy,
   const tareas = tareasPendientes(d.tareas, hoy).filter((t) => t.fecha);
   if (tareas.length) partes.push(`Tienes ${tareas.length === 1 ? `pendiente ${tareas[0].texto}` : `${tareas.length} tareas de estudio pendientes`}.`);
   if (manana && r.ayerPendientes.length) partes.push(`De ayer quedó ${y(r.ayerPendientes.slice(0, 3))}.`);
+  // Lo que pediste que te recordara, lo que contaste que pasaba hoy y los cumpleaños cercanos.
+  const recs = (d.recordatorios || []).filter((x) => !x.hecho && x.cuando.startsWith(hoy) && (manana || x.cuando.slice(11) > `${String(Math.floor(minutos / 60)).padStart(2, "0")}:${String(minutos % 60).padStart(2, "0")}`));
+  if (recs.length) partes.push(`Te recuerdo: ${y(recs.map((x) => `${x.texto.charAt(0).toLowerCase()}${x.texto.slice(1)} a las ${x.cuando.slice(11)}`))}.`);
+  const hoyRec = recuerdosDeHoy(d.recuerdos || [], hoy);
+  if (hoyRec.length) partes.push(`Me contaste que hoy: ${y(hoyRec.map((x) => x.texto.charAt(0).toLowerCase() + x.texto.slice(1)))}.`);
+  for (const f of proximasFechas(d.fechas || [], hoy, 3)) partes.push(fraseFecha(f));
   const habs = activos(d.habitos).filter((h) => aplica(h, hoy) && !hecho(d.dias, h.id, hoy));
   if (habs.length && !manana) partes.push(`De tus hábitos te falta ${y(habs.slice(0, 3).map((h) => h.nombre.toLowerCase()))}.`);
   const fb = manana ? fraseBienestar(d.dias, hoy) : null;
