@@ -1,4 +1,5 @@
 // Recordatorios, fechas importantes, lo que JARVIS recuerda y los avisos en el iPhone.
+import { MESES } from "../../core/texto";
 import { useState } from "preact/hooks";
 import { chileNow } from "../../core/time";
 import { store } from "../../data/store";
@@ -128,7 +129,6 @@ function Fila({ r, hoy }: { r: Recordatorio; hoy: string }) {
   );
 }
 
-const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
 function Fechas() {
   const { data } = useApp();

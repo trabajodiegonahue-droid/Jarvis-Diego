@@ -1,3 +1,4 @@
+import { hhmm } from "../core/texto";
 // Calendario unificado: junta turnos, partidos, entrenos, estudio, rutina y metas de cada día
 // y avisa cuando algo se choca. Funciones puras, con pruebas.
 import { addDays, dow } from "../core/dates";
@@ -24,7 +25,7 @@ export interface DiaCal {
 }
 
 const min = (h: string) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
-const hhmm = (m: number) => (m >= 1440 ? "24:00" : `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+const hhmmCal = (m: number) => (m >= 1440 ? "24:00" : hhmm(m));
 export const DURACION = { partido: 105, equipo: 90, rutina: 60 }; // minutos, cuando no hay hora de término
 
 export function eventosDia(d: Datos, tasks: Task[], fecha: string): DiaCal {
@@ -45,7 +46,7 @@ export function eventosDia(d: Datos, tasks: Task[], fecha: string): DiaCal {
       id: `p:${p.id}`,
       tipo,
       titulo: p.tipo === "partido" ? `Partido${p.rival ? ` vs. ${p.rival}` : ""}` : "Entrenamiento con el equipo",
-      ...(p.hora ? { inicio: p.hora, fin: hhmm(min(p.hora) + DURACION[tipo]) } : {}),
+      ...(p.hora ? { inicio: p.hora, fin: hhmmCal(min(p.hora) + DURACION[tipo]) } : {}),
       ruta: "/futbol",
       hecho: p.fui === true,
       importante: !!p.importante,

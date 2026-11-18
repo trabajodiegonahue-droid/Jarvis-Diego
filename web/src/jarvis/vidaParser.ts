@@ -1,3 +1,4 @@
+import { MESES } from "../core/texto";
 import { parseExtras } from "./extrasParser";
 // Intérprete local de lo que Diego registra o pregunta sobre su vida (plata, entrenos,
 // fútbol, metas, estudio, trabajo). Funciona sin internet y sin gastar cuota de Gemini.
@@ -56,7 +57,6 @@ const limpiar = (s: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const ultimoDia = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate(); // m: 1-12
 
 // "para marzo" → 31 de marzo (del próximo marzo que viene); "para el 15 de marzo"; "para fin de año"; "en 3 meses".

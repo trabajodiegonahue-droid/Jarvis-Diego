@@ -1,7 +1,7 @@
+import { hhmm } from "../core/texto";
 import { HISTORY_KEEP, HISTORY_LIMIT } from "../config";
 import { chileNow, parseHour, toMinutes, type ChileNow } from "../core/time";
 
-const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 import type { KV } from "../core/storage";
 import { norm, type Routine, type Task } from "../routine/routine";
 import type { ToolRegistry, ToolResult } from "../tools/registry";

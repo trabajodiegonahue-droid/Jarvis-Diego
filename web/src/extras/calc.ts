@@ -1,5 +1,6 @@
 // Lo que se sumó después de las 6 fases: fechas importantes, memoria de JARVIS, simulador de metas,
 // modo semana difícil y logros. Funciones puras, con pruebas.
+import { MESES } from "../core/texto";
 import { addDays, diffDays } from "../core/dates";
 import type { Datos, FechaImportante, Meta, Recuerdo } from "../data/types";
 import { avance, valorActual } from "../goals/calc";
@@ -7,7 +8,6 @@ import { activos, mejorRacha } from "../habits/calc";
 import { clp } from "../money/format";
 
 const sinTilde = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
 // ---------- Fechas importantes ----------
 export interface ProximaFecha {

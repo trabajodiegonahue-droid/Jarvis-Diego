@@ -1,6 +1,7 @@
 // Avisos: qué te avisa JARVIS y cuándo. Lo que se calcula aquí sirve para tres caminos:
 // 1) con la app abierta suena en pantalla; 2) con los avisos activados, el intermediario de Cloudflare
 // manda la notificación al iPhone aunque la app esté cerrada; 3) sin servidor, se exporta al Calendario (.ics).
+import { hhmm, joinY } from "../core/texto";
 import { addDays, dow } from "../core/dates";
 import type { Datos, Recordatorio } from "../data/types";
 import { eventosDia } from "../calendar/calc";
@@ -22,7 +23,6 @@ export interface PrefsAvisos {
   rutina: boolean;
 }
 
-const y = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} y ${xs[xs.length - 1]}`);
 const min = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
 // Lo de un día en una línea corta (sin plata: las notificaciones se ven en la pantalla bloqueada).
@@ -56,10 +56,10 @@ export function planAvisos(d: Datos, tasks: Task[], p: PrefsAvisos, ahora: strin
     const f = addDays(hoy, i);
     // Resumen de la mañana: lo de hoy.
     const cosas = agendaDia(d, tasks, f);
-    out.push({ id: `m:${f}`, cuando: `${f}T${p.manana}`, titulo: "Buenos días, Diego", cuerpo: cosas.length ? `Hoy: ${y(cosas.slice(0, 5))}.` : "Hoy no tienes nada anotado. ¿Qué vas a hacer?" });
+    out.push({ id: `m:${f}`, cuando: `${f}T${p.manana}`, titulo: "Buenos días, Diego", cuerpo: cosas.length ? `Hoy: ${joinY(cosas.slice(0, 5))}.` : "Hoy no tienes nada anotado. ¿Qué vas a hacer?" });
     // En la noche: lo de mañana.
     const man = agendaDia(d, tasks, addDays(f, 1));
-    if (man.length) out.push({ id: `n:${f}`, cuando: `${f}T${p.noche}`, titulo: "Para mañana", cuerpo: `Mañana: ${y(man.slice(0, 5))}.` });
+    if (man.length) out.push({ id: `n:${f}`, cuando: `${f}T${p.noche}`, titulo: "Para mañana", cuerpo: `Mañana: ${joinY(man.slice(0, 5))}.` });
     // Cumpleaños: el día antes en la noche ya va en "Para mañana"; tres días antes, un aviso para el regalo.
     for (const x of proximasFechas(d.fechas, f, 3).filter((x) => x.enDias === 3)) out.push({ id: `f:${x.f.id}:${f}`, cuando: `${f}T12:00`, titulo: "Se viene un cumpleaños", cuerpo: `En 3 días es ${min(x.f.nombre)}${x.cumple && x.f.tipo === "cumple" ? ` (cumple ${x.cumple})` : ""}.` });
     // Rutina: 10 minutos antes de cada tarea.
@@ -68,7 +68,7 @@ export function planAvisos(d: Datos, tasks: Task[], p: PrefsAvisos, ahora: strin
         const [h, m] = t.time.split(":").map(Number);
         const antes = h * 60 + m - 10;
         if (antes < 0) continue;
-        out.push({ id: `t:${t.id}:${f}`, cuando: `${f}T${String(Math.floor(antes / 60)).padStart(2, "0")}:${String(antes % 60).padStart(2, "0")}`, titulo: t.title, cuerpo: `En 10 minutos: ${min(t.title)} (${t.time}).` });
+        out.push({ id: `t:${t.id}:${f}`, cuando: `${f}T${hhmm(antes)}`, titulo: t.title, cuerpo: `En 10 minutos: ${min(t.title)} (${t.time}).` });
       }
     if (p.agua) for (const h of ["11:00", "14:00", "17:00", "20:00"]) out.push({ id: `a:${f}:${h}`, cuando: `${f}T${h}`, titulo: "Agua", cuerpo: "Tómate un vaso de agua." });
   }
@@ -87,7 +87,7 @@ export function exportarIcs(d: Datos, tasks: Task[], ahora: string): string {
     const [f, h] = inicio.split("T");
     const [hh, mm] = h.split(":").map(Number);
     const fin = hh * 60 + mm + durMin;
-    const finIso = fin >= 1440 ? `${addDays(f, 1)}T23:59` : `${f}T${String(Math.floor(fin / 60)).padStart(2, "0")}:${String(fin % 60).padStart(2, "0")}`;
+    const finIso = fin >= 1440 ? `${addDays(f, 1)}T23:59` : `${f}T${hhmm(fin)}`;
     L.push("BEGIN:VEVENT", `UID:${uidEv}@vida`, `DTSTAMP:${stamp}`, `DTSTART;TZID=America/Santiago:${icsFecha(inicio)}`, `DTEND;TZID=America/Santiago:${icsFecha(finIso)}`, `SUMMARY:${esc(titulo)}`);
     if (rrule) L.push(`RRULE:${rrule}`);
     L.push("BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${esc(titulo)}`, "TRIGGER:-PT0M", "END:VALARM", "END:VEVENT");

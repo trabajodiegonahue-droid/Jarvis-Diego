@@ -1,5 +1,6 @@
 // Herramientas de JARVIS para la fase 5: bitácora de tiempo (al minuto), bienestar, hábitos,
 // calendario unificado y clima. Igual que las otras: lo que anota se puede deshacer.
+import { cap, hhmm, joinY } from "../core/texto";
 import { addDays, dow, fechaCorta, lunesDe } from "../core/dates";
 import { DAY_NAMES, type ChileNow } from "../core/time";
 import type { AppStore } from "../data/store";
@@ -19,10 +20,7 @@ export interface DiaDeps {
   aguaMeta?: () => number;
 }
 
-const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const CAT_IDS = CATS.map((c) => c.id);
-const y = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} y ${xs[xs.length - 1]}`);
-const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: DiaDeps): Tool[] {
   const d = () => store.data;
@@ -272,7 +270,7 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
         }
         if (!dice.length) return { ok: false, say: "¿Qué anoto? Puede ser cuánto dormiste, tu ánimo o el agua." };
         const undo = await guardarDia(fecha, patch);
-        let say = `Anotado: ${y(dice)}.`;
+        let say = `Anotado: ${joinY(dice)}.`;
         if (patch.sueno != null && patch.sueno < 6) say += " Poco sueño: hoy ve suave y acuéstate temprano.";
         if (patch.animo != null && patch.animo <= 2) say += " Ánimo. Si quieres, cuéntame qué pasó.";
         if (patch.energia != null && patch.energia <= 2) say += " Si te toca entrenar, la sesión de hoy se ajusta sola.";
@@ -288,7 +286,7 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
         const h = buscarHabito(String(a.nombre || ""));
         if (!h) {
           const hs = activos(d().habitos);
-          return { ok: false, say: hs.length ? `No encontré ese hábito. Tienes ${y(hs.map((x) => x.nombre.toLowerCase()))}.` : 'Todavía no tienes hábitos. Dime por ejemplo "crea el hábito leer 15 minutos".' };
+          return { ok: false, say: hs.length ? `No encontré ese hábito. Tienes ${joinY(hs.map((x) => x.nombre.toLowerCase()))}.` : 'Todavía no tienes hábitos. Dime por ejemplo "crea el hábito leer 15 minutos".' };
         }
         const fecha = typeof a.fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(a.fecha) ? a.fecha : clock().date;
         const actual = d().dias.find((x) => x.id === fecha);
@@ -296,7 +294,7 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
         const undo = await guardarDia(fecha, { habitos: [...(actual?.habitos || []), h.id] });
         const r = racha(h, d().dias, clock().date);
         const faltan = activos(d().habitos).filter((x) => x.id !== h.id && aplica(x, fecha) && !actual?.habitos.includes(x.id));
-        return { ok: true, say: `Marcado: ${h.nombre.toLowerCase()}.${r >= 2 ? ` Llevas ${r} días seguidos.` : ""}${faltan.length ? ` Te queda ${y(faltan.slice(0, 3).map((x) => x.nombre.toLowerCase()))}.` : " Cumpliste todos tus hábitos de hoy."}`, undo };
+        return { ok: true, say: `Marcado: ${h.nombre.toLowerCase()}.${r >= 2 ? ` Llevas ${r} días seguidos.` : ""}${faltan.length ? ` Te queda ${joinY(faltan.slice(0, 3).map((x) => x.nombre.toLowerCase()))}.` : " Cumpliste todos tus hábitos de hoy."}`, undo };
       },
     },
     {
@@ -310,7 +308,7 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
         const dias = Array.isArray(a.dias) ? a.dias.filter((x: number) => x >= 0 && x <= 6) : [];
         const h: Habito = { id: uid(), nombre, dias, orden: d().habitos.length };
         await store.put("habitos", h);
-        return { ok: true, say: `Creé el hábito ${nombre.toLowerCase()}${dias.length && dias.length < 7 ? `, ${dias.length === 5 && dias.every((x: number) => x < 5) ? "de lunes a viernes" : `los ${y(dias.map((x: number) => DAY_NAMES[x]))}`}` : ", todos los días"}. Cuando lo cumplas, dime "hice el hábito ${nombre.toLowerCase()}".`, undo: () => store.remove("habitos", h.id).then(() => {}) };
+        return { ok: true, say: `Creé el hábito ${nombre.toLowerCase()}${dias.length && dias.length < 7 ? `, ${dias.length === 5 && dias.every((x: number) => x < 5) ? "de lunes a viernes" : `los ${joinY(dias.map((x: number) => DAY_NAMES[x]))}`}` : ", todos los días"}. Cuando lo cumplas, dime "hice el hábito ${nombre.toLowerCase()}".`, undo: () => store.remove("habitos", h.id).then(() => {}) };
       },
     },
 
@@ -328,7 +326,7 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
           const rut = dc.eventos.filter((e) => e.tipo === "rutina");
           if (!dc.eventos.length) return { ok: true, say: `${cuando} no tienes nada anotado.` };
           const txt = ev.map((e) => `${e.titulo.replace(/^Físico: /, "físico, ").replace(/^./, (c) => c.toLowerCase())}${e.inicio ? ` a las ${e.inicio}` : ""}`);
-          return { ok: true, say: `${cuando} tienes ${y(txt) || "solo tu rutina"}${rut.length ? `${ev.length ? ", más" : ":"} ${rut.length} ${rut.length === 1 ? "cosa" : "cosas"} de la rutina` : ""}.${dc.choques.length ? ` Ojo: ${dc.choques[0]}` : ""}` };
+          return { ok: true, say: `${cuando} tienes ${joinY(txt) || "solo tu rutina"}${rut.length ? `${ev.length ? ", más" : ":"} ${rut.length} ${rut.length === 1 ? "cosa" : "cosas"} de la rutina` : ""}.${dc.choques.length ? ` Ojo: ${dc.choques[0]}` : ""}` };
         }
         const lunes = a.semana === "proxima" ? addDays(lunesDe(hoy), 7) : lunesDe(hoy);
         // En el resumen hablado no se cuentan los choques con la rutina (es flexible); esos se ven en el Calendario.
@@ -340,7 +338,7 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
         const partes = [turnos ? `${turnos} ${turnos === 1 ? "turno" : "turnos"}` : "", fisico ? `${fisico} ${fisico === 1 ? "sesión de físico" : "sesiones de físico"}` : "", ...fuertes].filter(Boolean);
         const cuando = a.semana === "proxima" ? "La próxima semana" : "Lo que queda de la semana";
         if (!partes.length && !choques.length) return { ok: true, say: `${cuando} está tranquila: no hay turnos, partidos ni pruebas anotados.` };
-        return { ok: true, say: `${cuando}: ${y(partes)}.${choques.length ? ` Ojo con ${choques.length === 1 ? "un choque" : `${choques.length} choques`}: ${choques[0]}` : " Nada se cruza."}` };
+        return { ok: true, say: `${cuando}: ${joinY(partes)}.${choques.length ? ` Ojo con ${choques.length === 1 ? "un choque" : `${choques.length} choques`}: ${choques[0]}` : " Nada se cruza."}` };
       },
     },
 

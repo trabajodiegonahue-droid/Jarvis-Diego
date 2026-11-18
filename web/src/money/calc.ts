@@ -1,5 +1,6 @@
 // Todos los cálculos de dinero. Funciones puras (sin pantalla ni almacenamiento),
 // para poder probarlas una por una: son números y no pueden fallar.
+import { MESES } from "../core/texto";
 import type { Categoria, Movimiento, Presupuesto, Recurrente, Tipo } from "../data/types";
 
 export const mesDe = (fecha: string) => fecha.slice(0, 7);
@@ -15,7 +16,6 @@ export function sumarMeses(mes: string, n: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 export const nombreMes = (mes: string, corto = false) => {
   const n = MESES[Number(mes.slice(5, 7)) - 1] || "";
   return corto ? n.slice(0, 3) : n;

@@ -1,13 +1,11 @@
 // Recordatorios: cuándo suenan, cuáles vienen y cómo se entiende "el viernes a las 10".
 // Funciones puras, con pruebas.
+import { MESES, hhmm, p2 } from "../core/texto";
 import { addDays, dow } from "../core/dates";
 import type { Recordatorio } from "../data/types";
 
 const DIAS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
-const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const sinTilde = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-const p2 = (n: number) => String(n).padStart(2, "0");
-const hhmm = (m: number) => `${p2(Math.floor(m / 60))}:${p2(m % 60)}`;
 const NUM: Record<string, number> = { un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, diez: 10, quince: 15, veinte: 20, treinta: 30, media: 30 };
 
 export interface Cuando {

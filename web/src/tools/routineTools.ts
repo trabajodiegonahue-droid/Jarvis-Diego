@@ -8,7 +8,8 @@ const dayArray = {
   description: "Días de la semana: 0 = lunes, 1 = martes … 6 = domingo. Vacío o ausente = todos los días.",
 };
 
-export const joinY = (xs: string[]) => (xs.length > 1 ? xs.slice(0, -1).join(", ") + " y " + xs[xs.length - 1] : xs[0] || "");
+import { joinY } from "../core/texto";
+export { joinY };
 
 export function shiftDate(date: string, days: number): string {
   const d = new Date(date + "T12:00:00Z");

@@ -1,3 +1,4 @@
+import { hhmm, MESES } from "../../core/texto";
 import { chileNow, DAY_NAMES } from "../../core/time";
 import { store } from "../../data/store";
 import { routine } from "../../jarvis/instance";
@@ -17,7 +18,7 @@ import { MetaCard } from "./Metas";
 import { TareaFila } from "./Estudios";
 import { chequeoDeHoy, cargaDelDia, equilibrioCuerpo, semanaEntreno, sesionDeHoy } from "../../training/calc";
 import { equilibrioFutbol, proximoEvento, sinRegistrar } from "../../futbol/calc";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { addDays, dow, lunesDe } from "../../core/dates";
 import { activos, aplica, equilibrioHabitos, hecho, racha } from "../../habits/calc";
 import { climaAhora, speaker } from "../../jarvis/instance";
@@ -31,7 +32,6 @@ import { setPrefs } from "../state";
 import { ahoraIso, cuandoTxt, proximos } from "../../reminders/calc";
 import { enDificil, logros, proximasFechas, sugerirDificil } from "../../extras/calc";
 
-const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
 export function Inicio({ onAdd }: { onAdd: () => void }) {
   const { prefs, data } = useApp();
@@ -46,7 +46,7 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
   const frase = fraseDinero(estados, tot, mes, dia);
   const hay = (a: string) => prefs.areas.includes(a);
   // Lo que sigue hoy, juntando calendario (turno, partido, rutina…) y recordatorios.
-  const hh = `${String(Math.floor(n.minutes / 60)).padStart(2, "0")}:${String(n.minutes % 60).padStart(2, "0")}`;
+  const hh = hhmm(n.minutes);
   const evHoy = eventosDia(data, routine.tasks, n.date).eventos.filter((e) => e.inicio && !e.hecho);
   const enCurso = evHoy.find((e) => e.inicio! <= hh && e.fin && (e.fin === "24:00" || e.fin > hh) && e.tipo !== "rutina");
   const sig = [...evHoy.filter((e) => e.inicio! > hh).map((e) => ({ h: e.inicio!, t: e.titulo })), ...data.recordatorios.filter((r) => !r.hecho && r.cuando.startsWith(n.date) && r.cuando.slice(11) > hh).map((r) => ({ h: r.cuando.slice(11), t: r.texto }))].sort((a, b) => a.h.localeCompare(b.h))[0];
@@ -61,8 +61,7 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
     resumen: () => <ResumenAuto />,
     recordatorios: () => <LoQueViene />,
     tiempo: () => {
-      const hhmm = `${String(Math.floor(n.minutes / 60)).padStart(2, "0")}:${String(n.minutes % 60).padStart(2, "0")}`;
-      const m = minutosDia(bloquesDia(data, n.date, iso(n.date, hhmm)), n.minutes);
+      const m = minutosDia(bloquesDia(data, n.date, iso(n.date, hhmm(n.minutes))), n.minutes);
       const filas = (Object.entries(m) as [CatTiempo, number][]).sort((a, b) => b[1] - a[1]).slice(0, 3);
       return (
         <div class="stack" style={{ gap: "8px" }}>
@@ -542,7 +541,8 @@ function SemanaDificil() {
 function LogroNuevo() {
   const { data, prefs } = useApp();
   const hoy = chileNow().date;
-  const todos = logros(data, hoy);
+  // Los logros recorren todo el historial: se recalculan solo cuando cambian los datos que cuentan.
+  const todos = useMemo(() => logros(data, hoy), [data.entrenos, data.partidos, data.sesiones, data.habitos, data.dias, data.metas, data.aportes, data.movimientos, data.actividades, hoy]);
   // La primera vez, los logros que ya tenías no se anuncian (solo los nuevos de ahí en adelante).
   const primeraVez = !prefs.logrosVistos.length && todos.length > 0;
   useEffect(() => {

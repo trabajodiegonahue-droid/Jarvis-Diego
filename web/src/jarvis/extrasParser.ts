@@ -1,5 +1,6 @@
 // Intérprete local para recordatorios, memoria, fechas importantes, lista de compras,
 // simulador de metas, semana difícil y logros. Se prueba antes que el resto.
+import { MESES, p2 } from "../core/texto";
 import type { LocalCommand } from "../brain/commands";
 import { montoEn } from "./vidaParser";
 import { original } from "../reminders/calc";
@@ -9,8 +10,6 @@ export interface CtxExtras {
   dificil?: boolean; // si está en modo semana difícil
 }
 
-const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
-const p2 = (n: number) => String(n).padStart(2, "0");
 const suave = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[¿?¡!"]/g, " ").replace(/[.,;:](?!\d)/g, " ").replace(/\s+/g, " ").trim();
 // Nombres con mayúscula ("la Cata", "del Benja"), pero no los parentescos ni los artículos ("mi mamá").

@@ -1,6 +1,7 @@
 // Herramientas de JARVIS sobre los datos de la app (dinero, metas, fútbol, entreno,
 // estudio, trabajo). Las usa el intérprete local y también Gemini con function calling.
 // Todo lo que anota devuelve "undo" para deshacerlo con un toque o diciendo "deshaz eso".
+import { cap } from "../core/texto";
 import { addDays, dow, fechaCorta } from "../core/dates";
 import type { ChileNow } from "../core/time";
 import type { AppStore } from "../data/store";
@@ -20,7 +21,6 @@ export interface VidaDeps {
   clima?: () => Promise<Clima | null>; // para el resumen de la mañana
 }
 
-const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 const cuando = (fecha: string, hoy: string) => (fecha === hoy ? "hoy" : fecha === addDays(hoy, -1) ? "ayer" : `el ${fechaCorta(fecha)}`);
 const fechaOk = (f: unknown, hoy: string) => (typeof f === "string" && /^\d{4}-\d{2}-\d{2}$/.test(f) && f <= hoy ? f : hoy);
 const entero = (v: unknown) => (typeof v === "number" ? Math.round(v) : typeof v === "string" && /^\d+$/.test(v) ? Number(v) : undefined);

@@ -1,4 +1,5 @@
 // Avisos mientras usas la app y conexión con los avisos del iPhone (push).
+import { hhmm } from "../core/texto";
 import { chileAUtc, chileNow } from "../core/time";
 import { localKV } from "../core/storage";
 import { store } from "../data/store";
@@ -59,7 +60,7 @@ export async function posponer(s: Sonando, minutos: number) {
   const t = n.minutes + minutos;
   const fecha = t >= 1440 ? new Date(Date.parse(n.date) + 864e5).toISOString().slice(0, 10) : n.date;
   const m = t % 1440;
-  const cuando = `${fecha}T${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  const cuando = `${fecha}T${hhmm(m)}`;
   await store.put("recordatorios", { id: uid(), texto: s.r.texto, cuando });
   cerrarAviso(s.r.id);
 }

@@ -1,5 +1,6 @@
 // Herramientas de JARVIS para recordatorios, memoria, fechas importantes, lista de compras,
 // simulador de metas, semana difícil y "lo que viene" en los próximos días.
+import { MESES, cap, joinY, p2 } from "../core/texto";
 import { addDays, dow, fechaCorta } from "../core/dates";
 import { DAY_NAMES, type ChileNow } from "../core/time";
 import type { AppStore } from "../data/store";
@@ -20,10 +21,6 @@ export interface ExtrasDeps {
   dificil?: { get: () => Periodo[]; set: (p: Periodo[]) => void };
 }
 
-const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-const y = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} y ${xs[xs.length - 1]}`);
-const p2 = (n: number) => String(n).padStart(2, "0");
-const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
 export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
   const d = () => store.data;
@@ -60,7 +57,7 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
         const n = clock();
         const rs = proximos(d().recordatorios, ahora(), 14);
         if (!rs.length) return { ok: true, say: 'No tienes recordatorios pendientes. Dime por ejemplo "recuérdame pagar la luz el viernes a las 10".' };
-        return { ok: true, say: `Tienes ${rs.length === 1 ? "un recordatorio" : `${rs.length} recordatorios`}: ${y(rs.slice(0, 5).map((r) => `${r.texto.toLowerCase()} ${cuandoTxt(r.cuando, n.date)}`))}${rs.length > 5 ? ", y más en Recordatorios" : ""}.` };
+        return { ok: true, say: `Tienes ${rs.length === 1 ? "un recordatorio" : `${rs.length} recordatorios`}: ${joinY(rs.slice(0, 5).map((r) => `${r.texto.toLowerCase()} ${cuandoTxt(r.cuando, n.date)}`))}${rs.length > 5 ? ", y más en Recordatorios" : ""}.` };
       },
     },
     {
@@ -91,7 +88,7 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
           const cosas = [...ev.map((e) => `${e.titulo.replace(/^./, (c) => c.toLowerCase())}${e.inicio ? ` a las ${e.inicio}` : ""}`), ...recs.map((r) => `${r.texto.toLowerCase()} (recordatorio, ${r.cuando.slice(11)})`), ...rec.map((r) => r.texto.toLowerCase())];
           const fechas = proximasFechas(d().fechas, n.date, dias).filter((p) => p.fecha === f);
           cosas.push(...fechas.map((p) => p.f.nombre.toLowerCase()));
-          if (cosas.length) partes.push(`${i === 1 ? "Mañana" : i === 2 ? "Pasado mañana" : `El ${DAY_NAMES[dow(f)]}`}: ${y(cosas)}.`);
+          if (cosas.length) partes.push(`${i === 1 ? "Mañana" : i === 2 ? "Pasado mañana" : `El ${DAY_NAMES[dow(f)]}`}: ${joinY(cosas)}.`);
         }
         return { ok: true, say: partes.length ? partes.join(" ") : `Los próximos ${dias} días están tranquilos: no tienes nada anotado fuera de tu rutina.` };
       },
@@ -120,7 +117,7 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
       run: () => {
         const rs = [...d().recuerdos].sort((a, b) => b.creado.localeCompare(a.creado));
         if (!rs.length) return { ok: true, say: 'Todavía no me has pedido que recuerde nada. Dime por ejemplo "acuérdate que el viernes tengo prueba de inglés".' };
-        return { ok: true, say: `Me acuerdo de ${rs.length === 1 ? "esto" : "estas cosas"}: ${y(rs.slice(0, 6).map((r) => r.texto.charAt(0).toLowerCase() + r.texto.slice(1)))}.${rs.length > 6 ? " Y más en Más → Recordatorios." : ""} Si quieres que olvide algo, dime "olvida lo de..." .` };
+        return { ok: true, say: `Me acuerdo de ${rs.length === 1 ? "esto" : "estas cosas"}: ${joinY(rs.slice(0, 6).map((r) => r.texto.charAt(0).toLowerCase() + r.texto.slice(1)))}.${rs.length > 6 ? " Y más en Más → Recordatorios." : ""} Si quieres que olvide algo, dime "olvida lo de..." .` };
       },
     },
     {
@@ -187,7 +184,7 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
         if (!nuevas.length) return { ok: true, say: "Eso ya estaba en la lista." };
         await store.put("compras", ...nuevas);
         const total = d().compras.filter((c) => !c.hecho).length;
-        return { ok: true, say: `Agregué ${y(nuevas.map((c) => c.texto.toLowerCase()))} a la lista. Van ${total} ${total === 1 ? "cosa" : "cosas"}.`, undo: () => store.remove("compras", ...nuevas.map((c) => c.id)).then(() => {}) };
+        return { ok: true, say: `Agregué ${joinY(nuevas.map((c) => c.texto.toLowerCase()))} a la lista. Van ${total} ${total === 1 ? "cosa" : "cosas"}.`, undo: () => store.remove("compras", ...nuevas.map((c) => c.id)).then(() => {}) };
       },
     },
     {
@@ -196,7 +193,7 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
       parameters: { type: "object", properties: {} },
       run: () => {
         const cs = d().compras.filter((c) => !c.hecho);
-        return { ok: true, say: cs.length ? `En la lista tienes: ${y(cs.map((c) => c.texto.toLowerCase()))}.` : "La lista de compras está vacía." };
+        return { ok: true, say: cs.length ? `En la lista tienes: ${joinY(cs.map((c) => c.texto.toLowerCase()))}.` : "La lista de compras está vacía." };
       },
     },
     {
@@ -207,10 +204,10 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
         const pend = d().compras.filter((c) => !c.hecho);
         const quiere = ((a.cosas as string[]) || []).map((x) => norm(x));
         const elegidas = a.todo ? pend : pend.filter((c) => quiere.some((q) => norm(c.texto).includes(q) || q.includes(norm(c.texto))));
-        if (!elegidas.length) return { ok: false, say: pend.length ? `Eso no estaba en la lista. Tienes ${y(pend.map((c) => c.texto.toLowerCase()))}.` : "La lista ya está vacía." };
+        if (!elegidas.length) return { ok: false, say: pend.length ? `Eso no estaba en la lista. Tienes ${joinY(pend.map((c) => c.texto.toLowerCase()))}.` : "La lista ya está vacía." };
         await store.put("compras", ...elegidas.map((c) => ({ ...c, hecho: true })));
         const quedan = pend.length - elegidas.length;
-        return { ok: true, say: `Listo, taché ${a.todo ? "todo" : y(elegidas.map((c) => c.texto.toLowerCase()))}.${quedan ? ` Te ${quedan === 1 ? "queda una cosa" : `quedan ${quedan}`}.` : " La lista quedó vacía."}`, undo: () => store.put("compras", ...elegidas) };
+        return { ok: true, say: `Listo, taché ${a.todo ? "todo" : joinY(elegidas.map((c) => c.texto.toLowerCase()))}.${quedan ? ` Te ${quedan === 1 ? "queda una cosa" : `quedan ${quedan}`}.` : " La lista quedó vacía."}`, undo: () => store.put("compras", ...elegidas) };
       },
     },
 
@@ -223,7 +220,7 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
         const hoy = clock().date;
         const plata = d().metas.filter((m) => !m.archivada && m.tipo === "monto");
         const m = a.meta ? buscarMeta(plata, String(a.meta)) : plata.find((x) => x.principal) || plata[0];
-        if (!m) return { ok: false, say: plata.length ? `¿Para cuál meta? Tienes ${y(plata.map((x) => x.nombre))}.` : 'No tienes metas de plata. Dime "agrega una meta de ahorrar 500 lucas para marzo".' };
+        if (!m) return { ok: false, say: plata.length ? `¿Para cuál meta? Tienes ${joinY(plata.map((x) => x.nombre))}.` : 'No tienes metas de plata. Dime "agrega una meta de ahorrar 500 lucas para marzo".' };
         const porMes = Math.round(Number(a.por_mes) || 0);
         if (porMes <= 0) {
           const sim = simular(m, d(), hoy, 0);
@@ -240,7 +237,7 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
       run: () => {
         const ls = logros(d(), clock().date);
         if (!ls.length) return { ok: true, say: "Todavía no hay logros, pero vas en camino. Cada entreno, gol y día de hábito suma." };
-        return { ok: true, say: `Llevas ${ls.length} ${ls.length === 1 ? "logro" : "logros"}. Los últimos: ${y(ls.slice(-3).map((l) => `${l.titulo.toLowerCase()} (${l.texto.replace(/\.$/, "").toLowerCase()})`))}.` };
+        return { ok: true, say: `Llevas ${ls.length} ${ls.length === 1 ? "logro" : "logros"}. Los últimos: ${joinY(ls.slice(-3).map((l) => `${l.titulo.toLowerCase()} (${l.texto.replace(/\.$/, "").toLowerCase()})`))}.` };
       },
     },
 

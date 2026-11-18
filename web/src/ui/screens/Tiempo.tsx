@@ -1,5 +1,6 @@
 // Mi tiempo: bitácora al minuto (cronómetro y bloques), línea del día, y cómo se reparte
 // el tiempo en la semana, el mes y el año. Al final, "Mi año en números".
+import { hhmm } from "../../core/texto";
 import { useEffect, useState } from "preact/hooks";
 import { addDays, dow, fechaCorta, lunesDe } from "../../core/dates";
 import { chileNow, DAY_NAMES } from "../../core/time";
@@ -15,7 +16,6 @@ import { Empty, Sheet } from "../components";
 import { Icon } from "../icons";
 import { go, toast, useApp } from "../state";
 
-const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const ahoraIso = () => {
   const n = chileNow();
   return iso(n.date, hhmm(n.minutes));
