@@ -207,14 +207,17 @@ function BloqueVista({ b, col, ncol, onOpen }: { b: Bloque; col: number; ncol: n
       aria-label={`${b.titulo}, de ${hhmm(b.ini)} a ${b.fin >= 1440 ? "24:00" : hhmm(b.fin)}${b.corriendo ? ", en curso" : ""}`}
       style={{
         position: "absolute",
-        top: `${b.ini * PX}px`,
-        height: `${h}px`,
+        top: `${b.ini * PX + 1}px`,
+        height: `${Math.max(4, h - 2)}px`,
         left: `calc(${(col / ncol) * 100}% + 2px)`,
         width: `calc(${100 / ncol}% - 4px)`,
         background: c.color,
-        border: b.corriendo ? "2px dashed var(--ink)" : b.derivado ? "2px dashed rgba(11,15,23,.45)" : 0,
+        // 2px de separación con el fondo entre bloques (sin bordes); el que corre lleva un contorno.
+        border: 0,
+        outline: b.corriendo ? "2px solid var(--ink)" : "none",
+        outlineOffset: "-2px",
         borderRadius: "6px",
-        color: "#0B0F17",
+        color: c.tinta,
         fontSize: "12px",
         fontWeight: 600,
         textAlign: "left",

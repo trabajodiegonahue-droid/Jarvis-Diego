@@ -256,3 +256,30 @@ nav.tabs a.on::before { content: ""; position: absolute; top: -7px; width: 28px;
 .menu .t { font-weight: 500; }
 .menu .d { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
 .grupo { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.4px; text-transform: uppercase; margin: 8px 4px -4px; }
+
+/* ---------- Colores de categorías (Mi tiempo, Calendario) ----------
+   Ocho tonos validados para daltonismo y contraste (skill dataviz, paleta de referencia), un paso propio
+   para cada tema. Lo secundario va en gris y siempre con su nombre al lado. */
+:root {
+  --t1: #3987e5; --t2: #d95926; --t3: #199e70; --t4: #c98500; --t5: #d55181; --t6: #0ca30c; --t7: #9085e9; --t8: #e66767;
+  --t-gris1: #5d6778; --t-gris2: #7a8496;
+}
+:root[data-theme="light"] {
+  --t1: #236bc4; --t2: #eb6834; --t3: #1baf7a; --t4: #eda100; --t5: #e87ba4; --t6: #008300; --t7: #6250d6; --t8: #e34948;
+  --t-gris1: #9aa3b2; --t-gris2: #b8bfcb;
+}
+
+/* Gráficos: valor al tocar, tabla de datos */
+.viz { display: flex; flex-direction: column; gap: 6px; }
+.viz svg { touch-action: manipulation; }
+.viz .ver-datos { align-self: flex-start; background: none; border: 0; padding: 0; min-height: 32px; font-size: 12px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.viz table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.viz td, .viz th { padding: 6px 4px; border-top: 1px solid var(--line); text-align: left; font-weight: 400; }
+.viz td.n, .viz th.n { text-align: right; font-variant-numeric: tabular-nums; }
+.viz th { color: var(--muted); font-size: 12px; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
+.leyenda span { display: inline-flex; align-items: center; gap: 6px; }
+.leyenda i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+/* Texto dentro de cada color (el que llega a 4.5:1 en ese tema). */
+:root { --t1-ink: #0b0b0b; --t2-ink: #0b0b0b; --t3-ink: #0b0b0b; --t4-ink: #0b0b0b; --t5-ink: #0b0b0b; --t6-ink: #0b0b0b; --t7-ink: #0b0b0b; --t8-ink: #0b0b0b; --t-gris1-ink: #ffffff; --t-gris2-ink: #0b0b0b; }
+:root[data-theme="light"] { --t1-ink: #ffffff; --t6-ink: #ffffff; --t7-ink: #ffffff; --t-gris1-ink: #0b0b0b; }

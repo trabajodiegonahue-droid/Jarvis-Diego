@@ -5,19 +5,20 @@ import { addDays } from "../core/dates";
 import type { Actividad, CatTiempo, Datos } from "../data/types";
 import { DURACION } from "../calendar/calc";
 
-export const CATS: { id: CatTiempo; nombre: string; color: string }[] = [
-  { id: "sueno", nombre: "Dormir", color: "#6E7BD9" },
-  { id: "trabajo", nombre: "Trabajo", color: "#E0A23B" },
-  { id: "estudio", nombre: "Estudio", color: "#4C8DF6" },
-  { id: "entreno", nombre: "Entreno", color: "#2ED3A6" },
-  { id: "futbol", nombre: "Fútbol", color: "#1FA463" },
-  { id: "traslado", nombre: "Traslado", color: "#8A94A6" },
-  { id: "comida", nombre: "Comer", color: "#D9775B" },
-  { id: "casa", nombre: "Casa y trámites", color: "#A98467" },
-  { id: "social", nombre: "Amigos y familia", color: "#D46BA3" },
-  { id: "ocio", nombre: "Ocio", color: "#9B6BDE" },
-  { id: "pantallas", nombre: "Celular y pantallas", color: "#E15A5A" },
-  { id: "otro", nombre: "Otro", color: "#5E6B7D" },
+// Colores: los 8 tonos validados para lo principal; lo secundario en gris. "tinta" = color del texto dentro del bloque.
+export const CATS: { id: CatTiempo; nombre: string; color: string; tinta: string }[] = [
+  { id: "sueno", nombre: "Dormir", color: "var(--t7)", tinta: "var(--t7-ink)" },
+  { id: "trabajo", nombre: "Trabajo", color: "var(--t2)", tinta: "var(--t2-ink)" },
+  { id: "estudio", nombre: "Estudio", color: "var(--t1)", tinta: "var(--t1-ink)" },
+  { id: "entreno", nombre: "Entreno", color: "var(--t3)", tinta: "var(--t3-ink)" },
+  { id: "futbol", nombre: "Fútbol", color: "var(--t6)", tinta: "var(--t6-ink)" },
+  { id: "traslado", nombre: "Traslado", color: "var(--t-gris2)", tinta: "var(--t-gris2-ink)" },
+  { id: "comida", nombre: "Comer", color: "var(--t-gris1)", tinta: "var(--t-gris1-ink)" },
+  { id: "casa", nombre: "Casa y trámites", color: "var(--t-gris2)", tinta: "var(--t-gris2-ink)" },
+  { id: "social", nombre: "Amigos y familia", color: "var(--t5)", tinta: "var(--t5-ink)" },
+  { id: "ocio", nombre: "Ocio", color: "var(--t4)", tinta: "var(--t4-ink)" },
+  { id: "pantallas", nombre: "Celular y pantallas", color: "var(--t8)", tinta: "var(--t8-ink)" },
+  { id: "otro", nombre: "Otro", color: "var(--t-gris1)", tinta: "var(--t-gris1-ink)" },
 ];
 export const cat = (id: CatTiempo) => CATS.find((c) => c.id === id) || CATS[CATS.length - 1];
 

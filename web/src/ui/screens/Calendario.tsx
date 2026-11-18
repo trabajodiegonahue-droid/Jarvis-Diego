@@ -7,7 +7,7 @@ import { routine } from "../../jarvis/instance";
 import { Icon } from "../icons";
 import { go, setPrefs, useApp } from "../state";
 
-const COLOR: Record<TipoEvento, string> = { turno: "#E0A23B", partido: "#1FA463", equipo: "#2ED3A6", fisico: "#4C8DF6", rutina: "#8A94A6", prueba: "#E15A5A", tarea: "#9B6BDE", meta: "#D46BA3" };
+const COLOR: Record<TipoEvento, string> = { turno: "var(--t2)", partido: "var(--t6)", equipo: "var(--t3)", fisico: "var(--t1)", rutina: "var(--t-gris1)", prueba: "var(--t8)", tarea: "var(--t7)", meta: "var(--t5)" };
 const NOMBRE: Record<TipoEvento, string> = { turno: "Trabajo", partido: "Partido", equipo: "Equipo", fisico: "Físico", rutina: "Rutina", prueba: "Prueba", tarea: "Pendiente", meta: "Meta" };
 
 export function Calendario() {
