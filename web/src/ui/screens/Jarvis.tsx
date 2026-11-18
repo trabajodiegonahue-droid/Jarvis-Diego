@@ -6,6 +6,7 @@ import { assistant, speaker, tools } from "../../jarvis/instance";
 import { canListen, listenOnce, type ListenError } from "../../voice/speech";
 import { Sheet } from "../components";
 import { Icon } from "../icons";
+import { GUIA } from "../../jarvis/guia";
 import { getPrefs, kv } from "../state";
 
 type Estado = "idle" | "listening" | "thinking" | "speaking" | "error";
@@ -25,6 +26,7 @@ export function alChat(...ms: Msg[]) {
 }
 
 const SUGERENCIAS = ["¿Qué me toca hoy?", "Empecé a estudiar", "¿En qué se me fue el día?", "Gasté 5 mil en almuerzo", "Dormí 7 horas", "Hice gym", "¿Qué tengo esta semana?", "¿Va a llover?", "Mi año en números"];
+
 
 // El primer saludo del día es el resumen de la mañana (o de lo que queda del día). Después, el saludo corto.
 async function saludo(): Promise<string> {
@@ -149,6 +151,24 @@ export function JarvisSheet({ onClose, inicial }: { onClose: () => void; inicial
           <Icon name="send" size={18} />
         </button>
       </form>
+      <details>
+        <summary style={{ cursor: "pointer", minHeight: "40px", fontWeight: 600 }}>¿Qué le puedo decir?</summary>
+        <div class="stack" style={{ gap: "10px", marginTop: "6px" }}>
+          <span class="small">Escríbele o háblale como hablas tú: entiende q, xq, nms, mns, toy, mñn, lukas, gambas, po, wn, cansao… Toca una frase para probarla.</span>
+          {GUIA.map(([titulo, frases]) => (
+            <div key={titulo} class="stack" style={{ gap: "6px" }}>
+              <span class="lbl">{titulo}</span>
+              <div class="chips">
+                {frases.map((f) => (
+                  <button key={f} style={{ minHeight: "36px", fontSize: "14px" }} onClick={() => send(f)}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </details>
       {pocos && (
         <div class="chips" style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "2px" }}>
           {SUGERENCIAS.map((s) => (

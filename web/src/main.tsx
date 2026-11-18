@@ -8,6 +8,13 @@ applyTheme();
 const root = document.getElementById("app")!;
 render(<App />, root);
 
+// Si abrir los datos demora demasiado (teléfono con poco espacio, navegador ocupado), se ofrece reintentar.
+setTimeout(() => {
+  if (store.ready) return;
+  const m = document.querySelector("main[aria-busy]");
+  if (m) m.innerHTML = '<div class="card"><h2>Está demorando en abrir</h2><p class="small">Tus datos están en el teléfono. Prueba recargar.</p><button class="btn main" onclick="location.reload()">Reintentar</button></div>';
+}, 10000);
+
 store
   .load()
   .catch(() => {

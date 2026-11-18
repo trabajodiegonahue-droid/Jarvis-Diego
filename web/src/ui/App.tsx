@@ -1,7 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { hasPin } from "../core/pin";
 import { store } from "../data/store";
-import { Sheet, Toast } from "./components";
+import { Seguro, Sheet, Toast } from "./components";
 import { Icon } from "./icons";
 import { Dinero } from "./screens/Dinero";
 import { Bienvenida, Bloqueo } from "./screens/Entrada";
@@ -18,7 +18,7 @@ import { Futbol } from "./screens/Futbol";
 import { Habitos } from "./screens/Habitos";
 import { Calendario } from "./screens/Calendario";
 import { Tiempo } from "./screens/Tiempo";
-import { kv, toast, useApp, useRoute } from "./state";
+import { go, kv, toast, useApp, useRoute } from "./state";
 
 const TABS = [
   { path: "/", nombre: "Inicio", icon: "inicio" },
@@ -114,7 +114,9 @@ export function App() {
 
   return (
     <>
-      {screen}
+      <Seguro key={route} pagina onVolver={() => go("/")}>
+        {screen}
+      </Seguro>
       <button class="fab plus" aria-label="Registrar algo" onClick={() => setAdd(true)}>
         <Icon name="plus" size={26} />
       </button>

@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useErrorBoundary, useEffect, useRef, useState } from "preact/hooks";
 import { chileNow } from "../core/time";
 import { store } from "../data/store";
 import { uid, type Movimiento, type Tipo } from "../data/types";
@@ -7,19 +7,67 @@ import { clp, parseCLP } from "../money/format";
 import { Icon } from "./icons";
 import { closeToast, toast, useToast } from "./state";
 
+// Si algo falla dentro de una pantalla u hoja, se muestra un aviso amable y el resto de la app sigue.
+export function Seguro({ children, onVolver, pagina }: { children: ComponentChildren; onVolver?: () => void; pagina?: boolean }) {
+  const [err, reset] = useErrorBoundary((e) => console.error(e));
+  if (!err) return <>{children}</>;
+  const aviso = (
+    <div class="card" role="alert">
+      <h2>Esta parte tuvo un problema</h2>
+      <p class="small" style={{ margin: 0 }}>
+        Tus datos están bien guardados. Prueba de nuevo y, si se repite, cuéntame qué estabas haciendo.
+      </p>
+      <div class="row">
+        <button class="btn sm main" onClick={() => reset()}>
+          Probar de nuevo
+        </button>
+        {onVolver && (
+          <button
+            class="btn sm"
+            onClick={() => {
+              reset();
+              onVolver();
+            }}
+          >
+            Volver
+          </button>
+        )}
+      </div>
+    </div>
+  );
+  return pagina ? <main class="page">{aviso}</main> : aviso;
+}
+
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ComponentChildren }) {
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    // Accesibilidad: el foco entra a la hoja, Tab no se escapa hacia atrás y al cerrar vuelve a donde estaba.
+    const antes = document.activeElement as HTMLElement | null;
+    ref.current?.focus();
+    const k = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key !== "Tab" || !ref.current) return;
+      const f = [...ref.current.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')].filter((x) => !x.hasAttribute("disabled"));
+      if (!f.length) return;
+      if (e.shiftKey && document.activeElement === f[0]) {
+        e.preventDefault();
+        f[f.length - 1].focus();
+      } else if (!e.shiftKey && document.activeElement === f[f.length - 1]) {
+        e.preventDefault();
+        f[0].focus();
+      }
+    };
     window.addEventListener("keydown", k);
     document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", k);
       document.body.style.overflow = "";
+      antes?.focus?.();
     };
   }, []);
   return (
     <div class="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div class="sheet" role="dialog" aria-modal="true" aria-label={title}>
+      <div class="sheet" role="dialog" aria-modal="true" aria-label={title} ref={ref} tabIndex={-1} style={{ outline: "none" }}>
         <div class="grab" />
         <div class="between">
           <h2 style={{ margin: 0, fontSize: "20px" }}>{title}</h2>
@@ -27,7 +75,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
             <Icon name="close" />
           </button>
         </div>
-        {children}
+        <Seguro onVolver={onClose}>{children}</Seguro>
       </div>
     </div>
   );

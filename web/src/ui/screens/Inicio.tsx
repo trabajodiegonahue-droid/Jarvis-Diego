@@ -340,11 +340,12 @@ function Equilibrio({ vals, areas }: { vals: Record<string, number | null>; area
 
 function DemoBanner() {
   return (
-    <div class="card" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-      <span class="small">Estás viendo datos de ejemplo.</span>
+    <div class="card" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+      <span class="small">Modo práctica: estás con datos de ejemplo. Lo que anotes ahora (también hablándole a JARVIS) se borra junto con ellos.</span>
       <button
         class="btn sm"
         onClick={async () => {
+          if (!confirm("¿Borrar los datos de ejemplo y todo lo que anotaste mientras practicabas?")) return;
           await store.removeDemo();
         }}
       >

@@ -175,8 +175,6 @@ function VistaDia() {
             const y = e.clientY - (e.currentTarget as HTMLElement).getBoundingClientRect().top;
             setForm({ ini: Math.max(0, Math.min(1380, Math.floor(y / PX / 15) * 15)) });
           }}
-          role="list"
-          aria-label="Bloques del día"
         >
           {Array.from({ length: 13 }, (_, i) => i * 2).map((h) => (
             <div key={h} aria-hidden="true" style={{ position: "absolute", top: `${h * 60 * PX}px`, left: "-44px", right: 0, borderTop: "1px solid var(--line)", pointerEvents: "none" }}>
@@ -204,7 +202,6 @@ function BloqueVista({ b, col, ncol, onOpen }: { b: Bloque; col: number; ncol: n
   const h = Math.max(6, (b.fin - b.ini) * PX);
   return (
     <button
-      role="listitem"
       onClick={onOpen}
       aria-label={`${b.titulo}, de ${hhmm(b.ini)} a ${b.fin >= 1440 ? "24:00" : hhmm(b.fin)}${b.corriendo ? ", en curso" : ""}`}
       style={{
@@ -214,8 +211,7 @@ function BloqueVista({ b, col, ncol, onOpen }: { b: Bloque; col: number; ncol: n
         left: `calc(${(col / ncol) * 100}% + 2px)`,
         width: `calc(${100 / ncol}% - 4px)`,
         background: c.color,
-        opacity: b.derivado ? 0.7 : 1,
-        border: b.corriendo ? "2px dashed var(--ink)" : 0,
+        border: b.corriendo ? "2px dashed var(--ink)" : b.derivado ? "2px dashed rgba(11,15,23,.45)" : 0,
         borderRadius: "6px",
         color: "#0B0F17",
         fontSize: "12px",

@@ -55,12 +55,12 @@ export function Calendario() {
         const esHoy = d.fecha === hoy;
         const pasado = d.fecha < hoy;
         return (
-          <section key={d.fecha} class="card" style={{ gap: "8px", opacity: pasado ? 0.75 : 1, borderColor: esHoy ? "var(--blue)" : undefined }} aria-label={`${DAY_NAMES[dow(d.fecha)]} ${fechaCorta(d.fecha)}`}>
+          <section key={d.fecha} class="card" style={{ gap: "8px", borderColor: esHoy ? "var(--blue)" : undefined, background: pasado ? "transparent" : undefined }} aria-label={`${DAY_NAMES[dow(d.fecha)]} ${fechaCorta(d.fecha)}`}>
             <div class="between">
               <h2 style={{ textTransform: "capitalize" }}>
                 {DAY_NAMES[dow(d.fecha)]} {Number(d.fecha.slice(8))}
               </h2>
-              {esHoy && <span class="small" style={{ color: "var(--blue)", fontWeight: 600 }}>Hoy</span>}
+              {esHoy ? <span class="small" style={{ color: "var(--blue)", fontWeight: 600 }}>Hoy</span> : pasado ? <span class="small">Pasó</span> : null}
             </div>
             {d.choques.map((c) => (
               <p key={c} style={{ margin: 0, fontSize: "13px", borderLeft: "3px solid var(--amber)", paddingLeft: "8px" }}>
