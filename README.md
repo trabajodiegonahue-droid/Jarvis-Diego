@@ -17,7 +17,7 @@ Los briefs están en [`docs/APP_VIDA.md`](docs/APP_VIDA.md) (manda este) y [`doc
 | 3 | Fútbol y Entrenamiento | ✅ |
 | 4 | JARVIS integrado: registrar hablando (gastos, ingresos, entrenos, goles, metas, estudio, turnos) con deshacer, consultas y resúmenes, resumen de la mañana, modo manos libres para entrenar, modo privado y Atajo de Siri | ✅ |
 | 5 | Hábitos y bienestar (rachas, sueño, energía, ánimo, agua, diario), calendario unificado con choques, bitácora de tiempo al minuto (cronómetro, línea del día, semana, mes y año), «Mi año en números», resúmenes automáticos de la semana y del mes, clima (Open-Meteo) | ✅ |
-| 6 | Pulido final | Pendiente |
+| 6 | Pulido: JARVIS entiende cómo escribes (q, xq, nms, mns, toy, mñn, lukas, gambas, cansao, po, wn…), modo práctica con los datos de ejemplo, guía «¿Qué le puedo decir?», protección ante errores, accesibilidad revisada con axe en tema oscuro y claro, y velocidad medida | ✅ |
 
 ## Cómo está armado
 
@@ -83,6 +83,12 @@ docs/       los briefs
 - **Resúmenes automáticos:** el lunes aparece en el inicio el resumen de la semana pasada (entrenos, músculos, récords, estudio, hábitos, sueño y bitácora), los primeros días del mes el del mes pasado y a fin de año el link a tu año. Con «Escuchar» te lo lee.
 - **Clima:** en el inicio y en el resumen de la mañana, con un consejo si juegas con lluvia o frío. Lo da [Open-Meteo](https://open-meteo.com) (gratis para uso personal, licencia CC BY 4.0, sin clave). Solo recibe las coordenadas de tu ciudad, que cambias en Ajustes.
 
+**Escríbele como hablas (fase 6).** Antes de interpretar una frase, JARVIS la pasa a español «de diccionario»: «oe wn gaste 5 lukas x un completo nms» se lee como «gasté 5 lucas por un completo». Entiende q, k, xq, x, d, pa, tb, mns (menos), nms (nomás), toy, tai, mñn, dsp, cn, celu, lukas, gamba ($100), quina ($500), palo, cansao/reventao, sipo, nica, y saca muletillas como po, wn, cachai o jaja. La lista está en `web/src/brain/chileno.ts`: si usas otra palabra, se agrega ahí.
+
+**Modo práctica.** Si cargas los datos de ejemplo, todo lo que anotes después (también hablándole a JARVIS) queda marcado como ejemplo y se borra con «Borrar ejemplos». Así puedes probar sin miedo. La rutina, que vive aparte, no se borra con los ejemplos.
+
+**¿Qué le puedo decir?** En la hoja de JARVIS hay una guía con frases por tema; tocas una y se la manda. Una prueba automática revisa que JARVIS entienda todas sin Gemini.
+
 **Manos libres en el gimnasio.** En la sesión guiada (Fútbol → Físico → Entrenar hoy), toca «Entrenar con voz». JARVIS dice el ejercicio, la serie y la meta. Le respondes «listo», «hice 8» o «10 con 22,5 kilos», y él anota la serie, inicia el descanso, te avisa a los 10 segundos y te dice la siguiente. También entiende «siguiente ejercicio», «salta el descanso», «repite» y «terminé el entreno». Si el iPhone no deja escuchar dentro de la app, igual te habla y usas los botones grandes.
 
 **Seguridad y cuota:**
@@ -90,6 +96,15 @@ docs/       los briefs
 - Las conversaciones largas se resumen.
 - Borrar toda la rutina pide confirmación.
 - Si se acaba la cuota o no hay internet, JARVIS lo dice con un mensaje amable y la página sigue funcionando.
+
+## Calidad (fase 6)
+
+- **Pruebas:** 160 pruebas automáticas en la app (`npm test` en `web/`) y 7 en el intermediario (`npm test` en `worker/`).
+- **Velocidad:** con el procesador 4 veces más lento y red 3G, la app abre en unos 1,1 s la primera vez y en 0,5 s después. Cambiar de pantalla toma menos de 0,1 s.
+- **Accesibilidad:** las 14 pantallas y hojas principales pasan la revisión de [axe-core](https://github.com/dequelabs/axe-core) en tema oscuro y claro. Las hojas atrapan el foco y lo devuelven al cerrarse.
+- **Errores amables:** si una pantalla falla, aparece un aviso con «Probar de nuevo» y el resto de la app sigue. Si abrir los datos demora más de 10 s, se ofrece recargar.
+- **Corregido:** a veces la app quedaba en negro al abrir, porque los datos cargaban antes de que la pantalla alcanzara a escuchar. Se probó con 168 recargas seguidas.
+- **Dependencias:** `npm audit` avisa de un problema en `picomatch` (lo usan Vite y Vitest al compilar). No tiene arreglo publicado todavía, solo corre en tu computador al compilar y no va dentro de la app.
 
 ## Correrlo en tu Mac
 
@@ -230,6 +245,5 @@ Ese repositorio dice MIT en el README, pero no tiene archivo LICENSE, así que n
 
 ## Pendientes
 
-- **Fase 6** de `docs/APP_VIDA.md`: pulido final (rendimiento, accesibilidad, pruebas).
 - **Versión 2 de JARVIS (avisos):** notificaciones push de la PWA. En iOS 16.4 o más nuevo funcionan solo con la app instalada en el inicio y con el permiso pedido desde un botón. Necesitan el intermediario: un cron de Cloudflare envía el aviso a su hora, con una copia mínima de la rutina (nombre, hora y día). Como alternativa sin servidor: exportar los avisos al Calendario del iPhone (.ics).
 - **Versiones 4 y 5 de JARVIS:** memoria de lo que le cuentas, fotos y Google Calendar (solo lectura).

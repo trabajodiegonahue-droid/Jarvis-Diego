@@ -55,9 +55,11 @@ describe("almacenamiento y respaldo", () => {
     const s = new AppStore();
     await s.load();
     const d = datosEjemplo("2026-11-17");
+    await s.put("movimientos", { id: "real", tipo: "egreso", monto: 1, categoriaId: "c-comida", fecha: "2026-11-17", creado: 1 });
     await s.put("movimientos", ...d.movimientos!);
     await s.put("presupuestos", ...d.presupuestos!);
-    await s.put("movimientos", { id: "real", tipo: "egreso", monto: 1, categoriaId: "c-comida", fecha: "2026-11-17", creado: 1 });
+    // Modo práctica: lo que se anota con los ejemplos cargados también se va con ellos.
+    await s.put("movimientos", { id: "practica", tipo: "egreso", monto: 2, categoriaId: "c-comida", fecha: "2026-11-17", creado: 2 });
     expect(s.hasDemo()).toBe(true);
     expect(s.data.movimientos.every((m) => m.fecha <= "2026-11-17")).toBe(true);
     await s.removeDemo();
