@@ -68,16 +68,16 @@ export function BarsIO({ data, label }: { data: { etiqueta: string; ingresos: nu
 }
 
 // Barras horizontales: gasto por categoría.
-export function BarsH({ data, total, label }: { data: { nombre: string; valor: number }[]; total: number; label: string }) {
+export function BarsH({ data, total, label, fmt = clp }: { data: { nombre: string; valor: number; color?: string }[]; total: number; label: string; fmt?: (n: number) => string }) {
   return (
     <div class="stack" role="list" aria-label={label}>
       {data.map((d) => (
         <div role="listitem" key={d.nombre} class="stack" style={{ gap: "4px" }}>
           <div class="between" style={{ fontSize: "14px" }}>
             <span>{d.nombre}</span>
-            <span class="num">{clp(d.valor)}</span>
+            <span class="num">{fmt(d.valor)}</span>
           </div>
-          <Progress thin value={total ? (d.valor / total) * 100 : 0} color="var(--blue)" label={`${d.nombre}: ${clp(d.valor)}`} />
+          <Progress thin value={total ? (d.valor / total) * 100 : 0} color={d.color || "var(--blue)"} label={`${d.nombre}: ${fmt(d.valor)}`} />
         </div>
       ))}
     </div>

@@ -216,3 +216,5 @@ svg text { font-family: inherit; }
 /* Pestañas internas de una sección: siempre en una fila */
 .seg.tabs4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
 .seg.tabs4 button { padding: 0 4px; font-size: 13px; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

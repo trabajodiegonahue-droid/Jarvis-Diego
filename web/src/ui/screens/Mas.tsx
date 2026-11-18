@@ -9,12 +9,14 @@ import { GEMINI_MODEL } from "../../config";
 import { askGemini } from "../../brain/gemini";
 import { FRIENDLY } from "../../brain/persona";
 import { Empty, Sheet } from "../components";
+import { buscarCiudad, type Ciudad } from "../../weather/clima";
 import { Icon } from "../icons";
 import { AREAS, CARDS, cardReady, getPrefs, go, kv, reloadPrefs, setPrefs, toast, useApp, type CardId } from "../state";
 
 const SECCIONES = [
   { path: "/mas/estudios", nombre: "Estudios", icon: "libro", fase: 2 },
   { path: "/mas/trabajo", nombre: "Trabajo", icon: "trabajo", fase: 2 },
+  { path: "/mas/tiempo", nombre: "Mi tiempo: día, mes y año", icon: "reloj", fase: 5 },
   { path: "/mas/habitos", nombre: "Hábitos y bienestar", icon: "habitos", fase: 5 },
   { path: "/mas/calendario", nombre: "Calendario", icon: "calendario", fase: 5 },
   { path: "/mas/ajustes", nombre: "Ajustes", icon: "ajustes", fase: 0 },
@@ -36,6 +38,67 @@ export function Mas() {
         ))}
       </div>
     </main>
+  );
+}
+
+function CiudadYAgua() {
+  const { prefs } = useApp();
+  const [q, setQ] = useState("");
+  const [res, setRes] = useState<Ciudad[] | null>(null);
+  return (
+    <section class="card" aria-labelledby="a-clima">
+      <h2 id="a-clima">Clima y bienestar</h2>
+      <span class="small">Ciudad para el clima: {prefs.ciudad.nombre}</span>
+      <form
+        class="row"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (!q.trim()) return;
+          try {
+            setRes(await buscarCiudad(q.trim()));
+          } catch {
+            toast("No pude buscar: revisa tu internet.");
+          }
+        }}
+      >
+        <input aria-label="Buscar ciudad" placeholder="Buscar otra ciudad" value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} style={{ flex: 1 }} />
+        <button class="btn sm">Buscar</button>
+      </form>
+      {res && (
+        <div class="chips">
+          {res.length ? (
+            res.map((c) => (
+              <button
+                key={c.nombre + c.lat}
+                onClick={() => {
+                  setPrefs({ ciudad: c });
+                  setRes(null);
+                  setQ("");
+                  toast(`Clima de ${c.nombre.split(",")[0]}.`);
+                }}
+              >
+                {c.nombre}
+              </button>
+            ))
+          ) : (
+            <span class="small">No encontré esa ciudad.</span>
+          )}
+        </div>
+      )}
+      <div class="between">
+        <span>Meta de agua</span>
+        <div class="row" style={{ gap: "6px" }}>
+          <button class="icon-btn" aria-label="Menos vasos" onClick={() => setPrefs({ aguaMeta: Math.max(1, prefs.aguaMeta - 1) })}>
+            −
+          </button>
+          <span class="num">{prefs.aguaMeta} vasos</span>
+          <button class="icon-btn" aria-label="Más vasos" onClick={() => setPrefs({ aguaMeta: Math.min(20, prefs.aguaMeta + 1) })}>
+            +
+          </button>
+        </div>
+      </div>
+      <span class="small">Clima: Open-Meteo.com (licencia CC BY 4.0, gratis para uso personal). Solo recibe las coordenadas de la ciudad.</span>
+    </section>
   );
 }
 
@@ -184,6 +247,8 @@ export function Ajustes() {
           ))}
         </div>
       </section>
+
+      <CiudadYAgua />
 
       <section class="card" aria-labelledby="a-pin">
         <h2 id="a-pin">Bloqueo con PIN</h2>
@@ -364,6 +429,8 @@ function JarvisAjustes() {
           <li>Cuando JARVIS no entiende la frase, se envía esa frase, tu rutina de hoy, lo que JARVIS sabe de ti (el texto de arriba) y un resumen corto de la conversación.</li>
           <li>Si Gemini necesita un dato de la app, se le pasa solo el resultado ya calculado (por ejemplo "llevas $80.000 este mes"), nunca tu lista de movimientos.</li>
           <li>Con el modo privado, ni ese resultado de dinero sale: tú lo ves en pantalla y Gemini solo sabe que respondiste. Las frases con plata que JARVIS no entiende tampoco se envían.</li>
+          <li>Tu diario no se le manda nunca a Gemini. Tus hábitos y tu bitácora de tiempo tampoco: "¿en qué se me fue el día?" se calcula en el teléfono, y si Gemini necesita el dato recibe solo el resumen ("hoy registraste 9 h: trabajo 6 h…").</li>
+          <li>El clima se pide a Open-Meteo con las coordenadas de tu ciudad, nada más.</li>
           <li>La clave o el código de acceso quedan solo en este teléfono. Los respaldos no los incluyen.</li>
         </ul>
       </details>

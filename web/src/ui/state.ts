@@ -2,12 +2,16 @@
 import { useEffect, useState } from "preact/hooks";
 import { localKV } from "../core/storage";
 import { store } from "../data/store";
+import { PUERTO_VARAS, type Ciudad } from "../weather/clima";
 
 export const kv = localKV;
 
-export type CardId = "dinero" | "metas" | "entreno" | "futbol" | "pendientes" | "equilibrio" | "jarvis";
+export type CardId = "resumen" | "tiempo" | "habitos" | "dinero" | "metas" | "entreno" | "futbol" | "pendientes" | "equilibrio" | "jarvis";
 // "fase": en qué fase llega la tarjeta. Las que todavía no existen no se muestran en el inicio.
 export const CARDS: { id: CardId; nombre: string; fase: number }[] = [
+  { id: "resumen", nombre: "Resumen de la semana y del mes", fase: 5 },
+  { id: "tiempo", nombre: "Mi tiempo hoy", fase: 5 },
+  { id: "habitos", nombre: "Hábitos de hoy", fase: 5 },
   { id: "dinero", nombre: "Dinero del mes", fase: 1 },
   { id: "metas", nombre: "Mis metas", fase: 2 },
   { id: "entreno", nombre: "Semana de entrenamiento", fase: 3 },
@@ -16,7 +20,7 @@ export const CARDS: { id: CardId; nombre: string; fase: number }[] = [
   { id: "jarvis", nombre: "Frase de JARVIS", fase: 1 },
   { id: "equilibrio", nombre: "Equilibrio", fase: 1 },
 ];
-export const FASE_ACTUAL = 4;
+export const FASE_ACTUAL = 5;
 export const cardReady = (id: CardId) => (CARDS.find((c) => c.id === id)?.fase ?? 99) <= FASE_ACTUAL;
 export const AREAS = [
   { id: "dinero", nombre: "Dinero" },
@@ -25,6 +29,7 @@ export const AREAS = [
   { id: "futbol", nombre: "Fútbol" },
   { id: "estudios", nombre: "Estudios" },
   { id: "trabajo", nombre: "Trabajo" },
+  { id: "bienestar", nombre: "Hábitos" },
 ];
 
 export interface Prefs {
@@ -37,6 +42,11 @@ export interface Prefs {
   privacy: boolean; // modo privado: no mandar datos de dinero a Gemini
   tarifaHora: number; // valor por hora del trabajo (para estimar el sueldo)
   futbol: { posicion: string; equipo: string; objetivos: string; diasPartido: number[] };
+  areasConocidas: string[]; // para sumar áreas nuevas que lleguen en otras versiones
+  ciudad: Ciudad; // para el clima
+  aguaMeta: number; // vasos al día
+  calRutina: boolean; // mostrar la rutina en el calendario
+  resumenVisto: string; // último resumen (semana o mes) que cerraste en el inicio
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -49,6 +59,11 @@ const DEFAULT_PREFS: Prefs = {
   privacy: false,
   tarifaHora: 0,
   futbol: { posicion: "Mediocampista", equipo: "", objetivos: "", diasPartido: [] },
+  areasConocidas: AREAS.map((a) => a.id),
+  ciudad: PUERTO_VARAS,
+  aguaMeta: 8,
+  calRutina: true,
+  resumenVisto: "",
 };
 
 let prefs: Prefs = loadPrefs();
@@ -60,6 +75,10 @@ function loadPrefs(): Prefs {
   // Tarjetas nuevas que aparezcan en versiones futuras se agregan al final.
   for (const c of CARDS) if (!p.cards.some((x) => x.id === c.id)) p.cards.push({ id: c.id, on: true });
   p.cards = p.cards.filter((x) => CARDS.some((c) => c.id === x.id));
+  // Áreas nuevas (por ejemplo Hábitos) se activan solas una vez.
+  const nuevas = AREAS.map((a) => a.id).filter((id) => !(p.areasConocidas || []).includes(id));
+  if (nuevas.length && kv.get("prefs", null)) p.areas = [...new Set([...p.areas, ...nuevas])];
+  p.areasConocidas = AREAS.map((a) => a.id);
   return p;
 }
 

@@ -24,7 +24,7 @@ export function alChat(...ms: Msg[]) {
   chat = chat.slice(-30);
 }
 
-const SUGERENCIAS = ["¿Qué me toca hoy?", "Gasté 5 mil en almuerzo", "¿Cuánto llevo gastado este mes?", "Hice gym", "Metí un gol", "¿Cómo voy con mis metas?", "Resumen de la semana"];
+const SUGERENCIAS = ["¿Qué me toca hoy?", "Empecé a estudiar", "¿En qué se me fue el día?", "Gasté 5 mil en almuerzo", "Dormí 7 horas", "Hice gym", "¿Qué tengo esta semana?", "¿Va a llover?", "Mi año en números"];
 
 // El primer saludo del día es el resumen de la mañana (o de lo que queda del día). Después, el saludo corto.
 async function saludo(): Promise<string> {

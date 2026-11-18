@@ -5,7 +5,7 @@ import { chileNow, DAY_NAMES } from "../../core/time";
 import { store } from "../../data/store";
 import { uid, type Chequeo, type Entreno, type ItemPlan, type Objetivo, type Plan, type SesionPlan } from "../../data/types";
 import { CALENTAMIENTO, EJERCICIOS, EQUIPOS, ejercicio, MUSCULOS, NOTA_EMG, VUELTA_CALMA, type Ejercicio, type Equipo, type Musculo } from "../../training/ejercicios";
-import { cargaDelDia, generarRutina, records, recordsNuevos, sesionDeHoy, seriesAjustadas, sugerencia, volumenPorMusculo } from "../../training/calc";
+import { chequeoDeHoy, cargaDelDia, generarRutina, records, recordsNuevos, sesionDeHoy, seriesAjustadas, sugerencia, volumenPorMusculo } from "../../training/calc";
 import { Progress } from "../charts";
 import { Empty, Sheet } from "../components";
 import { Icon } from "../icons";
@@ -38,7 +38,7 @@ export function Fisico() {
   const [sesion, setSesion] = useState<SesionPlan | null>(null);
   const [ej, setEj] = useState<string | null>(null);
   const hoyS = sesionDeHoy(plan, hoy);
-  const ch = data.chequeos.find((c) => c.id === hoy);
+  const ch = chequeoDeHoy(data, hoy);
   const carga = cargaDelDia(ch, data.partidos, hoy, data.chequeos);
 
   return (
@@ -70,7 +70,7 @@ export function Fisico() {
                 <span class="small" style={{ width: "44px" }}>
                   {d.slice(0, 3)}
                 </span>
-                <span style={{ flex: 1, color: s ? "var(--ink)" : "var(--muted)" }}>{s ? s.nombre.replace(/^\w+: /, "") : "Descanso"}</span>
+                <span style={{ flex: 1, color: s ? "var(--ink)" : "var(--muted)" }}>{s ? s.nombre.replace(/^[^:]+: /, "") : "Descanso"}</span>
                 {s && <span class="small">{s.minutos} min</span>}
               </button>
             );
@@ -286,7 +286,7 @@ function Generador({ plan, onDone }: { plan?: Plan; onDone: () => void }) {
 function SesionGuiada({ s, onClose, onEj }: { s: SesionPlan; onClose: () => void; onEj: (id: string) => void }) {
   const { data } = useApp();
   const hoy = chileNow().date;
-  const carga = cargaDelDia(data.chequeos.find((c) => c.id === hoy), data.partidos, hoy, data.chequeos);
+  const carga = cargaDelDia(chequeoDeHoy(data, hoy), data.partidos, hoy, data.chequeos);
   const plan = data.planes.find((p) => p.id === "activo");
   const gimnasio = !!plan?.equipo.includes("gimnasio");
   const items = s.items.filter((it) => !(carga.sinPierna && ejercicio(it.ejId)?.pesado));
@@ -414,7 +414,7 @@ function SesionGuiada({ s, onClose, onEj }: { s: SesionPlan; onClose: () => void
     const en: Entreno = {
       id: uid(),
       fecha: hoy,
-      nombre: s.nombre.replace(/^\w+: /, ""),
+      nombre: s.nombre.replace(/^[^:]+: /, ""),
       sesionId: s.id,
       items: items
         .map((it) => ({ ejId: it.ejId, series: (reg[it.ejId] || []).filter((x) => x.reps.trim()).map((x) => ({ reps: Math.round(Number(x.reps)), ...(x.kg.trim() ? { kg: parseFloat(x.kg.replace(",", ".")) } : {}) })).filter((x) => x.reps > 0) }))
@@ -429,7 +429,7 @@ function SesionGuiada({ s, onClose, onEj }: { s: SesionPlan; onClose: () => void
   }
 
   return (
-    <Sheet title={s.nombre.replace(/^\w+: /, "")} onClose={onClose}>
+    <Sheet title={s.nombre.replace(/^[^:]+: /, "")} onClose={onClose}>
       {carga.nivel !== "normal" && <p style={{ margin: 0, fontSize: "14px", borderLeft: "3px solid var(--amber)", paddingLeft: "10px" }}>{carga.motivo}</p>}
       {manos ? (
         <div class="card" style={{ gap: "10px", borderColor: "var(--green)" }} aria-live="polite">

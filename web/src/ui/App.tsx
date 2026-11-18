@@ -9,12 +9,15 @@ import { Inicio } from "./screens/Inicio";
 import { alChat, JarvisSheet } from "./screens/Jarvis";
 import { revisarBuzon } from "../jarvis/buzon";
 import { assistant, settings } from "../jarvis/instance";
-import { Ajustes, Mas, Pronto } from "./screens/Mas";
+import { Ajustes, Mas } from "./screens/Mas";
 import { Metas } from "./screens/Metas";
 import { Trabajo } from "./screens/Trabajo";
 import { Estudios } from "./screens/Estudios";
 import { Registrar } from "./screens/Registrar";
 import { Futbol } from "./screens/Futbol";
+import { Habitos } from "./screens/Habitos";
+import { Calendario } from "./screens/Calendario";
+import { Tiempo } from "./screens/Tiempo";
 import { kv, toast, useApp, useRoute } from "./state";
 
 const TABS = [
@@ -98,9 +101,11 @@ export function App() {
       case "/mas/trabajo":
         return <Trabajo />;
       case "/mas/habitos":
-        return <Pronto titulo="Hábitos y bienestar" fase={5} texto="Hábitos con racha, sueño, energía, ánimo y agua." />;
+        return <Habitos />;
       case "/mas/calendario":
-        return <Pronto titulo="Calendario" fase={5} texto="Turnos, entrenamientos, partidos y estudios en una sola semana." />;
+        return <Calendario />;
+      case "/mas/tiempo":
+        return <Tiempo />;
       default:
         return <Inicio onAdd={() => setAdd(true)} />;
     }

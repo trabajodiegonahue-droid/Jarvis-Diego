@@ -55,6 +55,16 @@ const P: Record<string, JSX.Element> = {
     </>
   ),
   habitos: <path d="M5 13l4 4L19 7" />,
+  reloj: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
+  stop: <rect x="7" y="7" width="10" height="10" rx="2" />,
+  play: <path d="M8 5v14l11-7z" />,
+  izq: <path d="M15 5l-7 7 7 7" />,
+  der: <path d="M9 5l7 7-7 7" />,
   calendario: (
     <>
       <rect x="3" y="5" width="18" height="16" rx="2" />

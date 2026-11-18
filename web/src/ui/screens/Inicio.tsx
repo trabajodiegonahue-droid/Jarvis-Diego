@@ -14,8 +14,19 @@ import { equilibrioEstudios, proximasEvaluaciones, tareasPendientes } from "../.
 import { equilibrioTrabajo, proximoTurno, turnoDeHoy } from "../../work/calc";
 import { MetaCard } from "./Metas";
 import { TareaFila } from "./Estudios";
-import { cargaDelDia, equilibrioCuerpo, semanaEntreno, sesionDeHoy } from "../../training/calc";
+import { chequeoDeHoy, cargaDelDia, equilibrioCuerpo, semanaEntreno, sesionDeHoy } from "../../training/calc";
 import { equilibrioFutbol, proximoEvento, sinRegistrar } from "../../futbol/calc";
+import { useEffect, useState } from "preact/hooks";
+import { addDays, dow, lunesDe } from "../../core/dates";
+import { activos, aplica, equilibrioHabitos, hecho, racha } from "../../habits/calc";
+import { climaAhora, speaker } from "../../jarvis/instance";
+import { resumenMes, resumenSemana } from "../../jarvis/resumenes";
+import { bloquesDia, cat, horasTxt, iso, minutosDia } from "../../time/calc";
+import { describir, type Clima } from "../../weather/clima";
+import { guardarDia, toggleHabito } from "./Habitos";
+import { Cronometro } from "./Tiempo";
+import type { CatTiempo } from "../../data/types";
+import { setPrefs } from "../state";
 
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
@@ -31,8 +42,70 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
   const ahora = current ? `Ahora: ${current.title} · ${timeLabel(current)}` : next ? `Después: ${next.title} · ${next.time}` : "Hoy no te queda nada en la rutina";
   const frase = fraseDinero(estados, tot, mes, dia);
   const hay = (a: string) => prefs.areas.includes(a);
+  const [clima, setClima] = useState<Clima | null>(null);
+  useEffect(() => {
+    void climaAhora().then(setClima);
+  }, [prefs.ciudad.nombre]);
+  const climaHoy = clima?.dias.find((x) => x.fecha === n.date);
 
   const cards: Record<CardId, () => preact.JSX.Element | null> = {
+    resumen: () => <ResumenAuto />,
+    tiempo: () => {
+      const hhmm = `${String(Math.floor(n.minutes / 60)).padStart(2, "0")}:${String(n.minutes % 60).padStart(2, "0")}`;
+      const m = minutosDia(bloquesDia(data, n.date, iso(n.date, hhmm)), n.minutes);
+      const filas = (Object.entries(m) as [CatTiempo, number][]).sort((a, b) => b[1] - a[1]).slice(0, 3);
+      return (
+        <div class="stack" style={{ gap: "8px" }}>
+          <Cronometro compacto />
+          {filas.length > 0 && (
+            <a href="#/mas/tiempo" class="small" style={{ color: "var(--muted)", textDecoration: "none" }}>
+              Hoy: {filas.map(([c, v]) => `${cat(c).nombre.toLowerCase()} ${horasTxt(v)}`).join(" · ")} ›
+            </a>
+          )}
+        </div>
+      );
+    },
+    habitos: () => {
+      if (!hay("bienestar")) return null;
+      const hs = activos(data.habitos).filter((h) => aplica(h, n.date));
+      const dia = data.dias.find((x) => x.id === n.date);
+      return (
+        <div class="card">
+          <div class="between">
+            <span class="lbl">Hábitos de hoy</span>
+            <a href="#/mas/habitos" class="small" style={{ color: "var(--blue)", minHeight: "32px", display: "inline-flex", alignItems: "center" }}>
+              Ver todo
+            </a>
+          </div>
+          {!activos(data.habitos).length ? (
+            <Empty text="Crea un par de hábitos y márcalos aquí con un toque." action="Elegir hábitos" onAction={() => go("/mas/habitos")} />
+          ) : (
+            <div class="chips">
+              {hs.map((h) => {
+                const ok = hecho(data.dias, h.id, n.date);
+                const r = racha(h, data.dias, n.date);
+                return (
+                  <button key={h.id} class={ok ? "on" : ""} aria-pressed={ok} onClick={() => toggleHabito(h, n.date)}>
+                    {ok ? "✓ " : ""}
+                    {h.nombre}
+                    {r >= 2 ? ` · ${r}` : ""}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div class="between small">
+            <span>
+              Agua: {dia?.agua || 0} de {prefs.aguaMeta}
+              {dia?.sueno != null ? ` · Sueño: ${String(dia.sueno).replace(".", ",")} h` : ""}
+            </span>
+            <button class="btn sm" aria-label="Un vaso de agua más" onClick={() => guardarDia(n.date, { agua: (dia?.agua || 0) + 1 })}>
+              + Vaso
+            </button>
+          </div>
+        </div>
+      );
+    },
     dinero: () =>
       !hay("dinero") ? null : (
         <button class="card" onClick={() => go("/dinero")} aria-label="Ver Dinero">
@@ -74,7 +147,7 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
       const hechas = sem.filter((x) => x.hecho).length;
       const tocan = sem.filter((x) => x.plan).length;
       const hoyS = sesionDeHoy(plan, n.date);
-      const carga = cargaDelDia(data.chequeos.find((c) => c.id === n.date), data.partidos, n.date, data.chequeos);
+      const carga = cargaDelDia(chequeoDeHoy(data, n.date), data.partidos, n.date, data.chequeos);
       return (
         <button class="card" onClick={() => go("/futbol?fisico")} aria-label={`Entrenamiento: ${hechas} de ${tocan} sesiones esta semana`}>
           <div class="between">
@@ -91,7 +164,7 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
               </span>
             ))}
           </div>
-          <span class="small">{!plan ? "Arma tu rutina en Fútbol → Físico." : hoyS ? `Hoy: ${hoyS.nombre.replace(/^\w+: /, "")}${carga.nivel !== "normal" ? ` · ${carga.nivel === "parar" ? "hoy no, cuida esa zona" : "versión suave"}` : ""}` : "Hoy toca descanso."}</span>
+          <span class="small">{!plan ? "Arma tu rutina en Fútbol → Físico." : hoyS ? `Hoy: ${hoyS.nombre.replace(/^[^:]+: /, "")}${carga.nivel !== "normal" ? ` · ${carga.nivel === "parar" ? "hoy no, cuida esa zona" : "versión suave"}` : ""}` : "Hoy toca descanso."}</span>
         </button>
       );
     },
@@ -178,6 +251,7 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
           futbol: equilibrioFutbol(data.partidos, mes, n.date),
           estudios: equilibrioEstudios(data.materias, data.sesiones, n.date),
           trabajo: equilibrioTrabajo(data.turnos, mes, n.date),
+          bienestar: equilibrioHabitos(data.habitos, data.dias, n.date),
         }}
         areas={prefs.areas}
       />
@@ -189,7 +263,10 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
     <main class="page">
       <header class="head">
         <div class="stack" style={{ gap: "2px" }}>
-          <span class="sub">{fecha}</span>
+          <span class="sub">
+            {fecha}
+            {climaHoy ? ` · ${climaHoy.min}° a ${climaHoy.max}°, ${describir(climaHoy.codigo)}${climaHoy.lluvia >= 40 ? ` (${climaHoy.lluvia}% lluvia)` : ""}` : ""}
+          </span>
           <h1>Hola, Diego</h1>
         </div>
       </header>
@@ -254,7 +331,7 @@ function Equilibrio({ vals, areas }: { vals: Record<string, number | null>; area
           ¿Cómo se calcula?
         </summary>
         <p class="small" style={{ margin: "4px 0 0" }}>
-          Cada área va de 0 a 100 y compara lo que hiciste con lo que te propusiste. No es una nota sobre tu vida, es solo una guía. Dinero: si a esta altura del mes gastaste lo que te tocaba según tu presupuesto o menos, 100; si te pasaste, baja en proporción. Metas: qué tan al día va cada meta (su avance contra el tiempo que pasó), en promedio. Estudios: horas de esta semana contra las que tocaban hasta hoy según tu meta semanal. Trabajo: turnos a los que fuiste contra los que tenías hasta hoy. Entrenamiento: sesiones hechas esta semana contra las de tu rutina hasta hoy. Fútbol: partidos y entrenamientos del mes a los que fuiste. Un área aparece cuando tiene datos.
+          Cada área va de 0 a 100 y compara lo que hiciste con lo que te propusiste. No es una nota sobre tu vida, es solo una guía. Dinero: si a esta altura del mes gastaste lo que te tocaba según tu presupuesto o menos, 100; si te pasaste, baja en proporción. Metas: qué tan al día va cada meta (su avance contra el tiempo que pasó), en promedio. Estudios: horas de esta semana contra las que tocaban hasta hoy según tu meta semanal. Trabajo: turnos a los que fuiste contra los que tenías hasta hoy. Entrenamiento: sesiones hechas esta semana contra las de tu rutina hasta hoy. Fútbol: partidos y entrenamientos del mes a los que fuiste. Hábitos: los que cumpliste en los últimos 7 días contra los que tocaban. Un área aparece cuando tiene datos.
         </p>
       </details>
     </div>
@@ -288,5 +365,73 @@ function BackupReminder() {
       <span class="small">{last ? `Tu último respaldo es de hace ${dias} días.` : "Todavía no guardas un respaldo."} Si pierdes el teléfono, con él recuperas todo.</span>
       <span class="btn sm">Respaldar</span>
     </button>
+  );
+}
+
+// Resumen automático: el lunes (o el domingo en la tarde) aparece el de la semana; los primeros días
+// del mes, el del mes pasado; a fin de año, el link a "Mi año en números". Se cierra con "Listo".
+function ResumenAuto() {
+  const { data, prefs } = useApp();
+  const n = chileNow();
+  const hoy = n.date;
+  let id = "";
+  let titulo = "";
+  let r: { texto: string } | null = null;
+  const d = Number(hoy.slice(8, 10));
+  if (d <= 3) {
+    const finMes = addDays(`${hoy.slice(0, 7)}-01`, -1);
+    id = `mes:${finMes.slice(0, 7)}`;
+    titulo = `Tu ${nombreMes(finMes.slice(0, 7))}`;
+    r = resumenMes(data, finMes, true);
+  } else if (dow(hoy) === 0 || (dow(hoy) === 6 && n.minutes >= 18 * 60)) {
+    const fin = dow(hoy) === 0 ? addDays(hoy, -1) : hoy;
+    id = `sem:${lunesDe(fin)}`;
+    titulo = dow(hoy) === 0 ? "Tu semana pasada" : "Tu semana";
+    r = resumenSemana(data, fin, true);
+  }
+  const finAnio = hoy.slice(5) >= "12-26";
+  if (!r && !finAnio) return null;
+  if (r && prefs.resumenVisto === id) {
+    if (!finAnio || prefs.resumenVisto === `anio:${hoy.slice(0, 4)}`) return null;
+  }
+  if (!r || prefs.resumenVisto === id) {
+    id = `anio:${hoy.slice(0, 4)}`;
+    if (prefs.resumenVisto === id) return null;
+    return (
+      <div class="card" style={{ borderColor: "var(--green)" }}>
+        <span class="lbl">Se termina el año</span>
+        <span>Mira tu {hoy.slice(0, 4)} en números: partidos, goles, entrenos, horas de estudio y en qué se te fue el tiempo.</span>
+        <div class="row">
+          <button class="btn sm main" onClick={() => go("/mas/tiempo?anio")}>
+            Ver mi año
+          </button>
+          <button class="btn sm" onClick={() => setPrefs({ resumenVisto: id })}>
+            Listo
+          </button>
+        </div>
+      </div>
+    );
+  }
+  const texto = r.texto.replace(/^[^:]+: /, "");
+  return (
+    <div class="card" style={{ borderColor: "var(--green)" }}>
+      <span class="lbl">{titulo}</span>
+      <span style={{ fontSize: "14px" }}>{texto}</span>
+      <div class="row">
+        <button
+          class="btn sm main"
+          onClick={() => {
+            speaker.unlock();
+            speaker.feed(`${titulo}. ${texto} `);
+            speaker.flush();
+          }}
+        >
+          Escuchar
+        </button>
+        <button class="btn sm" onClick={() => setPrefs({ resumenVisto: id })}>
+          Listo
+        </button>
+      </div>
+    </div>
   );
 }
