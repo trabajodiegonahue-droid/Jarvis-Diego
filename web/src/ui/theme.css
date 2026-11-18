@@ -283,3 +283,36 @@ nav.tabs a.on::before { content: ""; position: absolute; top: -7px; width: 28px;
 /* Texto dentro de cada color (el que llega a 4.5:1 en ese tema). */
 :root { --t1-ink: #0b0b0b; --t2-ink: #0b0b0b; --t3-ink: #0b0b0b; --t4-ink: #0b0b0b; --t5-ink: #0b0b0b; --t6-ink: #0b0b0b; --t7-ink: #0b0b0b; --t8-ink: #0b0b0b; --t-gris1-ink: #ffffff; --t-gris2-ink: #0b0b0b; }
 :root[data-theme="light"] { --t1-ink: #ffffff; --t6-ink: #ffffff; --t7-ink: #ffffff; --t-gris1-ink: #0b0b0b; }
+
+/* ---------- Acabado profesional ---------- */
+:root { --seg-track: #0f1523; --sel-bg: color-mix(in srgb, var(--green) 16%, var(--card)); --sel-line: color-mix(in srgb, var(--green) 55%, var(--line)); }
+:root[data-theme="light"] { --seg-track: #e8ecf3; }
+
+/* Control segmentado (como iOS): una pista y la opción elegida "levantada". */
+.seg { background: var(--seg-track); border: 1px solid var(--line); border-radius: 14px; padding: 3px; gap: 3px; }
+.seg button { flex: 1 1 auto; min-height: 40px; border: 0; background: transparent; border-radius: 11px; color: var(--muted); font-weight: 600; font-size: 14px; }
+.seg button.on { background: var(--card); color: var(--ink); border: 0; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--line); }
+:root[data-theme="light"] .seg button.on { box-shadow: 0 1px 3px rgba(11, 15, 26, 0.12), 0 0 0 1px var(--line); }
+.seg.tabs4 { gap: 3px; }
+
+/* Opciones elegidas: verde suave en vez de un bloque blanco. */
+.chips button { min-height: 40px; background: var(--card2); }
+.chips button.on { background: var(--sel-bg); border-color: var(--sel-line); color: var(--ink); }
+
+/* Títulos de tarjeta: la primera etiqueta de cada tarjeta se lee como título. */
+.card > .lbl:first-child, .card > .between:first-child > .lbl:first-child { font-size: 15px; font-weight: 650; color: var(--ink); letter-spacing: -0.1px; }
+.card > .between:first-child a, .card > .between:first-child .link { text-decoration: none; font-weight: 600; font-size: 13px; }
+
+/* Cifras grandes: proporcionales y apretadas (las tabulares quedan solo en columnas). */
+.big { font-size: 38px; font-weight: 750; letter-spacing: -1.2px; font-variant-numeric: proportional-nums; line-height: 1.1; }
+.mid { letter-spacing: -0.4px; }
+
+/* Tarjetas y botones: bordes y sombras más sutiles, más aire. */
+.page { gap: 14px; }
+.card { border-radius: 20px; padding: 18px; border-color: color-mix(in srgb, var(--line) 85%, transparent); }
+.btn { border-radius: 14px; }
+.btn.sm { border-radius: 12px; }
+.btn.main { background: linear-gradient(180deg, color-mix(in srgb, var(--green) 92%, #fff), var(--green)); }
+.fab.plus { width: 48px; height: 48px; border-radius: 24px; right: 22px; bottom: calc(env(safe-area-inset-bottom) + 146px); }
+.item { padding: 13px 0; }
+.small { line-height: 1.45; }
