@@ -6,6 +6,8 @@ import { STORES, type Datos } from "./types";
 
 const KV_KEYS = ["routine", "settings", "prefs", "summary"]; // lo de JARVIS y las preferencias
 const SECRET = ["apiKey", "workerToken"];
+// Al restaurar, la conexión (a quién se le manda tu código) no se toma del archivo: se queda la de este teléfono.
+const CONEXION = ["mode", "apiKey", "workerUrl", "workerToken"];
 
 export function exportJSON(d: Datos, kv: KV): string {
   const extra: Record<string, unknown> = {};
@@ -46,7 +48,10 @@ export function readJSON(text: string): Respaldo {
 export function applyExtra(kv: KV, extra: Record<string, unknown>) {
   for (const k of KV_KEYS) {
     if (!(k in extra)) continue;
-    if (k === "settings") kv.set(k, { ...kv.get<object>("settings", {}), ...(extra[k] as object) });
+    if (k === "settings") {
+      const nuevos = Object.fromEntries(Object.entries((extra[k] as object) || {}).filter(([x]) => !CONEXION.includes(x)));
+      kv.set(k, { ...kv.get<object>("settings", {}), ...nuevos });
+    }
     else kv.set(k, extra[k]);
   }
 }

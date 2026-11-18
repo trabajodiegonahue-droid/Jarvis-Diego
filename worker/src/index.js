@@ -42,6 +42,17 @@ const chileAhora = () => new Intl.DateTimeFormat("es-CL", { timeZone: "America/S
 
 const MAX_AVISOS = 400;
 
+// Compara códigos en tiempo constante (se comparan sus huellas SHA-256), para no dar pistas por el tiempo de respuesta.
+async function iguales(a, b) {
+  const enc = new TextEncoder();
+  const [x, y] = await Promise.all([crypto.subtle.digest("SHA-256", enc.encode(String(a))), crypto.subtle.digest("SHA-256", enc.encode(String(b)))]);
+  const u = new Uint8Array(x);
+  const v = new Uint8Array(y);
+  let d = 0;
+  for (let i = 0; i < u.length; i++) d |= u[i] ^ v[i];
+  return d === 0;
+}
+
 async function leerAparato(env, id) {
   if (!/^[a-z0-9]{16,40}$/.test(id || "")) return null;
   const v = await env.BUZON.get(`dev:${id}`);
@@ -78,7 +89,7 @@ export default {
       if (!env.BUZON) return json({ mensajes: [] });
       const id = url.searchParams.get("id") || "";
       const dev = await leerAparato(env, id);
-      if (!dev || dev.k !== url.searchParams.get("k")) return fail(401, "Aparato desconocido");
+      if (!dev || !(await iguales(dev.k, url.searchParams.get("k") || ""))) return fail(401, "Aparato desconocido");
       const mensajes = dev.cola || [];
       if (mensajes.length) await env.BUZON.put(`dev:${id}`, JSON.stringify({ ...dev, cola: [] }));
       return json({ mensajes });
@@ -88,12 +99,14 @@ export default {
     if (url.pathname === "/siri") {
       if (request.method !== "POST") return fail(405, "Solo POST");
       const tokens = [env.SIRI_TOKEN, env.ACCESS_TOKEN].filter(Boolean);
-      if (!tokens.some((t) => auth === `Bearer ${t}`)) return texto("El código de acceso del atajo no es correcto. Revísalo en la app Atajos.", 401);
+      let ok = false;
+      for (const t of tokens) ok = (await iguales(auth, `Bearer ${t}`)) || ok;
+      if (!ok) return texto("El código de acceso del atajo no es correcto. Revísalo en la app Atajos.", 401);
       return siri(request, env);
     }
 
     if (!okOrigin) return fail(403, "Origen no permitido");
-    if (!env.ACCESS_TOKEN || auth !== `Bearer ${env.ACCESS_TOKEN}`) return fail(401, "Código de acceso incorrecto");
+    if (!env.ACCESS_TOKEN || !(await iguales(auth, `Bearer ${env.ACCESS_TOKEN}`))) return fail(401, "Código de acceso incorrecto");
 
     if (url.pathname === "/buzon" && request.method === "GET") {
       if (!env.BUZON) return json({ items: [], configurado: false });

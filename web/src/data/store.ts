@@ -29,6 +29,7 @@ export class AppStore {
       await putMany("categorias", d.categorias);
     }
     this.data = d;
+    this.demoCache = null;
     this.ready = true;
     await this.runRecurrentes();
     this.emit();
@@ -44,8 +45,11 @@ export class AppStore {
     const list = this.data[store] as Item<S>[];
     // Modo práctica: con los datos de ejemplo cargados, lo nuevo que anotes también es de ejemplo
     // y se va con "Borrar ejemplos". Así puedes probar JARVIS sin ensuciar tus datos.
-    if (this.hasDemo() && store !== "categorias")
-      items = items.map((it) => (list.some((x) => x.id === it.id) || (it as { demo?: boolean }).demo ? it : ({ ...it, demo: true } as Item<S>)));
+    if (store !== "categorias" && this.hasDemo()) {
+      const ids = new Set(list.map((x) => x.id));
+      items = items.map((it) => (ids.has(it.id) || (it as { demo?: boolean }).demo ? it : ({ ...it, demo: true } as Item<S>)));
+    }
+    if (items.some((it) => (it as { demo?: boolean }).demo)) this.demoCache = true;
     for (const it of items) {
       const i = list.findIndex((x) => x.id === it.id);
       if (i >= 0) list[i] = it;
@@ -60,6 +64,7 @@ export class AppStore {
   async remove<S extends StoreName>(store: S, ...ids: string[]): Promise<() => Promise<void>> {
     const removed = (this.data[store] as Item<S>[]).filter((x) => ids.includes(x.id));
     (this.data as any)[store] = (this.data[store] as Item<S>[]).filter((x) => !ids.includes(x.id));
+    if (removed.some((x) => (x as { demo?: boolean }).demo)) this.demoCache = null;
     this.emit();
     await deleteMany(store, ids);
     return () => this.put(store, ...removed);
@@ -71,12 +76,16 @@ export class AppStore {
       await putMany(s, d[s]);
     }
     this.data = { ...emptyDatos(), ...d };
+    this.demoCache = null;
     if (!this.data.categorias.length) this.data.categorias = categoriasBase();
     this.emit();
   }
 
+  // ¿Hay datos de ejemplo? Se recuerda la respuesta y se vuelve a calcular solo cuando se borra algo de ejemplo.
+  private demoCache: boolean | null = null;
   hasDemo() {
-    return STORES.some((s) => (this.data[s] as { demo?: boolean }[]).some((x) => x.demo));
+    if (this.demoCache == null) this.demoCache = STORES.some((s) => (this.data[s] as { demo?: boolean }[]).some((x) => x.demo));
+    return this.demoCache;
   }
 
   async removeDemo() {

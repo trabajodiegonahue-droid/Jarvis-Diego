@@ -2,6 +2,7 @@
 // simulador de metas, semana difícil y logros. Se prueba antes que el resto.
 import type { LocalCommand } from "../brain/commands";
 import { montoEn } from "./vidaParser";
+import { original } from "../reminders/calc";
 
 export interface CtxExtras {
   compras?: string[]; // lo que está en la lista
@@ -12,13 +13,6 @@ const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "
 const p2 = (n: number) => String(n).padStart(2, "0");
 const suave = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[¿?¡!"]/g, " ").replace(/[.,;:](?!\d)/g, " ").replace(/\s+/g, " ").trim();
-// Recupera el texto original (con tildes y mayúsculas) de un trozo que se buscó en la versión sin tildes.
-function original(raw: string, trozo: string): string {
-  const base = raw.normalize("NFC");
-  const map = [...base].map((c) => c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") || c).join("");
-  const i = map.indexOf(trozo);
-  return i >= 0 && map.length === base.length ? base.slice(i, i + trozo.length) : trozo;
-}
 // Nombres con mayúscula ("la Cata", "del Benja"), pero no los parentescos ni los artículos ("mi mamá").
 const COMUNES = /^(de|del|la|el|mi|mis|los|las|y|mama|mamá|papa|papá|abuela|abuelo|abue|hermana|hermano|tia|tía|tio|tío|polola|pololo|prima|primo|amiga|amigo|jefe|jefa|suegra|suegro|sobrina|sobrino|madrina|padrino|novia|novio|pareja)$/i;
 const nombrePropio = (s: string) => s.split(" ").map((w) => (COMUNES.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(" ");
@@ -53,7 +47,7 @@ export function parseExtras(text: string, ctx: CtxExtras = {}): LocalCommand | n
       .replace(/\s+(?:de|para|que|a)$/, "")
       .replace(/\s+/g, " ")
       .trim();
-    return { tool: "crear_recordatorio", args: { texto: texto || resto, cuando: resto } };
+    return { tool: "crear_recordatorio", args: { texto: original(raw, texto || resto), cuando: resto } };
   }
   if (/^(?:que |cuales )?(?:recordatorios tengo|son mis recordatorios)$|^(mis|ver|los) recordatorios$|^que me (tienes que|vas a) recordar$/.test(t)) return { tool: "ver_recordatorios", args: {} };
   if ((m = t.match(/^(?:borra|quita|elimina|cancela)(?: el)? recordatorio (?:de |del |para )?(.+)$/))) return { tool: "borrar_recordatorio", args: { texto: m[1] } };

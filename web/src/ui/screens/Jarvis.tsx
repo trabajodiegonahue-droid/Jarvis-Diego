@@ -38,7 +38,7 @@ async function saludo(): Promise<string> {
   return n.minutes < 13 * 60 ? r.say : `Hola Diego. ${r.say}`;
 }
 
-export function JarvisSheet({ onClose, inicial }: { onClose: () => void; inicial?: string }) {
+export function JarvisSheet({ onClose, borrador }: { onClose: () => void; borrador?: string }) {
   const [, redraw] = useState(0);
   const [estado, setEstado] = useState<Estado>("idle");
   const [detalle, setDetalle] = useState("");
@@ -49,7 +49,10 @@ export function JarvisSheet({ onClose, inicial }: { onClose: () => void; inicial
     speaker.onStart = () => setEstado("speaking");
     speaker.onEnd = () => setEstado((e) => (e === "speaking" ? "idle" : e));
     speaker.unlock();
-    if (inicial) void send(inicial);
+    if (borrador && input.current) {
+      input.current.value = borrador;
+      setDetalle("Llegó este texto desde un enlace o un atajo. Revísalo y toca enviar.");
+    }
     else if (!chat.length || kv.get<string>("saludo", "") !== chileNow().date) {
       void saludo().then((t) => {
         chat.push({ who: "a", text: t });

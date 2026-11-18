@@ -39,7 +39,7 @@ export function App() {
   const route = useRoute();
   const [locked, setLocked] = useState(hasPin(kv));
   const [add, setAdd] = useState(false);
-  const [jarvis, setJarvis] = useState<false | { inicial?: string }>(false);
+  const [jarvis, setJarvis] = useState<false | { borrador?: string }>(false);
   const listo = store.ready && !locked && prefs.onboarded;
 
   // "Oye Siri, Jarvis": el atajo puede abrir la app con lo dictado (#/jarvis?q=...),
@@ -52,7 +52,8 @@ export function App() {
       const q = new URLSearchParams(m[1] || "").get("q")?.trim();
       history.replaceState(null, "", location.pathname + location.search + "#/");
       dispatchEvent(new HashChangeEvent("hashchange"));
-      setJarvis(q ? { inicial: q.slice(0, 300) } : {});
+      // El texto de un enlace no se ejecuta solo: queda escrito para que tú lo revises y lo envíes.
+      setJarvis(q ? { borrador: q.slice(0, 300) } : {});
     };
     const buzon = async () => {
       const r = await revisarBuzon(settings, assistant);
@@ -144,7 +145,7 @@ export function App() {
           <Registrar onDone={() => setAdd(false)} />
         </Sheet>
       )}
-      {jarvis && <JarvisSheet inicial={jarvis.inicial} onClose={() => setJarvis(false)} />}
+      {jarvis && <JarvisSheet borrador={jarvis.borrador} onClose={() => setJarvis(false)} />}
       <AvisoEnPantalla />
       <Toast />
     </>

@@ -216,7 +216,7 @@ El buzón guarda solo la frase dictada, hasta que abres la app o por un máximo 
 
 Dile «Oye Siri, Jarvis», espera el sonido y habla. Si quieres un código distinto solo para el atajo (por si alguna vez se lo muestras a alguien), crea `SIRI_TOKEN` con `npx wrangler secret put SIRI_TOKEN` y úsalo en el encabezado: el atajo acepta ese o el de la app.
 
-La app también abre JARVIS con un texto si entras a `…/#/jarvis?q=gasté 5 mil en comida`. Sirve, por ejemplo, desde un atajo cuando usas Vida en Safari sin instalarla.
+La app también abre JARVIS con un texto si entras a `…/#/jarvis?q=gasté 5 mil en comida`. Por seguridad no lo ejecuta solo: lo deja escrito para que lo revises y lo envíes. Sirve, por ejemplo, desde un atajo cuando usas Vida en Safari sin instalarla.
 
 ### Avisos en el iPhone con la app cerrada (gratis)
 

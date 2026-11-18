@@ -32,7 +32,7 @@ export async function revisarRecordatorios() {
     // Más de 15 minutos tarde = la app estaba cerrada: se muestra igual, pero sin sonar fuerte.
     const atrasado = Date.now() - chileAUtc(r.cuando) > 15 * 60_000;
     if (!sonando.some((s) => s.r.id === r.id && s.r.cuando === r.cuando)) sonando = [...sonando, { r, atrasado }].slice(-6);
-    await store.put("recordatorios", alSonar(r));
+    await store.put("recordatorios", alSonar(r, ahora));
     if (!atrasado) {
       try {
         navigator.vibrate?.([200, 100, 200]);

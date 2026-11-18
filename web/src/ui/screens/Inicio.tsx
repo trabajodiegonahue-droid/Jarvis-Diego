@@ -27,7 +27,7 @@ import { describir, type Clima } from "../../weather/clima";
 import { guardarDia, toggleHabito } from "./Habitos";
 import { Cronometro } from "./Tiempo";
 import type { CatTiempo } from "../../data/types";
-import { kv, setPrefs } from "../state";
+import { setPrefs } from "../state";
 import { ahoraIso, cuandoTxt, proximos } from "../../reminders/calc";
 import { enDificil, logros, proximasFechas, sugerirDificil } from "../../extras/calc";
 
@@ -506,7 +506,7 @@ function SemanaDificil() {
   const activo = enDificil(prefs.dificil, hoy);
   const mes = hoy.slice(0, 7);
   const exc = estadoPresupuestos(data.movimientos, data.presupuestos, data.categorias, mes, Number(hoy.slice(8, 10))).some((e) => e.estado === "excedido");
-  const sug = !activo && kv.get<string>("dificilSugerido", "") !== hoy ? sugerirDificil(data, hoy, exc) : null;
+  const sug = !activo && prefs.dificilSugerido !== hoy ? sugerirDificil(data, hoy, exc) : null;
   if (activo) {
     const p = prefs.dificil.find((x) => hoy >= x.desde && hoy <= x.hasta)!;
     return (
@@ -529,10 +529,7 @@ function SemanaDificil() {
         </button>
         <button
           class="btn sm"
-          onClick={() => {
-            kv.set("dificilSugerido", hoy);
-            setPrefs({});
-          }}
+          onClick={() => setPrefs({ dificilSugerido: hoy })}
         >
           No, gracias
         </button>
@@ -546,11 +543,12 @@ function LogroNuevo() {
   const { data, prefs } = useApp();
   const hoy = chileNow().date;
   const todos = logros(data, hoy);
-  // La primera vez que se calcula, los logros que ya tenías no se anuncian (solo los nuevos de ahí en adelante).
-  if (!prefs.logrosVistos.length && todos.length) {
-    queueMicrotask(() => setPrefs({ logrosVistos: [...todos.map((l) => l.id), "_inicio"] }));
-    return null;
-  }
+  // La primera vez, los logros que ya tenías no se anuncian (solo los nuevos de ahí en adelante).
+  const primeraVez = !prefs.logrosVistos.length && todos.length > 0;
+  useEffect(() => {
+    if (primeraVez) setPrefs({ logrosVistos: [...todos.map((l) => l.id), "_inicio"] });
+  }, [primeraVez]);
+  if (primeraVez) return null;
   const nuevo = todos.find((l) => !prefs.logrosVistos.includes(l.id));
   if (!nuevo || store.hasDemo()) return null;
   return (

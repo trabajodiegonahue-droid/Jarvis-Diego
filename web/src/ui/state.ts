@@ -52,6 +52,7 @@ export interface Prefs {
   logrosVistos: string[];
   avisos: { activos: boolean; manana: string; noche: string; agua: boolean; rutina: boolean }; // avisos en el teléfono
   vistaEquilibrio: "barras" | "rueda";
+  dificilSugerido: string; // fecha en que dijiste "no, gracias" a la semana difícil
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -73,6 +74,7 @@ const DEFAULT_PREFS: Prefs = {
   logrosVistos: [],
   avisos: { activos: false, manana: "08:00", noche: "21:30", agua: false, rutina: true },
   vistaEquilibrio: "rueda",
+  dificilSugerido: "",
 };
 
 let prefs: Prefs = loadPrefs();

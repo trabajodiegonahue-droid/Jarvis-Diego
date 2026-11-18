@@ -83,7 +83,7 @@ export function parseCuando(texto: string, hoy: string, ahora: number): Cuando |
     if ((m = t.match(/\bpasado manana\b/))) {
       fecha = addDays(hoy, 2);
       quitar(m[0]);
-    } else if ((m = t.match(/\bmanana\b(?! en la| por la)/)) && !/\bde la manana\b/.test(t)) {
+    } else if ((m = t.match(/(?<!(?:de|en|por) la )\bmanana\b/))) {
       fecha = addDays(hoy, 1);
       quitar(m[0]);
     } else if ((m = t.match(/\bhoy\b|\besta (tarde|noche)\b/))) {
@@ -152,7 +152,22 @@ export function proximos(rs: Recordatorio[], ahora: string, dias = 7): Recordato
 }
 
 // Al sonar: si se repite, pasa a la próxima fecha; si no, queda hecho.
-export const alSonar = (r: Recordatorio): Recordatorio => (r.repetir ? { ...r, cuando: siguiente(r) } : { ...r, hecho: true });
+// Al sonar: si se repite, pasa a la próxima fecha que todavía no llega (aunque la app haya estado
+// cerrada varios días, suena una sola vez); si no se repite, queda hecho.
+export function alSonar(r: Recordatorio, ahora = ""): Recordatorio {
+  if (!r.repetir) return { ...r, hecho: true };
+  let c = { ...r, cuando: siguiente(r) };
+  for (let i = 0; i < 400 && c.cuando <= ahora; i++) c = { ...c, cuando: siguiente(c) };
+  return c;
+}
+
+// Recupera el texto original (con tildes y mayúsculas) de un trozo que se buscó en la versión sin tildes.
+export function original(raw: string, trozo: string): string {
+  const base = raw.normalize("NFC");
+  const map = [...base].map((c) => c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") || c).join("");
+  const i = map.indexOf(trozo);
+  return i >= 0 && map.length === base.length ? base.slice(i, i + trozo.length) : trozo;
+}
 
 export function cuandoTxt(iso: string, hoy: string): string {
   const f = iso.slice(0, 10);

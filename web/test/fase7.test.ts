@@ -153,3 +153,29 @@ describe("avisos", () => {
     expect(ics.match(/BEGIN:VEVENT/g)!.length).toBe(ics.match(/END:VEVENT/g)!.length);
   });
 });
+
+describe("arreglos de la revisión de código", () => {
+  it("un recordatorio diario atrasado varios días suena una sola vez", () => {
+    const r = { id: "r", texto: "Creatina", cuando: "2026-11-14T08:00", repetir: "diario" as const };
+    expect(alSonar(r, "2026-11-17T10:00").cuando).toBe("2026-11-18T08:00");
+  });
+  it("'el viernes en la mañana' es el viernes, no mañana", () => {
+    expect(parseCuando("el viernes en la mañana", HOY, 15 * 60)).toMatchObject({ fecha: "2026-11-20", hora: "09:00" });
+    expect(parseCuando("mañana en la tarde", HOY, 15 * 60)).toMatchObject({ fecha: "2026-11-18", hora: "16:00" });
+  });
+  it("el texto del recordatorio conserva tildes y mayúsculas", () => {
+    expect(parseExtras("recuérdame llamar a la mamá el sábado")?.args).toMatchObject({ texto: "llamar a la mamá" });
+    expect(parseExtras("recuérdame el EF SET de Inglés el viernes")?.args).toMatchObject({ texto: "el EF SET de Inglés" });
+  });
+});
+
+describe("refuerzos de seguridad", () => {
+  it("restaurar un respaldo no cambia a quién se le manda tu código", async () => {
+    const { applyExtra } = await import("../src/data/backup");
+    const { memoryKV } = await import("../src/core/storage");
+    const kv = memoryKV();
+    kv.set("settings", { mode: "worker", workerUrl: "https://mio.workers.dev", workerToken: "secreto", speak: true });
+    applyExtra(kv, { settings: { mode: "worker", workerUrl: "https://de-otro.example", workerToken: "x", apiKey: "y", speak: false } });
+    expect(kv.get<any>("settings", {})).toEqual({ mode: "worker", workerUrl: "https://mio.workers.dev", workerToken: "secreto", speak: false });
+  });
+});
