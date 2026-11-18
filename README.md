@@ -17,6 +17,7 @@ Los briefs están en [`docs/APP_VIDA.md`](docs/APP_VIDA.md) (manda este) y [`doc
 | 3 | Fútbol y Entrenamiento | ✅ |
 | 4 | JARVIS integrado: registrar hablando (gastos, ingresos, entrenos, goles, metas, estudio, turnos) con deshacer, consultas y resúmenes, resumen de la mañana, modo manos libres para entrenar, modo privado y Atajo de Siri | ✅ |
 | 5 | Hábitos y bienestar (rachas, sueño, energía, ánimo, agua, diario), calendario unificado con choques, bitácora de tiempo al minuto (cronómetro, línea del día, semana, mes y año), «Mi año en números», resúmenes automáticos de la semana y del mes, clima (Open-Meteo) | ✅ |
+| + | Recordatorios con avisos (en la app, en el iPhone con la app cerrada y exportables al Calendario), resumen del día en la mañana y de mañana en la noche, memoria de JARVIS, cumpleaños y fechas importantes, lista de compras, simulador de metas, rueda de la vida, modo semana difícil, logros y un pulido del diseño | ✅ |
 | 6 | Pulido: JARVIS entiende cómo escribes (q, xq, nms, mns, toy, mñn, lukas, gambas, cansao, po, wn…), modo práctica con los datos de ejemplo, guía «¿Qué le puedo decir?», protección ante errores, accesibilidad revisada con axe en tema oscuro y claro, y velocidad medida | ✅ |
 
 ## Cómo está armado
@@ -89,6 +90,12 @@ docs/       los briefs
 
 **¿Qué le puedo decir?** En la hoja de JARVIS hay una guía con frases por tema; tocas una y se la manda. Una prueba automática revisa que JARVIS entienda todas sin Gemini.
 
+**Recordatorios y lo que viene.** Dile a JARVIS «recuérdame pagar la luz mañana a las 10», «avísame en 30 minutos que saque la ropa» o «recuérdame la creatina todos los días a las 8». Entiende «el viernes», «pasado mañana en la noche», «el 3 de enero», «en 2 horas» y repeticiones (todos los días, todos los lunes, cada mes, cada año). Si no dices la hora, avisa a las 9. Con la app abierta, el aviso aparece arriba con «Listo», «En 10 min» y «En 1 hora». «¿Qué se viene los próximos días?» junta turnos, partidos, pruebas, recordatorios, cumpleaños y lo que le contaste.
+
+**Memoria.** «Acuérdate que el viernes tengo prueba de inglés» o «acuérdate que me lesioné el tobillo»: JARVIS lo guarda en el teléfono, te lo menciona en el resumen del día que corresponde y, si usas Gemini, le pasa solo los recuerdos que tienen que ver con lo que preguntas. «¿Qué recuerdas?» y «olvida lo del tobillo». Nunca guarda claves, contraseñas ni datos de tarjetas.
+
+**Fechas, compras y más.** «El cumpleaños de mi mamá es el 3 de mayo» (te avisa 3 días antes y la noche anterior), «agrega pan, leche y huevos a la lista», «compré el pan», «si ahorro 50 lukas al mes, ¿cuándo llego?» (también hay un simulador con deslizador dentro de cada meta de plata), «estoy en una semana pesada» (activa el modo semana difícil: entreno más corto, las rachas no se cortan y JARVIS habla más suave), «mis logros». En el inicio, el equilibrio se ve como **rueda de la vida**.
+
 **Manos libres en el gimnasio.** En la sesión guiada (Fútbol → Físico → Entrenar hoy), toca «Entrenar con voz». JARVIS dice el ejercicio, la serie y la meta. Le respondes «listo», «hice 8» o «10 con 22,5 kilos», y él anota la serie, inicia el descanso, te avisa a los 10 segundos y te dice la siguiente. También entiende «siguiente ejercicio», «salta el descanso», «repite» y «terminé el entreno». Si el iPhone no deja escuchar dentro de la app, igual te habla y usas los botones grandes.
 
 **Seguridad y cuota:**
@@ -99,9 +106,9 @@ docs/       los briefs
 
 ## Calidad (fase 6)
 
-- **Pruebas:** 160 pruebas automáticas en la app (`npm test` en `web/`) y 7 en el intermediario (`npm test` en `worker/`).
-- **Velocidad:** con el procesador 4 veces más lento y red 3G, la app abre en unos 1,1 s la primera vez y en 0,5 s después. Cambiar de pantalla toma menos de 0,1 s.
-- **Accesibilidad:** las 14 pantallas y hojas principales pasan la revisión de [axe-core](https://github.com/dequelabs/axe-core) en tema oscuro y claro. Las hojas atrapan el foco y lo devuelven al cerrarse.
+- **Pruebas:** 177 pruebas automáticas en la app (`npm test` en `web/`) y 11 en el intermediario (`npm test` en `worker/`), incluida la firma de los avisos verificada con criptografía real.
+- **Velocidad:** con el procesador 4 veces más lento y red 3G, la app abre en unos 1,3 s la primera vez y en 0,6 s después. Cambiar de pantalla toma menos de 0,1 s.
+- **Accesibilidad:** las 16 pantallas y hojas principales pasan la revisión de [axe-core](https://github.com/dequelabs/axe-core) en tema oscuro y claro. Las hojas atrapan el foco y lo devuelven al cerrarse.
 - **Errores amables:** si una pantalla falla, aparece un aviso con «Probar de nuevo» y el resto de la app sigue. Si abrir los datos demora más de 10 s, se ofrece recargar.
 - **Corregido:** a veces la app quedaba en negro al abrir, porque los datos cargaban antes de que la pantalla alcanzara a escuchar. Se probó con 168 recargas seguidas.
 - **Dependencias:** `npm audit` avisa de un problema en `picomatch` (lo usan Vite y Vitest al compilar). No tiene arreglo publicado todavía, solo corre en tu computador al compilar y no va dentro de la app.
@@ -210,6 +217,35 @@ El buzón guarda solo la frase dictada, hasta que abres la app o por un máximo 
 Dile «Oye Siri, Jarvis», espera el sonido y habla. Si quieres un código distinto solo para el atajo (por si alguna vez se lo muestras a alguien), crea `SIRI_TOKEN` con `npx wrangler secret put SIRI_TOKEN` y úsalo en el encabezado: el atajo acepta ese o el de la app.
 
 La app también abre JARVIS con un texto si entras a `…/#/jarvis?q=gasté 5 mil en comida`. Sirve, por ejemplo, desde un atajo cuando usas Vida en Safari sin instalarla.
+
+### Avisos en el iPhone con la app cerrada (gratis)
+
+Te llegan tus recordatorios, lo que te toca cada mañana (a la hora que elijas), lo de mañana en la noche, tu rutina 10 minutos antes, los cumpleaños y, si quieres, el agua.
+
+**Qué es posible:** en el iPhone, una app web solo puede recibir notificaciones si está **agregada a la pantalla de inicio** (iOS 16.4 o más nuevo) y si das el permiso desde un botón dentro de la app. Las notificaciones las manda tu intermediario de Cloudflare: revisa cada 5 minutos qué toca y manda un «toque» sin contenido; el iPhone pide el texto después. En Cloudflare quedan solo los textos cortos de los avisos de los próximos 7 días (sin montos de plata), y se borran apenas se envían.
+
+1. Crea el buzón (ver «Atajo de Siri», paso 1) si no lo hiciste.
+2. Genera las claves de los avisos, desde `worker`:
+
+```bash
+node scripts/claves-avisos.mjs
+```
+
+3. Guarda la clave privada como secreto (pégala cuando te la pida):
+
+```bash
+npx wrangler secret put VAPID_PRIVATE
+```
+
+4. En `worker/wrangler.toml`, pega la clave pública en `VAPID_PUBLIC` y descomenta `[triggers]` y `crons`. Publica:
+
+```bash
+npx wrangler deploy
+```
+
+5. En el iPhone, abre Vida **desde el ícono de inicio** → Más → Recordatorios → pestaña **iPhone** → «Activar avisos» y acepta el permiso.
+
+**Sin servidor:** en esa misma pestaña, «Exportar al Calendario (.ics)» crea un calendario con alarmas de tus recordatorios, tu rutina y tus fechas importantes. Lo abres en el iPhone y queda en la app Calendario. Si cambias algo, lo exportas de nuevo.
 
 ## Publicarlo gratis (GitHub Pages)
 
