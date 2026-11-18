@@ -42,6 +42,10 @@ export class AppStore {
 
   async put<S extends StoreName>(store: S, ...items: Item<S>[]) {
     const list = this.data[store] as Item<S>[];
+    // Modo práctica: con los datos de ejemplo cargados, lo nuevo que anotes también es de ejemplo
+    // y se va con "Borrar ejemplos". Así puedes probar JARVIS sin ensuciar tus datos.
+    if (this.hasDemo() && store !== "categorias")
+      items = items.map((it) => (list.some((x) => x.id === it.id) || (it as { demo?: boolean }).demo ? it : ({ ...it, demo: true } as Item<S>)));
     for (const it of items) {
       const i = list.findIndex((x) => x.id === it.id);
       if (i >= 0) list[i] = it;

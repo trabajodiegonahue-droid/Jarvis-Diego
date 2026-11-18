@@ -64,7 +64,7 @@ const diaDe = (fecha: string, hoy: string) => {
 
 // Palabras del día a día que caen en cada categoría base. Las categorías propias se buscan por nombre.
 export const PISTAS: Record<string, string[]> = {
-  "c-comida": ["comida", "almuerzo", "almorzar", "once", "desayuno", "cena", "super", "supermercado", "lider", "jumbo", "unimarc", "tottus", "santa isabel", "pan", "completo", "sushi", "pizza", "cafe", "colacion", "bebida", "snack", "mcdonald", "burger", "empanada", "feria", "verdura", "fruta", "carne", "delivery", "rappi", "pedidosya", "uber eats", "helado", "churrasco"],
+  "c-comida": ["comida", "chicle", "dulce", "dulces", "golosina", "kiosko", "kiosco", "chocolate", "galletas", "papas fritas", "sopaipilla", "sopaipillas", "completos", "once", "almuerzo", "almorzar", "once", "desayuno", "cena", "super", "supermercado", "lider", "jumbo", "unimarc", "tottus", "santa isabel", "pan", "completo", "sushi", "pizza", "cafe", "colacion", "bebida", "snack", "mcdonald", "burger", "empanada", "feria", "verdura", "fruta", "carne", "delivery", "rappi", "pedidosya", "uber eats", "helado", "churrasco"],
   "c-transporte": ["micro", "bus", "uber", "didi", "cabify", "taxi", "colectivo", "bencina", "combustible", "pasaje", "metro", "peaje", "estacionamiento", "transporte", "bip", "auto", "moto", "mecanico"],
   "c-salidas": ["carrete", "salida", "cine", "copete", "bar", "cerveza", "chela", "piscola", "entrada", "disco", "junta", "fiesta", "concierto", "previa", "regalo"],
   "c-deporte": ["gym", "gimnasio", "cancha", "arriendo de cancha", "futbol", "chuteador", "chuteadores", "canilleras", "suplemento", "proteina", "creatina", "deporte", "club", "cuota del club", "mensualidad"],

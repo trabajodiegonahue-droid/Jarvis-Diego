@@ -179,7 +179,11 @@ export function vidaTools({ store, routine, clock, clima }: VidaDeps): Tool[] {
       description: "Suma un avance a una meta manual (plata ahorrada, unidades, una vez del hábito).",
       parameters: { type: "object", properties: { meta: { type: "string", description: "Nombre o parte del nombre de la meta" }, valor: { type: "number" } }, required: ["meta", "valor"] },
       run: (a) => {
-        const m = buscarMeta(d().metas.filter((x) => !x.archivada), String(a.meta || ""));
+        const manuales = d().metas.filter((x) => !x.archivada && x.fuente === "manual" && (Number(a.valor) >= 100 ? x.tipo === "monto" : x.tipo !== "pasos"));
+        // "aporté 20 lucas a la meta" sin decir cuál: si hay una sola meta donde se pueda aportar, va ahí.
+        const sinNombre = !norm(String(a.meta || "")).replace(/^(la |mi )?meta$/, "");
+        const m = sinNombre ? (manuales.length === 1 ? manuales[0] : null) : buscarMeta(d().metas.filter((x) => !x.archivada), String(a.meta || ""));
+        if (!m && sinNombre && manuales.length > 1) return { ok: false, say: `¿A cuál meta? Tienes ${manuales.map((x) => x.nombre).join(", ")}. Dímelo así: "aporté 20 lucas a la meta ${manuales[0].nombre.toLowerCase()}".` };
         if (!m) return { ok: false, say: `No encontré esa meta. Tienes ${d().metas.filter((x) => !x.archivada).map((x) => x.nombre).join(", ") || "ninguna"}.` };
         if (m.fuente !== "manual") return { ok: false, say: `"${m.nombre}" se llena sola desde ${m.fuente === "ahorro" ? "lo que te sobra en Dinero" : m.fuente === "horas-estudio" ? "tus horas de estudio" : "tus horas de trabajo"}, no hace falta anotarle nada.` };
         if (m.tipo === "pasos") return { ok: false, say: `"${m.nombre}" va por pasos: márcalos en Metas.` };

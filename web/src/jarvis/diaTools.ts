@@ -5,7 +5,7 @@ import { DAY_NAMES, type ChileNow } from "../core/time";
 import type { AppStore } from "../data/store";
 import { uid, type Actividad, type CatTiempo, type Dia, type Habito } from "../data/types";
 import { eventosDia, semanaCal } from "../calendar/calc";
-import { activos, aplica, racha } from "../habits/calc";
+import { activos, aplica, fraseBienestar, promedios, racha } from "../habits/calc";
 import { norm, type Routine } from "../routine/routine";
 import type { Tool, ToolResult } from "../tools/registry";
 import { cat, catPara, CATS, corriendo, fraseTiempo, horasTxt, iso, minutosEntreIso, tiempoPeriodo } from "../time/calc";
@@ -31,10 +31,14 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
     return iso(n.date, hhmm(n.minutes));
   };
   const catDe = (a: any): CatTiempo => (CAT_IDS.includes(a.categoria) ? a.categoria : catPara(String(a.texto || "")) || "otro");
-  const notaDe = (a: any, c: CatTiempo) => {
-    const t = String(a.texto || "").trim();
+  const notaDe = (a: any, _c: CatTiempo) => {
+    const t = String(a.texto || "")
+      .trim()
+      .replace(/^(a |en )?(estudiando|estudiar|repasando|repasar|trabajando|trabajar|entrenando|entrenar|haciendo|hacer)\s+(de |el |la |en )?/i, "")
+      .replace(/^ingles$/i, "inglés")
+      .replace(/^matematicas?$/i, "matemáticas");
     // Si el texto solo dice la categoría ("estudiar"), no hace falta guardarlo como nota.
-    return t && (c === "otro" || t.split(" ").length > 1) ? cap(t) : undefined;
+    return t && !/^(el |la |mi |a )?(estudi\w*|trabaj\w*|gym|gim|gimnasio|entren\w*|dormir|dormi|corri|acostar\w*|tuto|la cama|comer|almorzar|cenar|tomar once|turno|pega|clases?|correr|el partido|partido)$/i.test(t) ? cap(t) : undefined;
   };
 
   async function guardarDia(fecha: string, patch: Partial<Dia>) {
@@ -44,10 +48,15 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
     return () => (antes ? store.put("dias", antes) : store.remove("dias", fecha).then(() => {}));
   }
 
-  function cerrarCorriendo(fin: string): { act: Actividad; antes: Actividad } | null {
+  // Cierra el cronómetro que corre. Si duró menos de un minuto (lo partiste por error), se borra.
+  function cerrarCorriendo(fin: string): { act: Actividad; antes: Actividad; anulado?: boolean } | null {
     const c = corriendo(d().actividades);
     if (!c) return null;
     const act = { ...c, fin: fin > c.inicio ? fin : c.inicio };
+    if (minutosEntreIso(act.inicio, act.fin) < 1) {
+      void store.remove("actividades", c.id);
+      return { act, antes: c, anulado: true };
+    }
     void store.put("actividades", act);
     return { act, antes: c };
   }
@@ -70,7 +79,7 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
         const prev = cerrarCorriendo(now);
         const act: Actividad = { id: uid(), cat: c, inicio: now, ...(notaDe(a, c) ? { nota: notaDe(a, c) } : {}) };
         void store.put("actividades", act);
-        const cerrado = prev ? ` Cerré ${prev.act.nota?.toLowerCase() || cat(prev.act.cat).nombre.toLowerCase()} (${horasTxt(minutosEntreIso(prev.act.inicio, prev.act.fin!))}).` : "";
+        const cerrado = prev && !prev.anulado ? ` Cerré ${prev.act.nota?.toLowerCase() || cat(prev.act.cat).nombre.toLowerCase()} (${horasTxt(minutosEntreIso(prev.act.inicio, prev.act.fin!))}).` : "";
         const say = c === "sueno" ? `Que descanses.${cerrado} Cuando despiertes, dime "me desperté" y anoto cuánto dormiste.` : `Partí el cronómetro: ${act.nota?.toLowerCase() || cat(c).nombre.toLowerCase()}, desde las ${now.slice(11)}.${cerrado} Dime "terminé" cuando acabes.`;
         return {
           ok: true,
@@ -89,14 +98,43 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
       run: async () => {
         const now = ahora();
         const prev = cerrarCorriendo(now);
+        if (prev?.anulado) return { ok: true, say: `Listo, anulé ${prev.act.nota?.toLowerCase() || cat(prev.act.cat).nombre.toLowerCase()}: no alcanzó a durar un minuto.`, undo: () => store.put("actividades", prev.antes) };
         if (!prev) return { ok: false, say: 'No tenías nada corriendo. Si quieres anotar algo que ya pasó, dime por ejemplo "de 14 a 16 estuve estudiando".' };
         const min = minutosEntreIso(prev.act.inicio, prev.act.fin!);
         let extra = "";
         let undoDia: (() => Promise<void>) | null = null;
-        if (prev.act.cat === "sueno") {
+        const fecha = now.slice(0, 10);
+        if (prev.act.cat === "sueno" && min >= 60) {
           const h = Math.round((min / 60) * 2) / 2;
-          undoDia = await guardarDia(now.slice(0, 10), { sueno: h });
+          undoDia = await guardarDia(fecha, { sueno: h });
           extra = ` Dormiste ${String(h).replace(".", ",")} horas.`;
+        }
+        // El gym y el estudio con cronómetro también quedan en Entreno y en Estudios (sin anotarlos dos veces).
+        if (prev.act.cat === "entreno" && min >= 15 && !d().entrenos.some((e) => e.fecha === fecha)) {
+          const plan = d().planes.find((p) => p.id === "activo");
+          const ses = plan?.sesiones.find((x) => x.dia === dow(fecha));
+          const e = { id: uid(), fecha, nombre: prev.act.nota || (ses ? ses.nombre.replace(/^[^:]+: /, "") : "Entrenamiento"), items: [], nota: `${min} min`, ...(ses ? { sesionId: ses.id } : {}) };
+          await store.put("entrenos", e);
+          const antes = undoDia;
+          undoDia = async () => {
+            await antes?.();
+            await store.remove("entrenos", e.id);
+          };
+          extra += " Lo dejé en tus entrenos de la semana.";
+        }
+        if (prev.act.cat === "estudio" && min >= 10) {
+          const t = norm(prev.act.nota || "");
+          const mat = d().materias.find((m) => t && (t.includes(norm(m.nombre)) || norm(m.nombre).includes(t))) || (d().materias.length === 1 ? d().materias[0] : null);
+          if (mat) {
+            const se = { id: uid(), materiaId: mat.id, fecha, minutos: min };
+            await store.put("sesiones", se);
+            const antes = undoDia;
+            undoDia = async () => {
+              await antes?.();
+              await store.remove("sesiones", se.id);
+            };
+            extra += ` Sumé ${min} minutos a ${mat.nombre.toLowerCase()}.`;
+          }
         }
         return {
           ok: true,
@@ -182,6 +220,25 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
     },
 
     // ---------- Bienestar y hábitos ----------
+    {
+      name: "consultar_bienestar",
+      description: "Cómo ha dormido y cómo anda de ánimo y energía (hoy, semana o mes), según lo que anotó.",
+      parameters: { type: "object", properties: { periodo: { type: "string", enum: ["hoy", "semana", "mes"] } } },
+      run: (a) => {
+        const hoy = clock().date;
+        const dia = d().dias.find((x) => x.id === hoy);
+        const n = a.periodo === "mes" ? 30 : 7;
+        const pr = promedios(d().dias, hoy, n);
+        const partes: string[] = [];
+        if (a.periodo !== "semana" && a.periodo !== "mes" && dia?.sueno != null) partes.push(`Anoche dormiste ${String(dia.sueno).replace(".", ",")} horas`);
+        if (pr.sueno != null) partes.push(`${partes.length ? "y" : "En los últimos"} ${partes.length ? `en los últimos ${n} días` : `${n} días`} promedias ${String(pr.sueno).replace(".", ",")} horas de sueño`);
+        if (pr.animo != null) partes.push(`ánimo ${String(pr.animo).replace(".", ",")} de 5`);
+        if (pr.energia != null) partes.push(`energía ${String(pr.energia).replace(".", ",")} de 5`);
+        if (!partes.length) return { ok: true, say: 'Todavía no anotas sueño ni ánimo. Dime "dormí 7 horas" o "me siento bien" y empiezo a llevar la cuenta.' };
+        const frase = fraseBienestar(d().dias, hoy);
+        return { ok: true, say: `${partes.join(", ")}.${frase ? ` ${frase}` : ""}` };
+      },
+    },
     {
       name: "registrar_dia",
       description: "Anota cómo está el día: horas de sueño, energía (1 a 5), ánimo (1 a 5), vasos de agua (agua_suma suma vasos) o una nota del diario.",
@@ -274,9 +331,10 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
           return { ok: true, say: `${cuando} tienes ${y(txt) || "solo tu rutina"}${rut.length ? `${ev.length ? ", más" : ":"} ${rut.length} ${rut.length === 1 ? "cosa" : "cosas"} de la rutina` : ""}.${dc.choques.length ? ` Ojo: ${dc.choques[0]}` : ""}` };
         }
         const lunes = a.semana === "proxima" ? addDays(lunesDe(hoy), 7) : lunesDe(hoy);
-        const sem = semanaCal(d(), routine.tasks, lunes).filter((x) => a.semana === "proxima" || x.fecha >= hoy);
+        // En el resumen hablado no se cuentan los choques con la rutina (es flexible); esos se ven en el Calendario.
+        const sem = semanaCal(d(), [], lunes).filter((x) => a.semana === "proxima" || x.fecha >= hoy);
         const choques = sem.flatMap((x) => x.choques.map((c) => `el ${DAY_NAMES[dow(x.fecha)]}: ${c}`));
-        const fuertes = sem.flatMap((x) => x.eventos.filter((e) => e.tipo === "partido" || e.tipo === "prueba" || e.tipo === "meta").map((e) => `${e.titulo.replace(/^./, (c) => c.toLowerCase())} el ${DAY_NAMES[dow(x.fecha)]}`));
+        const fuertes = sem.flatMap((x) => x.eventos.filter((e) => !e.hecho && (e.tipo === "partido" || e.tipo === "prueba" || e.tipo === "meta")).map((e) => `${e.titulo.replace(/^./, (c) => c.toLowerCase())} el ${DAY_NAMES[dow(x.fecha)]}`));
         const turnos = sem.reduce((n, x) => n + x.eventos.filter((e) => e.tipo === "turno").length, 0);
         const fisico = sem.reduce((n, x) => n + x.eventos.filter((e) => e.tipo === "fisico" && !e.hecho).length, 0);
         const partes = [turnos ? `${turnos} ${turnos === 1 ? "turno" : "turnos"}` : "", fisico ? `${fisico} ${fisico === 1 ? "sesión de físico" : "sesiones de físico"}` : "", ...fuertes].filter(Boolean);
