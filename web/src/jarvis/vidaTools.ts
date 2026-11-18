@@ -10,12 +10,14 @@ import { clp } from "../money/format";
 import { norm, type Routine } from "../routine/routine";
 import type { Tool, ToolResult } from "../tools/registry";
 import { horasTurno, movPropinas } from "../work/calc";
-import { buscarMeta, categoriaPara, consultaDinero, consultaFutbol, consultaMetas, entrenoDeHoy, resumenHoy, resumenMes, resumenSemana } from "./resumenes";
+import { fraseClima, type Clima } from "../weather/clima";
+import { buscarMeta, resumenAnio, categoriaPara, consultaDinero, consultaFutbol, consultaMetas, entrenoDeHoy, resumenHoy, resumenMes, resumenSemana } from "./resumenes";
 
 export interface VidaDeps {
   store: AppStore;
   routine: Routine;
   clock: () => ChileNow;
+  clima?: () => Promise<Clima | null>; // para el resumen de la mañana
 }
 
 const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
@@ -25,7 +27,7 @@ const entero = (v: unknown) => (typeof v === "number" ? Math.round(v) : typeof v
 const TILDES: Record<string, string> = { ingles: "Inglés", matematicas: "Matemáticas", matematica: "Matemática", fisica: "Física", quimica: "Química", biologia: "Biología", programacion: "Programación", musica: "Música", frances: "Francés", aleman: "Alemán", portugues: "Portugués", calculo: "Cálculo" };
 const NOMBRE_ENTRENO: Record<string, string> = { gym: "Gimnasio", gim: "Gimnasio", gimnasio: "Gimnasio", pesas: "Gimnasio", pierna: "Pierna", piernas: "Pierna", correr: "Correr", trote: "Correr", core: "Core", cardio: "Cardio" };
 
-export function vidaTools({ store, routine, clock }: VidaDeps): Tool[] {
+export function vidaTools({ store, routine, clock, clima }: VidaDeps): Tool[] {
   const d = () => store.data;
   const hoy = () => clock().date;
 
@@ -282,17 +284,21 @@ export function vidaTools({ store, routine, clock }: VidaDeps): Tool[] {
     },
     {
       name: "resumen",
-      description: "Resumen corto: tipo hoy (lo que le toca), manana (resumen de la mañana), semana o mes.",
-      parameters: { type: "object", properties: { tipo: { type: "string", enum: ["hoy", "manana", "semana", "mes"] } }, required: ["tipo"] },
-      run: (a) => {
+      description: "Resumen corto: tipo hoy (lo que le toca), manana (resumen de la mañana, con el clima), semana, mes o anio (mi año en números).",
+      parameters: { type: "object", properties: { tipo: { type: "string", enum: ["hoy", "manana", "semana", "mes", "anio"] } }, required: ["tipo"] },
+      run: async (a) => {
         const n = clock();
         let r;
         if (a.tipo === "semana") r = resumenSemana(d(), n.date);
         else if (a.tipo === "mes") r = resumenMes(d(), n.date);
+        else if (a.tipo === "anio") r = resumenAnio(d(), n.date);
         else {
+          const c = a.tipo === "manana" && clima ? await clima().catch(() => null) : null;
+          const partidoHoy = d().partidos.some((p) => p.fecha === n.date && p.fui == null);
+          const climaTxt = fraseClima(c, n.date, { partido: partidoHoy });
           const { done, pending } = routine.dayStatus(n.date, n.dow);
           const ay = routine.dayStatus(addDays(n.date, -1), (n.dow + 6) % 7);
-          r = resumenHoy(d(), n.date, n.minutes, { hechas: done.map((t) => t.title), pendientes: pending.map((t) => ({ titulo: t.title, hora: t.time })), ayerPendientes: ay.pending.map((t) => t.title) }, a.tipo === "manana");
+          r = resumenHoy(d(), n.date, n.minutes, { hechas: done.map((t) => t.title), pendientes: pending.map((t) => ({ titulo: t.title, hora: t.time })), ayerPendientes: ay.pending.map((t) => t.title) }, a.tipo === "manana", { clima: climaTxt });
         }
         return { ok: true, say: r.texto, privado: r.privado };
       },

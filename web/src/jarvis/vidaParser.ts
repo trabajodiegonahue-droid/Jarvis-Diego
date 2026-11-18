@@ -98,13 +98,89 @@ const sinFechaMeta = (s: string) =>
 
 const ENTRENO = "gym|gimnasio|gim|pesas|pierna|piernas|tren superior|tren inferior|core|abdominales|cardio|fisico|físico|entrenamiento|entreno|funcional|crossfit|natacion|natación|bici|spinning";
 
-export function parseVida(text: string, hoy: string): LocalCommand | null {
+// Lo que el intérprete necesita saber de la app para no confundirse (opcional).
+export interface CtxVida {
+  habitos?: string[]; // nombres de los hábitos
+  rutina?: string[]; // nombres de las tareas de la rutina
+  corriendo?: string | null; // categoría del cronómetro que corre, si hay
+}
+
+const DIAS_SEM = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
+const HORA_RE = "(\\d{1,2}(?:[:.]\\d{2})?)(?:\\s*(?:hrs?|horas|h))?";
+const parecido = (a: string, b: string) => {
+  const x = a.replace(/^(el|la|los|las|mi|de) /, "");
+  return !!x && (b === x || b.startsWith(x) || x.startsWith(b) || b.split(" ")[0] === x.split(" ")[0]);
+};
+
+export function parseVida(text: string, hoy: string, ctx: CtxVida = {}): LocalCommand | null {
   const raw = limpiar(text).toLowerCase();
   const t = suave(raw);
   if (!t) return null;
 
   // Deshacer lo último que anotó JARVIS.
   if (/^(deshace|deshacer|deshaz|anula|anular|borra|borrar|quita) (eso|lo ultimo|el ultimo|lo que anotaste|ultimo registro)\b|^(deshace|deshaz|deshacer)$|^me equivoque\b/.test(t)) return { tool: "__deshacer", args: {} };
+
+  // ---------- Clima, calendario y bitácora (preguntas) ----------
+  if (!/\bcuanto tiempo\b/.test(t) && /\b(clima|va a llover|llovera|llueve|lluvia|que tiempo (hace|va a hacer|hara)|temperatura|hace frio|hace calor|como esta el dia afuera)\b/.test(t))
+    return { tool: "consultar_clima", args: { dia: /\bmanana\b/.test(t) && !/\bde la manana\b/.test(t) ? "manana" : "hoy" } };
+  if (/\b(mi ano en numeros|resumen del ano|resumen anual|como (va|fue|me fue|me va) (el|este|mi) ano)\b/.test(t)) return { tool: "resumen", args: { tipo: "anio" } };
+  if (/\b(en que se me (fue|va|paso)|como (use|ocupe|he usado|he ocupado|gaste|uso|ocupo) (el|mi) tiempo|en que (gaste|ocupe|se me fue) (el|mi) (tiempo|dia))\b|\bcuanto tiempo\b.*\b(estudie|trabaje|entrene|dormi|llevo|pase|estuve|en el celular|en pantallas|hoy|semana|mes|ano)\b/.test(t)) {
+    const periodo = /\bayer\b/.test(t) ? "ayer" : /\bsemana\b/.test(t) ? "semana" : /\bmes\b/.test(t) ? "mes" : /\bano\b/.test(t) ? "anio" : "hoy";
+    const c = t.match(/\b(estudie|estudiando|trabaje|trabajando|entrene|entrenando|dormi|durmiendo|celular|pantallas|redes|futbol|traslado|comiendo|ocio)\b/);
+    return { tool: "consultar_tiempo", args: { periodo, ...(c ? { texto: c[1] } : {}) } };
+  }
+  if (/\b(se me cruza|se me topa|tengo (algun )?(choque|tope)|hay (algun )?(choque|tope))\b/.test(t)) return { tool: "ver_calendario", args: { semana: /proxima/.test(t) ? "proxima" : "esta" } };
+  {
+    const c = t.match(/^(?:y )?(?:que tengo|que hay|que me toca|mi agenda|mi calendario|calendario)\s*(?:para |de |del )?(?:el |la |este |esta )?(proxima semana|semana|manana|pasado manana|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/);
+    if (c) {
+      const w = c[1];
+      if (/semana/.test(w)) return { tool: "ver_calendario", args: { semana: /proxima/.test(w) ? "proxima" : "esta" } };
+      if (w === "manana") return { tool: "ver_calendario", args: { fecha: addDays(hoy, 1) } };
+      if (w === "pasado manana") return { tool: "ver_calendario", args: { fecha: addDays(hoy, 2) } };
+      const target = DIAS_SEM.indexOf(w);
+      const actual = (new Date(hoy + "T12:00Z").getUTCDay() + 6) % 7;
+      return { tool: "ver_calendario", args: { fecha: addDays(hoy, ((target - actual + 7) % 7) || 7) } };
+    }
+    if (/^(mi |el )?(calendario|agenda)( de la semana)?$/.test(t)) return { tool: "ver_calendario", args: { semana: "esta" } };
+  }
+
+  // ---------- Bienestar: sueño, agua, ánimo y hábitos ----------
+  {
+    const dormi = t.match(new RegExp(`^(?:anoche |ayer |hoy )?dormi (?:como |unas |solo |apenas )?(\\d+(?:[.,]\\d+)?|${NUM_RE}) horas?( y media| y cuarto)?`));
+    if (dormi) {
+      const h = (num(dormi[1]) ?? Number(dormi[1].replace(",", "."))) + (dormi[2] === " y media" ? 0.5 : dormi[2] ? 0.25 : 0);
+      if (h > 0 && h <= 16) return { tool: "registrar_dia", args: { sueno: h } };
+    }
+    const agua = t.match(new RegExp(`^(?:ya )?(?:tome|me tome|anota) (?:(\\d+|${NUM_RE}) )?(?:vasos?|botellas?)? ?(?:de )?agua\\b`));
+    if (agua) return { tool: "registrar_dia", args: { agua_suma: (num(agua[1]) || 1) * (/botella/.test(t) ? 2 : 1) } };
+    const animo = t.match(/^(?:hoy )?(?:me siento|me senti|ando|estoy|me encuentro)( muy| super| bastante| mas o menos| medio)? (bien|mal|normal|feliz|contento|triste|bajoneado|bajon|pesimo|increible|la raja|filete|cansado|reventado|sin pilas|con energia|a full|motivado|estresado)$/);
+    if (animo) {
+      const w = animo[2];
+      const muy = /muy|super|bastante/.test(animo[1] || "");
+      if (/cansado|reventado|sin pilas/.test(w)) return { tool: "registrar_dia", args: { energia: w === "reventado" || muy ? 1 : 2 } };
+      if (/con energia|a full|motivado/.test(w)) return { tool: "registrar_dia", args: { energia: 5 } };
+      const v = /pesimo/.test(w) ? 1 : /mal|triste|bajoneado|bajon|estresado/.test(w) ? (muy ? 1 : 2) : /normal/.test(w) || /mas o menos|medio/.test(animo[1] || "") ? 3 : /increible|la raja|filete|feliz/.test(w) || muy ? 5 : 4;
+      return { tool: "registrar_dia", args: { animo: v } };
+    }
+    const esc = t.match(/^(?:mi )?(animo|energia) (?:de |en |es )?(\d)(?: de 5)?$/);
+    if (esc && Number(esc[2]) >= 1 && Number(esc[2]) <= 5) return { tool: "registrar_dia", args: { [esc[1]]: Number(esc[2]) } };
+    const nuevo = raw.match(/^(?:crea|crear|agrega|agregar|añade|nuevo|ponme|quiero)\s+(?:un\s+)?(?:el\s+)?(?:nuevo\s+)?h[aá]bito\s*(?:de\s+|:\s*)?(.+)$/);
+    if (nuevo) {
+      const resto = suave(nuevo[1]);
+      const dias = /de lunes a viernes|dias de semana|en la semana/.test(resto) ? [0, 1, 2, 3, 4] : /fines? de semana/.test(resto) ? [5, 6] : [];
+      const nombre = resto.replace(/\s*(todos los dias|cada dia|diario|de lunes a viernes|dias de semana|en la semana|los fines? de semana|fines? de semana)$/, "").trim();
+      if (nombre) return { tool: "crear_habito", args: { nombre, dias } };
+    }
+    const marca = t.match(/^(?:ya )?(?:marca|tacha|cumpli|hice|complete)\s+(?:el |mi )?habito\s+(?:de\s+)?(.+)$/);
+    if (marca) return { tool: "marcar_habito", args: { nombre: marca[1] } };
+    // "ya leí" / "cumplí estirar": si calza con un hábito (y no con la rutina), se marca el hábito.
+    const suelto = t.match(/^(?:ya )?(?:hice|cumpli|complete|termine|tache)\s+(?:el |la |de |mi )?(.+)$/);
+    if (suelto && ctx.habitos?.length) {
+      const q = suelto[1];
+      const h = ctx.habitos.find((x) => parecido(q, suave(x)));
+      if (h && !(ctx.rutina || []).some((r) => parecido(q, suave(r)))) return { tool: "marcar_habito", args: { nombre: h } };
+    }
+  }
 
   // ---------- Consultas ----------
   if (/\b(resumen|resume) (de la manana|del dia|de hoy|matinal)\b|^buen(os)? dias?\b|\bcomo (parte|viene) mi dia\b/.test(t)) return { tool: "resumen", args: { tipo: "manana" } };
@@ -260,6 +336,40 @@ export function parseVida(text: string, hoy: string): LocalCommand | null {
         return { tool: "registrar_turno", args: conFecha({ inicio: ini, fin, ...(pausa ? { pausa_min: Number(pausa[1]) } : {}), ...(prop ? { propinas: prop.valor } : {}) }) };
       }
     }
+  }
+
+  // ---------- Bitácora de tiempo ----------
+  if (!preg) {
+    // Terminar lo que corre: "terminé", "listo", "paré", "me desperté".
+    if (ctx.corriendo && (/^(ya )?(termine|listo|pare|acabe|fin|stop|deje)( ya)?( de \w+( \w+)?)?$/.test(t) || (ctx.corriendo === "sueno" && /^(me desperte|desperte|buenos dias)$/.test(t))))
+      return { tool: "terminar_actividad", args: {} };
+    // Un bloque con horas: "de 14 a 16 estuve estudiando", "estuve en el celular de 22 a 23:30", "dormí de 23:30 a 7".
+    let b = t.match(new RegExp(`^(?:de|desde) (?:las )?${HORA_RE} (?:a|hasta) (?:las )?${HORA_RE} (?:estuve |fui |hice |me puse a |estaba )?(.+)$`));
+    if (b) {
+      const ini = parseHour(b[1]);
+      const fin = parseHour(b[2]);
+      if (ini && fin) return { tool: "registrar_bloque", args: { texto: b[3], inicio: ini, fin } };
+    }
+    b = t.match(new RegExp(`^(?:estuve|hice|fui|pase|dormi|estudie|vi|jugue)\\s*(.*?) (?:de|desde) (?:las )?${HORA_RE} (?:a|hasta) (?:las )?${HORA_RE}$`));
+    if (b) {
+      const ini = parseHour(b[2]);
+      const fin = parseHour(b[3]);
+      const verbo = t.split(" ")[0];
+      if (ini && fin) return { tool: "registrar_bloque", args: { texto: `${verbo} ${b[1]}`.trim(), inicio: ini, fin } };
+    }
+    // Un rato que ya pasó: "estuve 2 horas en el celular", "pasé una hora viendo series".
+    b = t.match(new RegExp(`^(?:estuve|pase|me pase|llevo)\\s+(?:como |unas? )?(\\d+(?:[.,]\\d+)?|${NUM_RE}|media) (horas?|minutos|min)( y media)? (.+)$`));
+    if (b) {
+      const base = b[1] === "media" ? 0.5 : num(b[1]) ?? Number(b[1].replace(",", "."));
+      const minutos = Math.round(/hora/.test(b[2]) ? base * 60 + (b[3] ? 30 : 0) : base);
+      if (minutos > 0) return { tool: "registrar_bloque", args: { texto: b[4], minutos } };
+    }
+    // Empezar algo ahora: "empecé a estudiar", "me pongo a ordenar", "estoy en el gym", "me voy a dormir".
+    b =
+      t.match(/^(?:ya )?(?:empece|empiezo|comence|comienzo|me pongo|me puse|parto|parti) (?:a |con )(.+)$/) ||
+      t.match(/^(?:me voy|voy) a (dormir|acostarme|almorzar|comer|cenar|tomar once|entrenar|estudiar|trabajar|correr|jugar .+|ver .+|leer.*)$/) ||
+      t.match(/^estoy (?:en el |en la |en |)(gym|gimnasio|trabajo|turno|la pega|clases?|el partido|entrenamiento|la micro|el bus|camino .+|estudiando.*|trabajando.*|entrenando.*|comiendo.*|almorzando.*|viendo .+|jugando .+|ordenando.*|limpiando.*|leyendo.*|con (?:mis |la |el )?(?:amigos|familia|polola|pololo).*)$/);
+    if (b) return { tool: "iniciar_actividad", args: { texto: b[1] } };
   }
 
   return null;

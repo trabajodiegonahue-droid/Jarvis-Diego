@@ -12,13 +12,28 @@ import { store } from "../data/store";
 import { getPrefs } from "../ui/state";
 import { parseVida } from "./vidaParser";
 import { vidaTools } from "./vidaTools";
+import { diaTools } from "./diaTools";
+import { obtenerClima } from "../weather/clima";
+import { corriendo } from "../time/calc";
 
 export let settings: Settings = loadSettings(localKV);
 export const routine = new Routine(localKV);
 export const tools = new ToolRegistry();
-tools.register(...routineTools(routine), ...knowledgeTools(() => settings.about, () => settings), ...vidaTools({ store, routine, clock: chileNow }));
+// El clima de la ciudad elegida en Ajustes (Open-Meteo, con copia de una hora).
+export const climaAhora = () => obtenerClima(getPrefs().ciudad, localKV);
+tools.register(
+  ...routineTools(routine),
+  ...knowledgeTools(() => settings.about, () => settings),
+  ...vidaTools({ store, routine, clock: chileNow, clima: climaAhora }),
+  ...diaTools({ store, routine, clock: chileNow, clima: climaAhora, aguaMeta: () => getPrefs().aguaMeta }),
+);
 export const assistant = new Assistant(tools, routine, () => settings, localKV, chileNow, undefined, {
-  parse: (t, n) => parseVida(t, n.date),
+  parse: (t, n) =>
+    parseVida(t, n.date, {
+      habitos: store.data.habitos.filter((h) => !h.archivado).map((h) => h.nombre),
+      rutina: routine.tasks.map((r) => r.title),
+      corriendo: corriendo(store.data.actividades)?.cat ?? null,
+    }),
   privado: () => getPrefs().privacy,
 });
 export const speaker = new Speaker();

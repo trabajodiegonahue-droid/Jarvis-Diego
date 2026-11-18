@@ -12,8 +12,33 @@ import { clp } from "../money/format";
 import { norm } from "../routine/routine";
 import { horasEnSemana, metaSemanalTotal, proximasEvaluaciones, tareasPendientes } from "../study/calc";
 import { ejercicio } from "../training/ejercicios";
-import { cargaDelDia, semanaEntreno, sesionDeHoy, seriesAjustadas } from "../training/calc";
+import { chequeoDeHoy, cargaDelDia, semanaEntreno, sesionDeHoy, seriesAjustadas } from "../training/calc";
 import { horasSemana, horasMes, turnoDeHoy } from "../work/calc";
+import { activos, aplica, cumplimiento, fraseBienestar, hecho, mejorRacha, promedios } from "../habits/calc";
+import { cat, horasTxt, tiempoPeriodo } from "../time/calc";
+import { recordsNuevos, volumenPorMusculo } from "../training/calc";
+import { MUSCULOS, type Musculo } from "../training/ejercicios";
+import type { CatTiempo } from "../data/types";
+
+// Lo que más tiempo se llevó en un periodo (de la bitácora), en una frase.
+function lineaTiempo(d: Datos, desde: string, hasta: string, ahora: string): string | null {
+  const p = tiempoPeriodo(d, desde, hasta, ahora);
+  if (!p.registrado) return null;
+  const top = (Object.entries(p.porCat) as [CatTiempo, number][]).filter(([c]) => c !== "sueno").sort((a, b) => b[1] - a[1]).slice(0, 3);
+  return top.length ? `En tu bitácora, lo que más tiempo se llevó: ${y(top.map(([c, v]) => `${cat(c).nombre.toLowerCase()} ${horasTxt(v)}`))}.` : null;
+}
+
+function lineaBienestar(d: Datos, hasta: string, n: number): string | null {
+  const partes: string[] = [];
+  const hs = activos(d.habitos);
+  if (hs.length) {
+    const c = cumplimiento(d.habitos, d.dias, hasta, n);
+    if (c.pct != null) partes.push(`cumpliste ${c.pct}% de tus hábitos`);
+  }
+  const pr = promedios(d.dias, hasta, n);
+  if (pr.sueno != null) partes.push(`dormiste ${String(pr.sueno).replace(".", ",")} horas en promedio`);
+  return partes.length ? `${partes.join(" y ").replace(/^./, (x) => x.toUpperCase())}.` : null;
+}
 
 export interface Respuesta {
   texto: string;
@@ -163,19 +188,20 @@ export function consultaFutbol(d: Datos, hoy: string): Respuesta {
 export function entrenoDeHoy(d: Datos, hoy: string): Respuesta {
   const plan = d.planes.find((p) => p.id === "activo");
   const ses = sesionDeHoy(plan, hoy);
-  const ch = d.chequeos.find((c) => c.id === hoy);
+  const ch = chequeoDeHoy(d, hoy);
   const carga = cargaDelDia(ch, d.partidos, hoy, d.chequeos);
   if (!plan) return { texto: "Todavía no tienes una rutina armada. Ve a Fútbol, pestaña Físico, y en un minuto te armo una según tus días y tu equipo.", privado: false };
   if (!ses) return { texto: `Hoy no tienes sesión en el plan: toca descanso.${carga.nivel === "activacion" ? ` ${carga.motivo}` : ""}`, privado: false };
-  if (d.entrenos.some((e) => e.fecha === hoy)) return { texto: `Hoy ya registraste entreno. Bien ahí. Lo que tocaba era ${ses.nombre}.`, privado: false };
-  if (carga.nivel === "parar") return { texto: `Hoy tocaba ${ses.nombre}, pero ${carga.motivo.charAt(0).toLowerCase()}${carga.motivo.slice(1)}`, privado: false };
+  if (d.entrenos.some((e) => e.fecha === hoy)) return { texto: `Hoy ya registraste entreno. Bien ahí. Lo que tocaba era ${ses.nombre.replace(/^[^:]+: /, "")}.`, privado: false };
+  if (carga.nivel === "parar") return { texto: `Hoy tocaba ${ses.nombre.replace(/^[^:]+: /, "")}, pero ${carga.motivo.charAt(0).toLowerCase()}${carga.motivo.slice(1)}`, privado: false };
   const items = ses.items.slice(0, 4).map((it) => `${ejercicio(it.ejId)?.nombre.split(" (")[0] || it.ejId} ${seriesAjustadas(it.series, carga)} por ${it.repsMin === it.repsMax ? it.repsMax : `${it.repsMin} a ${it.repsMax}`}${ejercicio(it.ejId)?.porTiempo ? " segundos" : ""}`);
-  return { texto: `Hoy te toca ${ses.nombre}, unos ${ses.minutos} minutos: ${y(items)}${ses.items.length > 4 ? ", y más" : ""}.${carga.nivel !== "normal" ? ` ${carga.motivo}` : ""} Lo haces con la sesión guiada en Físico.`, privado: false };
+  return { texto: `Hoy te toca ${ses.nombre.replace(/^[^:]+: /, "")}, unos ${ses.minutos} minutos: ${y(items)}${ses.items.length > 4 ? ", y más" : ""}.${carga.nivel !== "normal" ? ` ${carga.motivo}` : ""} Lo haces con la sesión guiada en Físico.`, privado: false };
 }
 
 // ---------- Resúmenes ----------
-export function resumenHoy(d: Datos, hoy: string, minutos: number, r: RutinaHoy, manana: boolean): Respuesta {
+export function resumenHoy(d: Datos, hoy: string, minutos: number, r: RutinaHoy, manana: boolean, extra: { clima?: string | null } = {}): Respuesta {
   const partes: string[] = [];
+  if (extra.clima) partes.push(extra.clima);
   let privado = false;
   const prox = r.pendientes.filter((p) => toMin(p.hora) > minutos);
   if (r.pendientes.length || r.hechas.length) {
@@ -190,8 +216,8 @@ export function resumenHoy(d: Datos, hoy: string, minutos: number, r: RutinaHoy,
   const plan = d.planes.find((p) => p.id === "activo");
   const ses = sesionDeHoy(plan, hoy);
   if (ses && !d.entrenos.some((e) => e.fecha === hoy)) {
-    const c = cargaDelDia(d.chequeos.find((x) => x.id === hoy), d.partidos, hoy, d.chequeos);
-    partes.push(c.nivel === "activacion" || c.nivel === "parar" ? `En el físico tocaba ${ses.nombre}, pero ${c.motivo.charAt(0).toLowerCase()}${c.motivo.slice(1)}` : `En el físico toca ${ses.nombre}, unos ${ses.minutos} minutos.`);
+    const c = cargaDelDia(chequeoDeHoy(d, hoy), d.partidos, hoy, d.chequeos);
+    partes.push(c.nivel === "activacion" || c.nivel === "parar" ? `En el físico tocaba ${ses.nombre.replace(/^[^:]+: /, "")}, pero ${c.motivo.charAt(0).toLowerCase()}${c.motivo.slice(1)}` : `En el físico toca ${ses.nombre.replace(/^[^:]+: /, "")}, unos ${ses.minutos} minutos.`);
   }
   const manianaP = d.partidos.find((p) => p.fecha === addDays(hoy, 1) && p.tipo === "partido");
   if (manianaP) partes.push(`Mañana juegas${manianaP.rival ? ` contra ${manianaP.rival}` : ""}: descansa bien.`);
@@ -200,6 +226,10 @@ export function resumenHoy(d: Datos, hoy: string, minutos: number, r: RutinaHoy,
   const tareas = tareasPendientes(d.tareas, hoy).filter((t) => t.fecha);
   if (tareas.length) partes.push(`Tienes ${tareas.length === 1 ? `pendiente ${tareas[0].texto}` : `${tareas.length} tareas de estudio pendientes`}.`);
   if (manana && r.ayerPendientes.length) partes.push(`De ayer quedó ${y(r.ayerPendientes.slice(0, 3))}.`);
+  const habs = activos(d.habitos).filter((h) => aplica(h, hoy) && !hecho(d.dias, h.id, hoy));
+  if (habs.length && !manana) partes.push(`De tus hábitos te falta ${y(habs.slice(0, 3).map((h) => h.nombre.toLowerCase()))}.`);
+  const fb = manana ? fraseBienestar(d.dias, hoy) : null;
+  if (fb) partes.push(fb);
   const sin = sinRegistrar(d.partidos, hoy);
   if (sin.length) partes.push(`Te falta registrar ${sin.length === 1 ? `el ${sin[0].tipo} del ${fechaCorta(sin[0].fecha)}` : `${sin.length} partidos o entrenamientos`}.`);
   const mes = mesDe(hoy);
@@ -216,7 +246,8 @@ export function resumenHoy(d: Datos, hoy: string, minutos: number, r: RutinaHoy,
 
 const toMin = (h: string) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
 
-export function resumenSemana(d: Datos, hoy: string): Respuesta {
+// cerrada = la semana ya terminó (el resumen del lunes habla de la semana pasada).
+export function resumenSemana(d: Datos, hoy: string, cerrada = false): Respuesta {
   const l = lunesDe(hoy);
   const partes: string[] = [];
   let privado = false;
@@ -224,7 +255,13 @@ export function resumenSemana(d: Datos, hoy: string): Respuesta {
   const sem = semanaEntreno(plan, d.entrenos, hoy).filter((x) => x.dia <= dow(hoy));
   const hechos = d.entrenos.filter((e) => e.fecha >= l && e.fecha <= hoy).length;
   const tocaban = sem.filter((x) => x.plan).length;
-  if (hechos || tocaban) partes.push(`Entrenaste ${veces(hechos)}${tocaban ? ` de ${tocaban} que tocaban hasta hoy` : ""}.`);
+  if (hechos || tocaban) partes.push(`Entrenaste ${veces(hechos)}${tocaban ? ` de ${tocaban} que tocaban${cerrada ? "" : " hasta hoy"}` : ""}.`);
+  const vol = Object.entries(volumenPorMusculo(d.entrenos, l)) as [Musculo, number][];
+  const topM = vol.sort((a, b) => b[1] - a[1]).slice(0, 2).filter(([, v]) => v > 0);
+  if (topM.length) partes.push(`Lo que más trabajaste: ${y(topM.map(([m]) => MUSCULOS[m].toLowerCase()))}.`);
+  const semanaEnt = d.entrenos.filter((e) => e.fecha >= l && e.fecha <= hoy).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const recs = semanaEnt.flatMap((e) => recordsNuevos(d.entrenos.filter((x) => x.fecha < e.fecha), e));
+  if (recs.length) partes.push(`${recs.length === 1 ? "Rompiste un récord" : `Rompiste ${recs.length} récords`}: ${recs[0]}.`);
   const jug = d.partidos.filter((p) => p.fecha >= l && p.fecha <= hoy && p.fui && p.tipo === "partido");
   if (jug.length) {
     const g = jug.reduce((a, p) => a + (p.goles || 0), 0);
@@ -236,6 +273,10 @@ export function resumenSemana(d: Datos, hoy: string): Respuesta {
   if (hEst || metaEst) partes.push(`Estudiaste ${horas(hEst)}${metaEst ? ` de ${horas(metaEst)} de meta` : ""}.`);
   const hTrab = horasSemana(d.turnos, hoy);
   if (hTrab) partes.push(`Trabajaste ${horas(hTrab)}.`);
+  const bien = lineaBienestar(d, hoy, cerrada ? 7 : dow(hoy) + 1);
+  if (bien) partes.push(bien);
+  const tiempo = lineaTiempo(d, l, hoy, `${hoy}T23:59`);
+  if (tiempo) partes.push(tiempo);
   const gastos = d.movimientos.filter((m) => m.tipo === "egreso" && m.fecha >= l && m.fecha <= hoy).reduce((a, m) => a + m.monto, 0);
   if (gastos) {
     partes.push(`Gastaste ${clp(gastos)}.`);
@@ -244,10 +285,11 @@ export function resumenSemana(d: Datos, hoy: string): Respuesta {
   if (!partes.length) return { texto: "Esta semana todavía no tienes nada registrado. Cuéntame qué hiciste y lo anoto.", privado: false };
   const atras = activas(d, hoy).filter((m) => avance(m, d, hoy).estado === "atrasada");
   if (atras.length) partes.push(`Para la próxima: ${atras.length === 1 ? `la meta ${atras[0].nombre} va atrasada` : `${atras.length} metas van atrasadas`}.`);
-  return { texto: `Tu semana: ${partes.join(" ")}`, privado };
+  return { texto: `${cerrada ? "Tu semana pasada" : "Tu semana"}: ${partes.join(" ")}`, privado };
 }
 
-export function resumenMes(d: Datos, hoy: string): Respuesta {
+// cerrado = el mes ya terminó ("hoy" es su último día).
+export function resumenMes(d: Datos, hoy: string, cerrado = false): Respuesta {
   const mes = mesDe(hoy);
   const dia = Number(hoy.slice(8, 10));
   const partes: string[] = [];
@@ -267,6 +309,10 @@ export function resumenMes(d: Datos, hoy: string): Respuesta {
   if (hEst) partes.push(`Estudiaste ${horas(hEst)}.`);
   const hTrab = horasMes(d.turnos, mes, hoy);
   if (hTrab) partes.push(`Trabajaste ${horas(hTrab)}.`);
+  const bien = lineaBienestar(d, hoy, dia);
+  if (bien) partes.push(bien);
+  const tiempo = lineaTiempo(d, `${mes}-01`, hoy, `${hoy}T23:59`);
+  if (tiempo) partes.push(tiempo);
   const act = activas(d, hoy);
   if (act.length) {
     const est = act.map((m) => avance(m, d, hoy).estado);
@@ -274,5 +320,69 @@ export function resumenMes(d: Datos, hoy: string): Respuesta {
     partes.push(`De tus ${act.length} metas activas, ${bien === act.length ? "todas van bien" : `${bien} van bien y ${act.length - bien} necesitan empuje`}.`);
   }
   if (!partes.length) return { texto: `En ${nombreMes(mes)} todavía no tienes nada registrado.`, privado: false };
-  return { texto: `Tu ${nombreMes(mes)} hasta ahora: ${partes.join(" ")}`, privado };
+  return { texto: `Tu ${nombreMes(mes)}${cerrado ? "" : " hasta ahora"}: ${partes.join(" ")}`, privado };
+}
+
+// ---------- Mi año en números ----------
+export interface NumerosAnio {
+  anio: string;
+  partidos: number;
+  goles: number;
+  asistencias: number;
+  entrenos: number;
+  horasEstudio: number;
+  horasTrabajo: number;
+  ingresos: number;
+  egresos: number;
+  metasCumplidas: number;
+  mejorHabito: { nombre: string; racha: number } | null;
+  sueno: number | null;
+  tiempo: Partial<Record<CatTiempo, number>>; // minutos de la bitácora
+  porMes: { mes: string; entrenos: number; horasEstudio: number; horasTrabajo: number; goles: number }[];
+}
+
+export function numerosAnio(d: Datos, hoy: string, anio = hoy.slice(0, 4)): NumerosAnio {
+  const en = (f: string) => f.startsWith(anio) && f <= hoy;
+  const jug = d.partidos.filter((p) => en(p.fecha) && p.fui && p.tipo === "partido");
+  const fin = anio === hoy.slice(0, 4) ? hoy : `${anio}-12-31`;
+  const meses = Array.from({ length: Number(fin.slice(5, 7)) }, (_, i) => `${anio}-${String(i + 1).padStart(2, "0")}`);
+  const habs = activos(d.habitos).map((h) => ({ nombre: h.nombre, racha: mejorRacha(h, d.dias.filter((x) => x.id.startsWith(anio)), fin) })).sort((a, b) => b.racha - a.racha);
+  const dormido = d.dias.filter((x) => en(x.id) && typeof x.sueno === "number").map((x) => x.sueno!);
+  return {
+    anio,
+    partidos: jug.length,
+    goles: jug.reduce((a, p) => a + (p.goles || 0), 0),
+    asistencias: jug.reduce((a, p) => a + (p.asistencias || 0), 0),
+    entrenos: d.entrenos.filter((e) => en(e.fecha)).length,
+    horasEstudio: Math.round(d.sesiones.filter((x) => en(x.fecha)).reduce((a, x) => a + x.minutos, 0) / 6) / 10,
+    horasTrabajo: Math.round(meses.reduce((a, m) => a + horasMes(d.turnos, m, fin), 0) * 10) / 10,
+    ingresos: d.movimientos.filter((m) => en(m.fecha) && m.tipo === "ingreso").reduce((a, m) => a + m.monto, 0),
+    egresos: d.movimientos.filter((m) => en(m.fecha) && m.tipo === "egreso").reduce((a, m) => a + m.monto, 0),
+    metasCumplidas: d.metas.filter((m) => avance(m, d, fin).estado === "cumplida" && (m.fechaLimite.startsWith(anio) || m.inicio.startsWith(anio))).length,
+    mejorHabito: habs[0]?.racha ? habs[0] : null,
+    sueno: dormido.length ? Math.round((dormido.reduce((a, b) => a + b, 0) / dormido.length) * 10) / 10 : null,
+    tiempo: tiempoPeriodo(d, `${anio}-01-01`, fin, `${fin}T23:59`).porCat,
+    porMes: meses.map((m) => ({
+      mes: m,
+      entrenos: d.entrenos.filter((e) => e.fecha.startsWith(m)).length,
+      horasEstudio: Math.round(d.sesiones.filter((x) => x.fecha.startsWith(m)).reduce((a, x) => a + x.minutos, 0) / 6) / 10,
+      horasTrabajo: Math.round(horasMes(d.turnos, m, fin) * 10) / 10,
+      goles: jug.filter((p) => p.fecha.startsWith(m)).reduce((a, p) => a + (p.goles || 0), 0),
+    })),
+  };
+}
+
+export function resumenAnio(d: Datos, hoy: string, anio = hoy.slice(0, 4)): Respuesta {
+  const n = numerosAnio(d, hoy, anio);
+  const partes: string[] = [];
+  if (n.partidos) partes.push(`${n.partidos} partidos, ${n.goles} goles y ${n.asistencias} asistencias`);
+  if (n.entrenos) partes.push(`${n.entrenos} entrenos`);
+  if (n.horasEstudio) partes.push(`${horas(n.horasEstudio)} de estudio`);
+  if (n.horasTrabajo) partes.push(`${horas(n.horasTrabajo)} de trabajo`);
+  if (n.metasCumplidas) partes.push(`${n.metasCumplidas} ${n.metasCumplidas === 1 ? "meta cumplida" : "metas cumplidas"}`);
+  let txt = partes.length ? `Tu ${anio} en números: ${y(partes)}.` : `En ${anio} todavía no tienes nada registrado.`;
+  if (n.mejorHabito) txt += ` Tu mejor racha fue ${n.mejorHabito.nombre.toLowerCase()}, ${n.mejorHabito.racha} días seguidos.`;
+  const privado = !!(n.ingresos || n.egresos);
+  if (privado) txt += ` En plata entraron ${clp(n.ingresos)} y salieron ${clp(n.egresos)}.`;
+  return { texto: txt, privado };
 }
