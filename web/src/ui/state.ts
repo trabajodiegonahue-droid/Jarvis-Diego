@@ -6,9 +6,10 @@ import { PUERTO_VARAS, type Ciudad } from "../weather/clima";
 
 export const kv = localKV;
 
-export type CardId = "resumen" | "tiempo" | "habitos" | "dinero" | "metas" | "entreno" | "futbol" | "pendientes" | "equilibrio" | "jarvis";
+export type CardId = "recordatorios" | "resumen" | "tiempo" | "habitos" | "dinero" | "metas" | "entreno" | "futbol" | "pendientes" | "equilibrio" | "jarvis";
 // "fase": en qué fase llega la tarjeta. Las que todavía no existen no se muestran en el inicio.
 export const CARDS: { id: CardId; nombre: string; fase: number }[] = [
+  { id: "recordatorios", nombre: "Recordatorios y lo que viene", fase: 6 },
   { id: "resumen", nombre: "Resumen de la semana y del mes", fase: 5 },
   { id: "tiempo", nombre: "Mi tiempo hoy", fase: 5 },
   { id: "habitos", nombre: "Hábitos de hoy", fase: 5 },
@@ -47,6 +48,10 @@ export interface Prefs {
   aguaMeta: number; // vasos al día
   calRutina: boolean; // mostrar la rutina en el calendario
   resumenVisto: string; // último resumen (semana o mes) que cerraste en el inicio
+  dificil: { desde: string; hasta: string }[]; // periodos en modo semana difícil
+  logrosVistos: string[];
+  avisos: { activos: boolean; manana: string; noche: string; agua: boolean; rutina: boolean }; // avisos en el teléfono
+  vistaEquilibrio: "barras" | "rueda";
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -64,6 +69,10 @@ const DEFAULT_PREFS: Prefs = {
   aguaMeta: 8,
   calRutina: true,
   resumenVisto: "",
+  dificil: [],
+  logrosVistos: [],
+  avisos: { activos: false, manana: "08:00", noche: "21:30", agua: false, rutina: true },
+  vistaEquilibrio: "rueda",
 };
 
 let prefs: Prefs = loadPrefs();

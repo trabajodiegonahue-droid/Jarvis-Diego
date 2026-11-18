@@ -16,6 +16,8 @@ import { AREAS, CARDS, cardReady, getPrefs, go, kv, reloadPrefs, setPrefs, toast
 const SECCIONES = [
   { path: "/mas/estudios", nombre: "Estudios", icon: "libro", fase: 2 },
   { path: "/mas/trabajo", nombre: "Trabajo", icon: "trabajo", fase: 2 },
+  { path: "/mas/recordatorios", nombre: "Recordatorios, fechas y memoria", icon: "campana", fase: 6 },
+  { path: "/mas/compras", nombre: "Lista de compras", icon: "carro", fase: 6 },
   { path: "/mas/tiempo", nombre: "Mi tiempo: día, mes y año", icon: "reloj", fase: 5 },
   { path: "/mas/habitos", nombre: "Hábitos y bienestar", icon: "habitos", fase: 5 },
   { path: "/mas/calendario", nombre: "Calendario", icon: "calendario", fase: 5 },
@@ -115,7 +117,7 @@ export function Pronto({ titulo, fase, texto }: { titulo: string; fase: number; 
   );
 }
 
-function saveFile(name: string, text: string, type: string) {
+export function saveFile(name: string, text: string, type: string) {
   const file = new File([text], name, { type });
   if (navigator.canShare?.({ files: [file] })) return navigator.share({ files: [file], title: name }).then(() => true, (e) => (e?.name === "AbortError" ? false : download(file)));
   return Promise.resolve(download(file));

@@ -18,6 +18,9 @@ import { Futbol } from "./screens/Futbol";
 import { Habitos } from "./screens/Habitos";
 import { Calendario } from "./screens/Calendario";
 import { Tiempo } from "./screens/Tiempo";
+import { Recordatorios } from "./screens/Recordatorios";
+import { Compras } from "./screens/Compras";
+import { cerrarAviso, getSonando, iniciarAvisos, onSonando, posponer } from "../jarvis/avisosApp";
 import { go, kv, toast, useApp, useRoute } from "./state";
 
 const TABS = [
@@ -60,6 +63,7 @@ export function App() {
     };
     abrirDesdeEnlace();
     void buzon();
+    iniciarAvisos();
     const vis = () => !document.hidden && void buzon();
     addEventListener("hashchange", abrirDesdeEnlace);
     document.addEventListener("visibilitychange", vis);
@@ -106,6 +110,10 @@ export function App() {
         return <Calendario />;
       case "/mas/tiempo":
         return <Tiempo />;
+      case "/mas/recordatorios":
+        return <Recordatorios />;
+      case "/mas/compras":
+        return <Compras />;
       default:
         return <Inicio onAdd={() => setAdd(true)} />;
     }
@@ -137,7 +145,35 @@ export function App() {
         </Sheet>
       )}
       {jarvis && <JarvisSheet inicial={jarvis.inicial} onClose={() => setJarvis(false)} />}
+      <AvisoEnPantalla />
       <Toast />
     </>
+  );
+}
+
+// Cuando suena un recordatorio con la app abierta: aparece arriba, con "Listo" y "Posponer".
+function AvisoEnPantalla() {
+  const [, redraw] = useState(0);
+  useEffect(() => onSonando(() => redraw((n) => n + 1)), []);
+  const s = getSonando()[0];
+  if (!s) return null;
+  return (
+    <div role="alertdialog" aria-live="assertive" aria-label="Recordatorio" class="card" style={{ position: "fixed", top: "calc(env(safe-area-inset-top) + 10px)", left: "12px", right: "12px", zIndex: 60, maxWidth: "560px", margin: "0 auto", borderColor: "var(--gold)", boxShadow: "0 12px 40px rgba(0,0,0,.45)", gap: "10px" }}>
+      <span class="lbl" style={{ color: "var(--gold)" }}>
+        {s.atrasado ? "Se te pasó este recordatorio" : "Recordatorio"}
+      </span>
+      <strong style={{ fontSize: "18px" }}>{s.r.texto}</strong>
+      <div class="row" style={{ gap: "8px", flexWrap: "wrap" }}>
+        <button class="btn sm main" onClick={() => cerrarAviso(s.r.id)}>
+          Listo
+        </button>
+        <button class="btn sm" onClick={() => posponer(s, 10)}>
+          En 10 min
+        </button>
+        <button class="btn sm" onClick={() => posponer(s, 60)}>
+          En 1 hora
+        </button>
+      </div>
+    </div>
   );
 }

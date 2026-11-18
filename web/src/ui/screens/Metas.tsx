@@ -4,6 +4,7 @@ import { chileNow } from "../../core/time";
 import { store } from "../../data/store";
 import { uid, type Area, type FuenteMeta, type Meta, type TipoMeta } from "../../data/types";
 import { avance, faltaSemana, fechaEstimada, revisionMes } from "../../goals/calc";
+import { simular } from "../../extras/calc";
 import { AREAS_META, ESTADO_META, fmtValor } from "../../goals/format";
 import { mesDe, nombreMes, sumarMeses } from "../../money/calc";
 import { clp, parseCLP } from "../../money/format";
@@ -168,6 +169,8 @@ function MetaDetalle({ m, onClose }: { m: Meta; onClose: () => void }) {
           </span>
         )}
       </div>
+
+      {m.tipo === "monto" && a.estado !== "cumplida" && <Simulador m={m} />}
 
       {m.tipo === "pasos" && (
         <div class="stack">
@@ -485,5 +488,44 @@ function Revision() {
         Guardar revisión
       </button>
     </details>
+  );
+}
+
+// "Si ahorro tanto al mes, ¿cuándo llego?" Se mueve el monto y se ve la fecha al tiro.
+function Simulador({ m }: { m: Meta }) {
+  const { data } = useApp();
+  const hoy = hoyCL();
+  const base = simular(m, data, hoy, 0);
+  const sugerido = Math.max(5000, Math.min(base.necesario || 50000, 2_000_000));
+  const [porMes, setPorMes] = useState(Math.round(sugerido / 5000) * 5000);
+  const s = simular(m, data, hoy, porMes);
+  const max = Math.max(200_000, Math.ceil(((base.necesario || 0) * 2) / 50_000) * 50_000);
+  return (
+    <div class="card" style={{ gap: "8px" }}>
+      <h2>Simulador</h2>
+      <label class="lbl" for={`sim-${m.id}`}>
+        Si ahorro <strong class="num">{clp(porMes)}</strong> al mes…
+      </label>
+      <input id={`sim-${m.id}`} type="range" min={5000} max={max} step={5000} value={porMes} onInput={(e) => setPorMes(Number((e.target as HTMLInputElement).value))} style={{ width: "100%", accentColor: "var(--gold)" }} />
+      <span style={{ fontSize: "15px" }}>
+        {s.fecha ? (
+          <>
+            llegas el <strong>{fechaLarga(s.fecha)}</strong>
+            {s.meses != null && s.meses > 0 ? ` (en ${s.meses} ${s.meses === 1 ? "mes" : "meses"})` : ""}.{" "}
+            <span style={{ color: s.aTiempo ? "var(--green)" : "var(--amber)" }}>{s.aTiempo ? "Antes de la fecha límite." : "Después de la fecha límite."}</span>
+          </>
+        ) : (
+          "no llegas."
+        )}
+      </span>
+      {base.necesario != null && base.necesario > 0 && (
+        <span class="small">
+          Para llegar el {fechaLarga(m.fechaLimite)} necesitas unos {clp(base.necesario)} al mes.{" "}
+          <button class="link" style={{ background: "none", border: 0, padding: 0, color: "var(--blue)", fontSize: "13px" }} onClick={() => setPorMes(Math.ceil(base.necesario! / 5000) * 5000)}>
+            Usar ese monto
+          </button>
+        </span>
+      )}
+    </div>
   );
 }

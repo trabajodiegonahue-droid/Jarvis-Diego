@@ -158,3 +158,46 @@ export function Bars({ data, label, fmt = (n: number) => String(Math.round(n)), 
     </svg>
   );
 }
+
+// Rueda de la vida: un radar con el equilibrio de cada área (0 a 100). Áreas sin datos quedan en gris.
+export function Rueda({ data, label }: { data: { nombre: string; valor: number | null }[]; label: string }) {
+  const n = data.length;
+  if (n < 3) return null;
+  const S = 300;
+  const c = S / 2;
+  const R = 92;
+  const pt = (i: number, v: number) => {
+    const ang = -Math.PI / 2 + (i * 2 * Math.PI) / n;
+    return [c + Math.cos(ang) * R * (v / 100), c + Math.sin(ang) * R * (v / 100)];
+  };
+  const poly = data.map((d, i) => pt(i, d.valor ?? 0).join(",")).join(" ");
+  const alt = data.map((d) => `${d.nombre}: ${d.valor == null ? "sin datos" : `${d.valor} de 100`}`).join(", ");
+  return (
+    <svg viewBox={`-70 -6 ${S + 140} ${S + 16}`} width="100%" style={{ maxWidth: "400px", alignSelf: "center" }} role="img" aria-label={`${label}. ${alt}`}>
+      {[25, 50, 75, 100].map((v) => (
+        <polygon key={v} points={data.map((_, i) => pt(i, v).join(",")).join(" ")} fill="none" stroke="var(--line)" stroke-width={v === 100 ? 1.5 : 1} />
+      ))}
+      {data.map((_, i) => {
+        const [x, y] = pt(i, 100);
+        return <line key={i} x1={c} y1={c} x2={x} y2={y} stroke="var(--line)" />;
+      })}
+      <polygon points={poly} fill="var(--green)" fill-opacity="0.22" stroke="var(--green)" stroke-width="2" stroke-linejoin="round" />
+      {data.map((d, i) => {
+        const [x, y] = pt(i, d.valor ?? 0);
+        return d.valor == null ? null : <circle key={i} cx={x} cy={y} r="3.5" fill="var(--green)" />;
+      })}
+      {data.map((d, i) => {
+        const [x, y] = pt(i, 128);
+        const anchor = Math.abs(x - c) < 8 ? "middle" : x > c ? "start" : "end";
+        return (
+          <text key={d.nombre} x={x} y={y + 4} text-anchor={anchor} font-size="12" fill={d.valor == null ? "var(--muted)" : "var(--ink)"} font-weight="600">
+            {d.nombre}
+            <tspan x={x} dy="14" font-size="11" font-weight="400" fill="var(--muted)">
+              {d.valor == null ? "—" : d.valor}
+            </tspan>
+          </text>
+        );
+      })}
+    </svg>
+  );
+}

@@ -62,6 +62,15 @@ const P: Record<string, JSX.Element> = {
     </>
   ),
   stop: <rect x="7" y="7" width="10" height="10" rx="2" />,
+  campana: <path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0" />,
+  carro: (
+    <>
+      <path d="M3 4h2l2.4 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6.2" />
+      <circle cx="9" cy="19" r="1.5" />
+      <circle cx="17" cy="19" r="1.5" />
+    </>
+  ),
+  estrella: <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" />,
   play: <path d="M8 5v14l11-7z" />,
   izq: <path d="M15 5l-7 7 7 7" />,
   der: <path d="M9 5l7 7-7 7" />,

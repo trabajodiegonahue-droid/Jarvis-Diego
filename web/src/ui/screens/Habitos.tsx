@@ -1,3 +1,4 @@
+import { enDificil } from "../../extras/calc";
 // Hábitos y bienestar: un toque para marcar hábitos, sueño, energía, ánimo y agua; rachas y tendencias.
 import { useState } from "preact/hooks";
 import { addDays, dow, fechaCorta } from "../../core/dates";
@@ -8,7 +9,7 @@ import { activos, aplica, cumplimiento, ESCALA_ANIMO, ESCALA_ENERGIA, fraseBiene
 import { Line, Progress } from "../charts";
 import { Empty, Sheet } from "../components";
 import { Icon } from "../icons";
-import { toast, useApp } from "../state";
+import { toast, useApp, getPrefs } from "../state";
 
 export async function guardarDia(fecha: string, patch: Partial<Dia>) {
   const antes = store.data.dias.find((x) => x.id === fecha);
@@ -74,7 +75,7 @@ export function Habitos() {
         ) : (
           deHoy.map((h) => {
             const ok = hecho(data.dias, h.id, fecha);
-            const r = racha(h, data.dias, hoy);
+            const r = racha(h, data.dias, hoy, (f) => enDificil(getPrefs().dificil, f));
             return (
               <div key={h.id} class="item" style={{ gridTemplateColumns: "44px minmax(0,1fr) auto" }}>
                 <button
@@ -167,7 +168,7 @@ export function Habitos() {
             <div key={h.id} class="between" style={{ minHeight: "36px" }}>
               <span>{h.nombre}</span>
               <span class="small num">
-                ahora {racha(h, data.dias, hoy)} · mejor {mejorRacha(h, data.dias, hoy)}
+                ahora {racha(h, data.dias, hoy, (f) => enDificil(getPrefs().dificil, f))} · mejor {mejorRacha(h, data.dias, hoy)}
               </span>
             </div>
           ))}

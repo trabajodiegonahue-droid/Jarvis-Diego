@@ -6,6 +6,7 @@ import { chileNow, DAY_NAMES } from "../../core/time";
 import { store } from "../../data/store";
 import { uid, type Actividad, type CatTiempo } from "../../data/types";
 import { numerosAnio } from "../../jarvis/resumenes";
+import { logros } from "../../extras/calc";
 import { nombreMes } from "../../money/calc";
 import { clp } from "../../money/format";
 import { bloquesDia, cat, CATS, corriendo, horasTxt, iso, minutosDia, minutosEntreIso, tiempoPeriodo, type Bloque } from "../../time/calc";
@@ -376,10 +377,33 @@ function VistaAnio() {
         <h2>Horas de trabajo por mes</h2>
         <Bars label="Horas de trabajo por mes" color="var(--amber)" fmt={(v) => `${num(v)} h`} data={n.porMes.map((m) => ({ etiqueta: nombreMes(m.mes, true), valor: m.horasTrabajo }))} />
       </div>
+      <Logros />
       <div class="card">
         <h2>Tu tiempo en el año</h2>
         {tiempo.length ? <BarsH label="Tiempo del año por actividad" fmt={(v) => horasTxt(v)} total={totT} data={tiempo.map(([c, v]) => ({ nombre: cat(c).nombre, valor: v, color: cat(c).color }))} /> : <span class="small">Cuando uses la bitácora, aquí verás en qué se te va el año.</span>}
       </div>
     </>
+  );
+}
+
+function Logros() {
+  const { data } = useApp();
+  const ls = logros(data, chileNow().date);
+  if (!ls.length) return null;
+  return (
+    <div class="card">
+      <h2>Logros</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "8px" }}>
+        {ls.map((l) => (
+          <div key={l.id} class="stack" style={{ gap: "2px", padding: "10px 12px", borderRadius: "14px", border: "1px solid var(--line)", background: "var(--card2)" }}>
+            <span style={{ color: "var(--gold)" }} aria-hidden="true">
+              <Icon name="estrella" size={16} />
+            </span>
+            <strong style={{ fontSize: "14px" }}>{l.titulo}</strong>
+            <span class="small">{l.texto}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

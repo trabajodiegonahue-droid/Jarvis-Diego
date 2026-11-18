@@ -1,4 +1,5 @@
 // Preparación física: cómo me siento, rutina generada, sesión guiada, biblioteca y récords.
+import { enDificil } from "../../extras/calc";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { fechaCorta, lunesDe } from "../../core/dates";
 import { chileNow, DAY_NAMES } from "../../core/time";
@@ -9,7 +10,7 @@ import { chequeoDeHoy, cargaDelDia, generarRutina, records, recordsNuevos, sesio
 import { Progress } from "../charts";
 import { Empty, Sheet } from "../components";
 import { Icon } from "../icons";
-import { toast, useApp } from "../state";
+import { toast, useApp, getPrefs } from "../state";
 import { speaker } from "../../jarvis/instance";
 import { canListen, listenOnce } from "../../voice/speech";
 import { comandoEntreno, type ComandoEntreno } from "../../training/voz";
@@ -39,7 +40,7 @@ export function Fisico() {
   const [ej, setEj] = useState<string | null>(null);
   const hoyS = sesionDeHoy(plan, hoy);
   const ch = chequeoDeHoy(data, hoy);
-  const carga = cargaDelDia(ch, data.partidos, hoy, data.chequeos);
+  const carga = cargaDelDia(ch, data.partidos, hoy, data.chequeos, enDificil(getPrefs().dificil, hoy));
 
   return (
     <>
@@ -286,7 +287,7 @@ function Generador({ plan, onDone }: { plan?: Plan; onDone: () => void }) {
 function SesionGuiada({ s, onClose, onEj }: { s: SesionPlan; onClose: () => void; onEj: (id: string) => void }) {
   const { data } = useApp();
   const hoy = chileNow().date;
-  const carga = cargaDelDia(chequeoDeHoy(data, hoy), data.partidos, hoy, data.chequeos);
+  const carga = cargaDelDia(chequeoDeHoy(data, hoy), data.partidos, hoy, data.chequeos, enDificil(getPrefs().dificil, hoy));
   const plan = data.planes.find((p) => p.id === "activo");
   const gimnasio = !!plan?.equipo.includes("gimnasio");
   const items = s.items.filter((it) => !(carga.sinPierna && ejercicio(it.ejId)?.pesado));

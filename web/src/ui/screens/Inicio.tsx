@@ -4,10 +4,10 @@ import { routine } from "../../jarvis/instance";
 import { equilibrioDinero, estadoPresupuestos, fraseDinero, nombreMes, presupuestoTotal, totalesMes } from "../../money/calc";
 import { clp } from "../../money/format";
 import { timeLabel } from "../../routine/routine";
-import { Progress } from "../charts";
+import { Progress, Rueda } from "../charts";
 import { Empty } from "../components";
 import { Icon } from "../icons";
-import { AREAS, cardReady, go, useApp, type CardId } from "../state";
+import { AREAS, cardReady, go, useApp, type CardId, getPrefs } from "../state";
 import { diffDays, fechaCorta } from "../../core/dates";
 import { equilibrioMetas, metasPrincipales } from "../../goals/calc";
 import { equilibrioEstudios, proximasEvaluaciones, tareasPendientes } from "../../study/calc";
@@ -26,7 +26,9 @@ import { describir, type Clima } from "../../weather/clima";
 import { guardarDia, toggleHabito } from "./Habitos";
 import { Cronometro } from "./Tiempo";
 import type { CatTiempo } from "../../data/types";
-import { setPrefs } from "../state";
+import { kv, setPrefs } from "../state";
+import { ahoraIso, cuandoTxt, proximos } from "../../reminders/calc";
+import { enDificil, logros, proximasFechas, sugerirDificil } from "../../extras/calc";
 
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
@@ -50,6 +52,7 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
 
   const cards: Record<CardId, () => preact.JSX.Element | null> = {
     resumen: () => <ResumenAuto />,
+    recordatorios: () => <LoQueViene />,
     tiempo: () => {
       const hhmm = `${String(Math.floor(n.minutes / 60)).padStart(2, "0")}:${String(n.minutes % 60).padStart(2, "0")}`;
       const m = minutosDia(bloquesDia(data, n.date, iso(n.date, hhmm)), n.minutes);
@@ -83,7 +86,7 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
             <div class="chips">
               {hs.map((h) => {
                 const ok = hecho(data.dias, h.id, n.date);
-                const r = racha(h, data.dias, n.date);
+                const r = racha(h, data.dias, n.date, (f) => enDificil(getPrefs().dificil, f));
                 return (
                   <button key={h.id} class={ok ? "on" : ""} aria-pressed={ok} onClick={() => toggleHabito(h, n.date)}>
                     {ok ? "✓ " : ""}
@@ -147,7 +150,7 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
       const hechas = sem.filter((x) => x.hecho).length;
       const tocan = sem.filter((x) => x.plan).length;
       const hoyS = sesionDeHoy(plan, n.date);
-      const carga = cargaDelDia(chequeoDeHoy(data, n.date), data.partidos, n.date, data.chequeos);
+      const carga = cargaDelDia(chequeoDeHoy(data, n.date), data.partidos, n.date, data.chequeos, enDificil(getPrefs().dificil, n.date));
       return (
         <button class="card" onClick={() => go("/futbol?fisico")} aria-label={`Entrenamiento: ${hechas} de ${tocan} sesiones esta semana`}>
           <div class="between">
@@ -274,6 +277,8 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
         {ahora}
       </p>
       {store.hasDemo() && <DemoBanner />}
+      <SemanaDificil />
+      <LogroNuevo />
       <BackupReminder />
       {prefs.cards.filter((c) => c.on && cardReady(c.id)).map((c) => (
         <div key={c.id}>{cards[c.id]()}</div>
@@ -309,12 +314,22 @@ function IO({ label, valor, max, color }: { label: string; valor: number; max: n
 }
 
 function Equilibrio({ vals, areas }: { vals: Record<string, number | null>; areas: string[] }) {
+  const { prefs } = useApp();
   const list = AREAS.filter((a) => areas.includes(a.id) && vals[a.id] != null);
   if (!list.length) return null;
+  const rueda = prefs.vistaEquilibrio === "rueda" && list.length >= 3;
   return (
     <div class="card">
-      <span class="lbl">Equilibrio del mes</span>
-      <div style={{ display: "grid", gridTemplateColumns: "96px minmax(0,1fr) 40px", gap: "8px 10px", alignItems: "center", fontSize: "13px" }}>
+      <div class="between">
+        <span class="lbl">{rueda ? "Rueda de la vida" : "Equilibrio del mes"}</span>
+        {list.length >= 3 && (
+          <button class="link" style={{ background: "none", border: 0, color: "var(--blue)", fontSize: "13px", minHeight: "32px" }} onClick={() => setPrefs({ vistaEquilibrio: rueda ? "barras" : "rueda" })}>
+            {rueda ? "Ver en barras" : "Ver como rueda"}
+          </button>
+        )}
+      </div>
+      {rueda && <Rueda label="Rueda de la vida: equilibrio de cada área de 0 a 100" data={AREAS.filter((a) => areas.includes(a.id)).map((a) => ({ nombre: a.id === "cuerpo" ? "Cuerpo" : a.nombre, valor: vals[a.id] ?? null }))} />}
+      <div style={{ display: rueda ? "none" : "grid", gridTemplateColumns: "96px minmax(0,1fr) 40px", gap: "8px 10px", alignItems: "center", fontSize: "13px" }}>
         {list.map((a) => {
           const v = vals[a.id];
           return [
@@ -433,6 +448,114 @@ function ResumenAuto() {
           Listo
         </button>
       </div>
+    </div>
+  );
+}
+
+// Lo que viene: recordatorios de hoy y de los próximos días, lo que le contaste a JARVIS y cumpleaños.
+function LoQueViene() {
+  const { data } = useApp();
+  const n = chileNow();
+  const ahora = ahoraIso(n.date, n.minutes);
+  const recs = proximos(data.recordatorios, ahora, 3).slice(0, 4);
+  const fechas = proximasFechas(data.fechas, n.date, 14).slice(0, 3);
+  const mem = data.recuerdos.filter((r) => r.fecha && r.fecha >= n.date && r.fecha <= addDays(n.date, 3)).slice(0, 3);
+  const filas = [
+    ...recs.map((r) => ({ k: r.id, t: r.texto, s: cuandoTxt(r.cuando, n.date), c: "var(--gold)" })),
+    ...mem.map((r) => ({ k: r.id, t: r.texto, s: r.fecha === n.date ? "hoy" : r.fecha === addDays(n.date, 1) ? "mañana" : fechaCorta(r.fecha!), c: "var(--blue)" })),
+    ...fechas.map((p) => ({ k: p.f.id, t: p.f.nombre, s: p.enDias === 0 ? "¡hoy!" : p.enDias === 1 ? "mañana" : `en ${p.enDias} días`, c: "var(--green)" })),
+  ];
+  return (
+    <div class="card">
+      <div class="between">
+        <span class="lbl">Lo que viene</span>
+        <a href="#/mas/recordatorios" class="small" style={{ color: "var(--blue)", minHeight: "32px", display: "inline-flex", alignItems: "center" }}>
+          Ver todo
+        </a>
+      </div>
+      {filas.length ? (
+        filas.map((f) => (
+          <div key={f.k} class="row" style={{ gap: "10px", minHeight: "32px" }}>
+            <span aria-hidden="true" style={{ width: "8px", height: "8px", borderRadius: "4px", background: f.c, flex: "none" }} />
+            <span style={{ flex: 1, fontSize: "15px" }}>{f.t}</span>
+            <span class="small num">{f.s}</span>
+          </div>
+        ))
+      ) : (
+        <span class="small">Nada en los próximos días. Dile a JARVIS "recuérdame…" o "acuérdate que…".</span>
+      )}
+    </div>
+  );
+}
+
+// Modo semana difícil: aviso si está activo, o sugerencia si vienes cansado varios días.
+function SemanaDificil() {
+  const { data, prefs } = useApp();
+  const hoy = chileNow().date;
+  const activo = enDificil(prefs.dificil, hoy);
+  const mes = hoy.slice(0, 7);
+  const exc = estadoPresupuestos(data.movimientos, data.presupuestos, data.categorias, mes, Number(hoy.slice(8, 10))).some((e) => e.estado === "excedido");
+  const sug = !activo && kv.get<string>("dificilSugerido", "") !== hoy ? sugerirDificil(data, hoy, exc) : null;
+  if (activo) {
+    const p = prefs.dificil.find((x) => hoy >= x.desde && hoy <= x.hasta)!;
+    return (
+      <div class="card" style={{ borderColor: "var(--blue)", gap: "6px" }}>
+        <span class="lbl" style={{ color: "var(--blue)" }}>Modo semana difícil · hasta el {fechaCorta(p.hasta)}</span>
+        <span class="small">Entreno más corto y sin fallo, las rachas no se cortan y JARVIS te habla más suave. Lo importante es no soltar todo.</span>
+        <button class="btn sm" style={{ alignSelf: "flex-start" }} onClick={() => setPrefs({ dificil: prefs.dificil.map((x) => (x === p ? { ...x, hasta: addDays(hoy, -1) } : x)).filter((x) => x.hasta >= x.desde) })}>
+          Ya estoy bien
+        </button>
+      </div>
+    );
+  }
+  if (!sug) return null;
+  return (
+    <div class="card" style={{ gap: "6px" }}>
+      <span class="small">{sug} ¿Activamos el modo semana difícil? Baja las exigencias por unos días sin cortar tus rachas.</span>
+      <div class="row">
+        <button class="btn sm main" onClick={() => setPrefs({ dificil: [...prefs.dificil, { desde: hoy, hasta: addDays(hoy, 6) }] })}>
+          Activar 7 días
+        </button>
+        <button
+          class="btn sm"
+          onClick={() => {
+            kv.set("dificilSugerido", hoy);
+            setPrefs({});
+          }}
+        >
+          No, gracias
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Un logro nuevo, sutil: aparece una vez y se cierra.
+function LogroNuevo() {
+  const { data, prefs } = useApp();
+  const hoy = chileNow().date;
+  const todos = logros(data, hoy);
+  // La primera vez que se calcula, los logros que ya tenías no se anuncian (solo los nuevos de ahí en adelante).
+  if (!prefs.logrosVistos.length && todos.length) {
+    queueMicrotask(() => setPrefs({ logrosVistos: [...todos.map((l) => l.id), "_inicio"] }));
+    return null;
+  }
+  const nuevo = todos.find((l) => !prefs.logrosVistos.includes(l.id));
+  if (!nuevo || store.hasDemo()) return null;
+  return (
+    <div class="card" style={{ flexDirection: "row", alignItems: "center", gap: "12px", borderColor: "var(--gold)" }} role="status">
+      <span style={{ color: "var(--gold)" }}>
+        <Icon name="estrella" size={22} />
+      </span>
+      <span style={{ flex: 1 }}>
+        <strong>{nuevo.titulo}</strong>
+        <span class="small" style={{ display: "block" }}>
+          {nuevo.texto}
+        </span>
+      </span>
+      <button class="btn sm" onClick={() => setPrefs({ logrosVistos: [...prefs.logrosVistos, nuevo.id] })}>
+        Bien
+      </button>
     </div>
   );
 }
