@@ -8,6 +8,14 @@
 //                  pregunta general, responde con Gemini en una o dos frases.
 //   GET  /buzon  → la app lee lo pendiente (solo desde tu página y con tu código).
 //   POST /buzon/borrar → la app borra lo que ya anotó.
+//
+// Y los avisos en el iPhone (notificaciones push, gratis):
+//   GET  /push/clave       → la clave pública para suscribirse.
+//   POST /avisos           → la app guarda sus próximos avisos (recordatorios, resumen del día, rutina).
+//   POST /avisos/borrar    → la app apaga los avisos.
+//   GET  /avisos/pendientes → el teléfono (service worker) lee el texto de lo que llegó.
+//   Cada 5 minutos (cron) se revisa qué toca y se manda un "toque" push sin contenido; el texto
+//   lo pide el teléfono después. Así no hace falta cifrar el mensaje y en Cloudflare no queda nada sensible.
 
 const GEMINI = "https://generativelanguage.googleapis.com";
 const ALLOWED_METHODS = new Set(["streamGenerateContent", "generateContent"]);
@@ -32,7 +40,21 @@ const norm = (s) =>
 
 const chileAhora = () => new Intl.DateTimeFormat("es-CL", { timeZone: "America/Santiago", dateStyle: "full", timeStyle: "short" }).format(new Date());
 
+const MAX_AVISOS = 400;
+
+async function leerAparato(env, id) {
+  if (!/^[a-z0-9]{16,40}$/.test(id || "")) return null;
+  const v = await env.BUZON.get(`dev:${id}`);
+  return v ? JSON.parse(v) : null;
+}
+
 export default {
+  // Cada 5 minutos: manda los avisos que ya tocan.
+  async scheduled(_evento, env, ctx) {
+    ctx?.waitUntil?.(enviarAvisos(env));
+    if (!ctx?.waitUntil) await enviarAvisos(env);
+  },
+
   async fetch(request, env) {
     const origin = request.headers.get("Origin") || "";
     const allowed = (env.ALLOWED_ORIGIN || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -50,6 +72,17 @@ export default {
     const auth = request.headers.get("Authorization") || "";
 
     if (request.method === "OPTIONS") return new Response(null, { status: okOrigin ? 204 : 403, headers: cors });
+
+    // El service worker del teléfono pide el texto de sus avisos con su propia clave de aparato.
+    if (url.pathname === "/avisos/pendientes" && request.method === "GET") {
+      if (!env.BUZON) return json({ mensajes: [] });
+      const id = url.searchParams.get("id") || "";
+      const dev = await leerAparato(env, id);
+      if (!dev || dev.k !== url.searchParams.get("k")) return fail(401, "Aparato desconocido");
+      const mensajes = dev.cola || [];
+      if (mensajes.length) await env.BUZON.put(`dev:${id}`, JSON.stringify({ ...dev, cola: [] }));
+      return json({ mensajes });
+    }
 
     // El Atajo de Siri no manda "Origin" (no es una página): basta con el código de acceso.
     if (url.pathname === "/siri") {
@@ -71,6 +104,28 @@ export default {
         if (v) items.push({ id: k.name, ...JSON.parse(v) });
       }
       return json({ items, configurado: true });
+    }
+    if (url.pathname === "/push/clave" && request.method === "GET") {
+      if (!env.VAPID_PUBLIC || !env.VAPID_PRIVATE) return fail(501, "Faltan las claves de los avisos en el intermediario");
+      return json({ clave: env.VAPID_PUBLIC });
+    }
+    if (url.pathname === "/avisos" && request.method === "POST") {
+      if (!env.BUZON) return fail(501, "Falta el buzón (KV) en el intermediario");
+      const b = await request.json().catch(() => null);
+      if (!b || !/^[a-z0-9]{16,40}$/.test(b.id || "") || typeof b.k !== "string" || !b.suscripcion?.endpoint || !/^https:\/\//.test(b.suscripcion.endpoint)) return fail(400, "Datos de avisos inválidos");
+      const antes = (await leerAparato(env, b.id)) || {};
+      const enviados = new Set(antes.enviados || []);
+      const avisos = (Array.isArray(b.avisos) ? b.avisos : [])
+        .slice(0, MAX_AVISOS)
+        .filter((a) => a && typeof a.id === "string" && Number.isFinite(a.t) && !enviados.has(a.id))
+        .map((a) => ({ id: a.id.slice(0, 80), t: a.t, titulo: String(a.titulo || "JARVIS").slice(0, 60), cuerpo: String(a.cuerpo || "").slice(0, 240) }));
+      await env.BUZON.put(`dev:${b.id}`, JSON.stringify({ k: b.k, sub: b.suscripcion, avisos, enviados: [...enviados].slice(-300), cola: antes.cola || [] }));
+      return json({ ok: true, avisos: avisos.length });
+    }
+    if (url.pathname === "/avisos/borrar" && request.method === "POST") {
+      const { id } = await request.json().catch(() => ({}));
+      if (env.BUZON && typeof id === "string") await env.BUZON.delete(`dev:${id}`);
+      return json({ ok: true });
     }
     if (url.pathname === "/buzon/borrar" && request.method === "POST") {
       if (!env.BUZON) return json({ ok: true });
@@ -149,4 +204,55 @@ async function siri(request, env) {
   const data = await res.json().catch(() => null);
   const out = (data?.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("").replace(/[*_#`]/g, "").trim();
   return texto(out || "No tengo una buena respuesta para eso.");
+}
+
+// ---------- Avisos push (Web Push con VAPID, sin contenido) ----------
+export async function enviarAvisos(env, ahora = Date.now(), fetcher = fetch) {
+  if (!env.BUZON || !env.VAPID_PUBLIC || !env.VAPID_PRIVATE) return 0;
+  let n = 0;
+  const lista = await env.BUZON.list({ prefix: "dev:" });
+  for (const k of lista.keys) {
+    const dev = JSON.parse((await env.BUZON.get(k.name)) || "null");
+    if (!dev?.sub) continue;
+    const tocan = dev.avisos.filter((a) => a.t <= ahora);
+    if (!tocan.length) continue;
+    // Si el teléfono estuvo apagado mucho rato, no se manda una avalancha: solo lo de las últimas 6 horas.
+    const frescos = tocan.filter((a) => ahora - a.t < 6 * 3600_000);
+    const resto = dev.avisos.filter((a) => a.t > ahora);
+    const enviados = [...(dev.enviados || []), ...tocan.map((a) => a.id)].slice(-300);
+    const cola = [...(dev.cola || []), ...frescos.map(({ titulo, cuerpo }) => ({ titulo, cuerpo }))].slice(-10);
+    if (frescos.length) {
+      const r = await empujar(dev.sub.endpoint, env, fetcher);
+      if (r === 404 || r === 410) {
+        await env.BUZON.delete(k.name); // la suscripción ya no existe (se desinstaló o quitó el permiso)
+        continue;
+      }
+      n += frescos.length;
+    }
+    await env.BUZON.put(k.name, JSON.stringify({ ...dev, avisos: resto, enviados, cola }));
+  }
+  return n;
+}
+
+const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const deB64u = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
+
+// Firma VAPID (JWT ES256) con la clave privada guardada como secreto.
+export async function firmaVapid(endpoint, env, ahora = Date.now()) {
+  const pub = deB64u(env.VAPID_PUBLIC); // 65 bytes: 0x04 || x || y
+  const jwk = { kty: "EC", crv: "P-256", x: b64u(pub.slice(1, 33)), y: b64u(pub.slice(33, 65)), d: env.VAPID_PRIVATE, ext: true };
+  const key = await crypto.subtle.importKey("jwk", jwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const enc = (o) => b64u(new TextEncoder().encode(JSON.stringify(o)));
+  const datos = `${enc({ typ: "JWT", alg: "ES256" })}.${enc({ aud: new URL(endpoint).origin, exp: Math.floor(ahora / 1000) + 12 * 3600, sub: env.VAPID_SUBJECT || "https://github.com/trabajodiegonahue-droid/Jarvis-Diego" })}`;
+  const firma = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(datos));
+  return `vapid t=${datos}.${b64u(firma)}, k=${env.VAPID_PUBLIC}`;
+}
+
+async function empujar(endpoint, env, fetcher) {
+  try {
+    const r = await fetcher(endpoint, { method: "POST", headers: { Authorization: await firmaVapid(endpoint, env), TTL: "3600", Urgency: "high", "Content-Length": "0" } });
+    return r.status;
+  } catch {
+    return 0;
+  }
 }
