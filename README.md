@@ -16,7 +16,7 @@ Los briefs están en [`docs/APP_VIDA.md`](docs/APP_VIDA.md) (manda este) y [`doc
 | 2 | Metas (plata, cantidad, hábito y pasos; avance contra el tiempo; qué falta esta semana; revisión mensual), Trabajo (turnos, horas, sueldo estimado, propinas que pasan a Dinero) y Estudios (materias, horas por semana, pendientes, pruebas y resultados) | ✅ |
 | 3 | Fútbol y Entrenamiento | ✅ |
 | 4 | JARVIS integrado: registrar hablando (gastos, ingresos, entrenos, goles, metas, estudio, turnos) con deshacer, consultas y resúmenes, resumen de la mañana, modo manos libres para entrenar, modo privado y Atajo de Siri | ✅ |
-| 5 | Hábitos, calendario unificado y resúmenes | Pendiente |
+| 5 | Hábitos y bienestar (rachas, sueño, energía, ánimo, agua, diario), calendario unificado con choques, bitácora de tiempo al minuto (cronómetro, línea del día, semana, mes y año), «Mi año en números», resúmenes automáticos de la semana y del mes, clima (Open-Meteo) | ✅ |
 | 6 | Pulido final | Pendiente |
 
 ## Cómo está armado
@@ -72,6 +72,16 @@ docs/       los briefs
 - Preguntas: «¿qué me toca hoy?», «¿cuánto llevo gastado en comida?», «¿cómo voy con mis metas?», «¿cuántos goles llevo?», «¿qué entreno hoy?», «resumen de la semana», «¿cómo me fue este mes?».
 - Todo lo que anota trae **Deshacer** en el chat, y también le puedes decir «deshaz eso».
 - La primera vez que lo abres en el día te saluda con el **resumen de la mañana**: rutina, turno, entreno, partido, pruebas cercanas, lo pendiente de ayer y un aviso de presupuesto si corresponde.
+
+**Tu vida registrada (fase 5).**
+- **Mi tiempo** (Más → Mi tiempo, o la tarjeta del inicio): toca qué estás haciendo y corre un cronómetro; tócalo de nuevo para terminar. O dile a JARVIS «empecé a estudiar», «me voy a dormir», «terminé», «me desperté». Lo que ya pasó: «de 14 a 16 estuve estudiando», «estuve 2 horas en el celular», «dormí de 23:30 a 7».
+  - **Día:** una línea de 24 horas, al minuto, con cada bloque en su color. Tocas un espacio vacío para anotarlo. Los turnos y los partidos con hora aparecen solos.
+  - **Semana y mes:** horas por actividad y promedio por día. **Año:** «Mi año en números» (partidos, goles, entrenos, horas de estudio y trabajo, metas cumplidas, mejor racha, sueño) y en qué se te fue el tiempo.
+  - Si dos cosas se pisan, cada minuto cuenta una sola vez, así un día nunca pasa de 24 horas.
+- **Hábitos y bienestar:** marcas tus hábitos con un toque (con racha), y anotas sueño, energía, ánimo, agua y un diario corto. El sueño y la energía ajustan solos la carga del entreno.
+- **Calendario:** la semana con turnos, partidos, físico, rutina, pruebas y metas, y te avisa si algo se cruza (por ejemplo, turno hasta las 22:30 y partido a las 19:00).
+- **Resúmenes automáticos:** el lunes aparece en el inicio el resumen de la semana pasada (entrenos, músculos, récords, estudio, hábitos, sueño y bitácora), los primeros días del mes el del mes pasado y a fin de año el link a tu año. Con «Escuchar» te lo lee.
+- **Clima:** en el inicio y en el resumen de la mañana, con un consejo si juegas con lluvia o frío. Lo da [Open-Meteo](https://open-meteo.com) (gratis para uso personal, licencia CC BY 4.0, sin clave). Solo recibe las coordenadas de tu ciudad, que cambias en Ajustes.
 
 **Manos libres en el gimnasio.** En la sesión guiada (Fútbol → Físico → Entrenar hoy), toca «Entrenar con voz». JARVIS dice el ejercicio, la serie y la meta. Le respondes «listo», «hice 8» o «10 con 22,5 kilos», y él anota la serie, inicia el descanso, te avisa a los 10 segundos y te dice la siguiente. También entiende «siguiente ejercicio», «salta el descanso», «repite» y «terminé el entreno». Si el iPhone no deja escuchar dentro de la app, igual te habla y usas los botones grandes.
 
@@ -220,6 +230,6 @@ Ese repositorio dice MIT en el README, pero no tiene archivo LICENSE, así que n
 
 ## Pendientes
 
-- **Fases 5 y 6** de `docs/APP_VIDA.md`: hábitos, calendario unificado, resúmenes automáticos y pulido.
+- **Fase 6** de `docs/APP_VIDA.md`: pulido final (rendimiento, accesibilidad, pruebas).
 - **Versión 2 de JARVIS (avisos):** notificaciones push de la PWA. En iOS 16.4 o más nuevo funcionan solo con la app instalada en el inicio y con el permiso pedido desde un botón. Necesitan el intermediario: un cron de Cloudflare envía el aviso a su hora, con una copia mínima de la rutina (nombre, hora y día). Como alternativa sin servidor: exportar los avisos al Calendario del iPhone (.ics).
-- **Versiones 4 y 5 de JARVIS:** el clima de Puerto Varas en el resumen de la mañana (Open-Meteo), memoria de lo que le cuentas, fotos y Google Calendar (solo lectura).
+- **Versiones 4 y 5 de JARVIS:** memoria de lo que le cuentas, fotos y Google Calendar (solo lectura).
