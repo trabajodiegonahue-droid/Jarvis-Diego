@@ -5,6 +5,7 @@ import { equilibrioDinero, estadoPresupuestos, fraseDinero, nombreMes, presupues
 import { clp } from "../../money/format";
 import { timeLabel } from "../../routine/routine";
 import { Progress, Rueda } from "../charts";
+import { eventosDia } from "../../calendar/calc";
 import { Empty } from "../components";
 import { Icon } from "../icons";
 import { AREAS, cardReady, go, useApp, type CardId, getPrefs } from "../state";
@@ -44,6 +45,12 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
   const ahora = current ? `Ahora: ${current.title} · ${timeLabel(current)}` : next ? `Después: ${next.title} · ${next.time}` : "Hoy no te queda nada en la rutina";
   const frase = fraseDinero(estados, tot, mes, dia);
   const hay = (a: string) => prefs.areas.includes(a);
+  // Lo que sigue hoy, juntando calendario (turno, partido, rutina…) y recordatorios.
+  const hh = `${String(Math.floor(n.minutes / 60)).padStart(2, "0")}:${String(n.minutes % 60).padStart(2, "0")}`;
+  const evHoy = eventosDia(data, routine.tasks, n.date).eventos.filter((e) => e.inicio && !e.hecho);
+  const enCurso = evHoy.find((e) => e.inicio! <= hh && e.fin && (e.fin === "24:00" || e.fin > hh) && e.tipo !== "rutina");
+  const sig = [...evHoy.filter((e) => e.inicio! > hh).map((e) => ({ h: e.inicio!, t: e.titulo })), ...data.recordatorios.filter((r) => !r.hecho && r.cuando.startsWith(n.date) && r.cuando.slice(11) > hh).map((r) => ({ h: r.cuando.slice(11), t: r.texto }))].sort((a, b) => a.h.localeCompare(b.h))[0];
+  const proximoHoy = enCurso ? `Ahora: ${enCurso.titulo}${enCurso.fin && enCurso.fin !== "24:00" ? ` hasta las ${enCurso.fin}` : ""}` : sig ? `${sig.h} · ${sig.t}` : "Hoy no te queda nada anotado";
   const [clima, setClima] = useState<Clima | null>(null);
   useEffect(() => {
     void climaAhora().then(setClima);
@@ -264,18 +271,22 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
   const fecha = `${DAY_NAMES[n.dow][0].toUpperCase() + DAY_NAMES[n.dow].slice(1)} ${dia} de ${MESES[Number(mes.slice(5)) - 1]}`;
   return (
     <main class="page">
-      <header class="head">
-        <div class="stack" style={{ gap: "2px" }}>
-          <span class="sub">
-            {fecha}
-            {climaHoy ? ` · ${climaHoy.min}° a ${climaHoy.max}°, ${describir(climaHoy.codigo)}${climaHoy.lluvia >= 40 ? ` (${climaHoy.lluvia}% lluvia)` : ""}` : ""}
-          </span>
-          <h1>Hola, Diego</h1>
+      <header class="hero">
+        <span class="sub">{fecha}</span>
+        <h1>{n.minutes < 12 * 60 ? "Buenos días" : n.minutes < 20 * 60 ? "Buenas tardes" : "Buenas noches"}, Diego</h1>
+        <div class="pills">
+          <a class="pill ahora" href="#/mas/calendario">
+            <Icon name="reloj" size={15} />
+            {proximoHoy || ahora}
+          </a>
+          {climaHoy && (
+            <span class="pill" title="Clima de hoy (Open-Meteo)">
+              {climaHoy.min}°–{climaHoy.max}° · {describir(climaHoy.codigo)}
+              {climaHoy.lluvia >= 40 ? ` · ${climaHoy.lluvia}% lluvia` : ""}
+            </span>
+          )}
         </div>
       </header>
-      <p class="sub" style={{ margin: "-6px 0 4px" }}>
-        {ahora}
-      </p>
       {store.hasDemo() && <DemoBanner />}
       <SemanaDificil />
       <LogroNuevo />

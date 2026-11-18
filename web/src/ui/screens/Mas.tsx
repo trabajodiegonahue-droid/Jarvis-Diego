@@ -13,15 +13,28 @@ import { buscarCiudad, type Ciudad } from "../../weather/clima";
 import { Icon } from "../icons";
 import { AREAS, CARDS, cardReady, getPrefs, go, kv, reloadPrefs, setPrefs, toast, useApp, type CardId } from "../state";
 
-const SECCIONES = [
-  { path: "/mas/estudios", nombre: "Estudios", icon: "libro", fase: 2 },
-  { path: "/mas/trabajo", nombre: "Trabajo", icon: "trabajo", fase: 2 },
-  { path: "/mas/recordatorios", nombre: "Recordatorios, fechas y memoria", icon: "campana", fase: 6 },
-  { path: "/mas/compras", nombre: "Lista de compras", icon: "carro", fase: 6 },
-  { path: "/mas/tiempo", nombre: "Mi tiempo: día, mes y año", icon: "reloj", fase: 5 },
-  { path: "/mas/habitos", nombre: "Hábitos y bienestar", icon: "habitos", fase: 5 },
-  { path: "/mas/calendario", nombre: "Calendario", icon: "calendario", fase: 5 },
-  { path: "/mas/ajustes", nombre: "Ajustes", icon: "ajustes", fase: 0 },
+const GRUPOS: { titulo: string; items: { path: string; nombre: string; detalle: string; icon: string; color: string }[] }[] = [
+  {
+    titulo: "Tu día",
+    items: [
+      { path: "/mas/recordatorios", nombre: "Recordatorios", detalle: "Avisos, cumpleaños y lo que JARVIS recuerda", icon: "campana", color: "#E0A23B" },
+      { path: "/mas/calendario", nombre: "Calendario", detalle: "Tu semana y lo que se cruza", icon: "calendario", color: "#E15A5A" },
+      { path: "/mas/tiempo", nombre: "Mi tiempo", detalle: "Tu día al minuto, el mes y el año", icon: "reloj", color: "#4C8DF6" },
+      { path: "/mas/habitos", nombre: "Hábitos y bienestar", detalle: "Rachas, sueño, ánimo y agua", icon: "habitos", color: "#1FA463" },
+      { path: "/mas/compras", nombre: "Lista de compras", detalle: "Se llena hablándole a JARVIS", icon: "carro", color: "#D9775B" },
+    ],
+  },
+  {
+    titulo: "Áreas",
+    items: [
+      { path: "/mas/estudios", nombre: "Estudios", detalle: "Horas, pendientes y pruebas", icon: "libro", color: "#9B6BDE" },
+      { path: "/mas/trabajo", nombre: "Trabajo", detalle: "Turnos, horas y propinas", icon: "trabajo", color: "#A98467" },
+    ],
+  },
+  {
+    titulo: "App",
+    items: [{ path: "/mas/ajustes", nombre: "Ajustes", detalle: "JARVIS, respaldo, PIN, tarjetas y tema", icon: "ajustes", color: "#5E6B7D" }],
+  },
 ];
 
 export function Mas() {
@@ -30,15 +43,27 @@ export function Mas() {
       <header class="head">
         <h1>Más</h1>
       </header>
-      <div class="card" style={{ gap: 0, padding: "4px 16px" }}>
-        {SECCIONES.map((s) => (
-          <a key={s.path} href={`#${s.path}`} class="item" style={{ textDecoration: "none", color: "inherit", gridTemplateColumns: "28px minmax(0,1fr) auto" }}>
-            <Icon name={s.icon} />
-            <span class="t">{s.nombre}</span>
-            <Icon name="chevron" size={18} />
-          </a>
-        ))}
-      </div>
+      {GRUPOS.map((g) => (
+        <section key={g.titulo} class="stack" style={{ gap: "8px" }} aria-labelledby={`g-${g.titulo}`}>
+          <h2 class="grupo" id={`g-${g.titulo}`}>
+            {g.titulo}
+          </h2>
+          <div class="card menu">
+            {g.items.map((s) => (
+              <a key={s.path} href={`#${s.path}`}>
+                <span class="ico" style={{ background: s.color }} aria-hidden="true">
+                  <Icon name={s.icon} size={18} />
+                </span>
+                <span>
+                  <span class="t">{s.nombre}</span>
+                  <span class="d">{s.detalle}</span>
+                </span>
+                <Icon name="chevron" size={18} />
+              </a>
+            ))}
+          </div>
+        </section>
+      ))}
     </main>
   );
 }
