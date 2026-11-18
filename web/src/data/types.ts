@@ -275,6 +275,46 @@ export interface Actividad {
   demo?: boolean;
 }
 
+// ---------- Memoria de JARVIS ----------
+// Lo que Diego le cuenta para que se acuerde ("mañana tengo prueba", "me lesioné el tobillo").
+export interface Recuerdo {
+  id: string;
+  texto: string;
+  creado: string; // AAAA-MM-DD
+  fecha?: string; // si habla de un día en particular
+  demo?: boolean;
+}
+
+// ---------- Cumpleaños y fechas importantes ----------
+export interface FechaImportante {
+  id: string;
+  nombre: string; // "Cumpleaños de la Cata"
+  dia: string; // MM-DD, se repite todos los años
+  anio?: number; // año de nacimiento o de inicio, para decir cuántos cumple
+  tipo: "cumple" | "aniversario" | "otro";
+  demo?: boolean;
+}
+
+// ---------- Recordatorios ----------
+// "Recuérdame pagar la luz el viernes a las 10". Suenan en la app y, con los avisos activados, en el teléfono.
+export interface Recordatorio {
+  id: string;
+  texto: string;
+  cuando: string; // AAAA-MM-DDTHH:MM (hora de Chile)
+  repetir?: "diario" | "semanal" | "mensual" | "anual";
+  hecho?: boolean; // ya avisó (o lo marcaste listo)
+  demo?: boolean;
+}
+
+// ---------- Lista de compras ----------
+export interface Compra {
+  id: string;
+  texto: string;
+  hecho: boolean;
+  creado: number;
+  demo?: boolean;
+}
+
 export interface Datos {
   movimientos: Movimiento[];
   categorias: Categoria[];
@@ -297,12 +337,16 @@ export interface Datos {
   habitos: Habito[];
   dias: Dia[];
   actividades: Actividad[];
+  recuerdos: Recuerdo[];
+  fechas: FechaImportante[];
+  compras: Compra[];
+  recordatorios: Recordatorio[];
 }
 
 export type StoreName = keyof Datos;
-export const STORES: StoreName[] = ["movimientos", "categorias", "presupuestos", "recurrentes", "metas", "aportes", "revisiones", "turnos", "materias", "sesiones", "tareas", "evaluaciones", "partidos", "clubes", "videos", "planes", "entrenos", "chequeos", "habitos", "dias", "actividades"];
+export const STORES: StoreName[] = ["movimientos", "categorias", "presupuestos", "recurrentes", "metas", "aportes", "revisiones", "turnos", "materias", "sesiones", "tareas", "evaluaciones", "partidos", "clubes", "videos", "planes", "entrenos", "chequeos", "habitos", "dias", "actividades", "recuerdos", "fechas", "compras", "recordatorios"];
 
-export const emptyDatos = (): Datos => ({ movimientos: [], categorias: [], presupuestos: [], recurrentes: [], metas: [], aportes: [], revisiones: [], turnos: [], materias: [], sesiones: [], tareas: [], evaluaciones: [], partidos: [], clubes: [], videos: [], planes: [], entrenos: [], chequeos: [], habitos: [], dias: [], actividades: [] });
+export const emptyDatos = (): Datos => ({ movimientos: [], categorias: [], presupuestos: [], recurrentes: [], metas: [], aportes: [], revisiones: [], turnos: [], materias: [], sesiones: [], tareas: [], evaluaciones: [], partidos: [], clubes: [], videos: [], planes: [], entrenos: [], chequeos: [], habitos: [], dias: [], actividades: [], recuerdos: [], fechas: [], compras: [], recordatorios: [] });
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 

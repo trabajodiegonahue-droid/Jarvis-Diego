@@ -8,13 +8,15 @@ export const activos = (hs: Habito[]) => hs.filter((h) => !h.archivado).sort((a,
 
 // Racha: días seguidos (solo los que aplican) en que cumpliste. Hoy sin marcar no corta la racha:
 // el día todavía no termina.
-export function racha(h: Habito, dias: Dia[], hoy: string): number {
+// "protegido": días en modo semana difícil, que si no se cumplieron no cortan la racha.
+export function racha(h: Habito, dias: Dia[], hoy: string, protegido: (f: string) => boolean = () => false): number {
   const hechos = new Set(dias.filter((d) => d.habitos.includes(h.id)).map((d) => d.id));
   let n = 0;
   let f = hoy;
   if (aplica(h, f) && !hechos.has(f)) f = addDays(f, -1);
   for (let i = 0; i < 800; i++, f = addDays(f, -1)) {
     if (!aplica(h, f)) continue;
+    if (!hechos.has(f) && protegido(f)) continue;
     if (!hechos.has(f)) break;
     n++;
   }

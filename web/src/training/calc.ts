@@ -232,7 +232,14 @@ export function proximoImportante(partidos: Partido[], hoy: string): Partido | n
   return partidos.filter((p) => p.importante && p.fecha >= hoy).sort((a, b) => a.fecha.localeCompare(b.fecha))[0] || null;
 }
 
-export function cargaDelDia(ch: Chequeo | undefined, partidos: Partido[], hoy: string, historial: Chequeo[] = []): Carga {
+export function cargaDelDia(ch: Chequeo | undefined, partidos: Partido[], hoy: string, historial: Chequeo[] = [], dificil = false): Carga {
+  const c = cargaBase(ch, partidos, hoy, historial);
+  // Semana difícil: como máximo, una versión más corta y sin llegar al fallo.
+  if (dificil && c.factor > 0.7) return { ...c, nivel: "suave", factor: 0.7, motivo: "Semana difícil: haz una versión corta (una serie menos) y sin llegar al fallo. Lo importante es no cortar el hábito." };
+  return c;
+}
+
+function cargaBase(ch: Chequeo | undefined, partidos: Partido[], hoy: string, historial: Chequeo[]): Carga {
   if (ch?.agudo || (ch && ch.dolor >= 7)) return { nivel: "parar", factor: 0, motivo: "Con dolor agudo o fuerte no se entrena esa zona. Si no se va en 2 o 3 días, ve a un kinesiólogo o a un médico. JARVIS no es médico." };
   const dolorSeguido = historial.filter((c) => c.id < hoy && c.id >= addDays(hoy, -3) && c.dolor >= 4).length >= 2 && (ch?.dolor || 0) >= 4;
   if (dolorSeguido) return { nivel: "suave", factor: 0.5, motivo: "Llevas varios días con dolor: hoy suave y sin la zona que duele. Si sigue, ve a un kinesiólogo." };

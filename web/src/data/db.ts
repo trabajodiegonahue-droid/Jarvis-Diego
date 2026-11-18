@@ -3,7 +3,7 @@ import { STORES, type StoreName } from "./types";
 
 const DB_NAME = "vida";
 // Subir la versión crea las tablas nuevas sin tocar las que ya tienen datos.
-const VERSION = 4;
+const VERSION = 5;
 
 let dbp: Promise<IDBDatabase> | null = null;
 

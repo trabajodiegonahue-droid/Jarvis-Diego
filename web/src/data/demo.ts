@@ -35,6 +35,7 @@ export function datosEjemplo(hoy: string): Partial<Datos> {
     ...ejemploFase2(hoy),
     ...ejemploFase3(hoy),
     ...ejemploFase5(hoy),
+    ...ejemploExtras(hoy),
   };
 }
 
@@ -161,4 +162,30 @@ function ejemploFase5(hoy: string): Partial<Datos> {
     b(`demo-t${k}n`, "pantallas", `${f}T22:45`, `${f}T23:40`);
   }
   return { habitos, dias, actividades };
+}
+
+// Recordatorios, fechas importantes, memoria y lista de compras de ejemplo.
+function ejemploExtras(hoy: string): Partial<Datos> {
+  const D = { demo: true as const };
+  const mmdd = (f: string) => f.slice(5);
+  return {
+    recordatorios: [
+      { id: "demo-r1", texto: "Pagar la cuenta de la luz", cuando: `${addDays(hoy, 1)}T10:00`, ...D },
+      { id: "demo-r2", texto: "Llevar canilleras", cuando: `${addDays(hoy, (5 - dow(hoy) + 7) % 7 || 7)}T09:00`, ...D },
+      { id: "demo-r3", texto: "Revisar el presupuesto de la semana", cuando: `${addDays(hoy, (6 - dow(hoy) + 7) % 7 || 7)}T19:00`, repetir: "semanal", ...D },
+    ],
+    fechas: [
+      { id: "demo-f1", nombre: "Cumpleaños de la mamá", dia: mmdd(addDays(hoy, 5)), anio: 1975, tipo: "cumple", ...D },
+      { id: "demo-f2", nombre: "Cumpleaños del Benja", dia: mmdd(addDays(hoy, 24)), anio: 2004, tipo: "cumple", ...D },
+    ],
+    recuerdos: [
+      { id: "demo-m1", texto: "Me duele un poco el tobillo izquierdo desde el partido", creado: addDays(hoy, -2), ...D },
+      { id: "demo-m2", texto: "Tengo que pedir el certificado de alumno regular", creado: addDays(hoy, -1), fecha: addDays(hoy, 2), ...D },
+    ],
+    compras: [
+      { id: "demo-c1", texto: "Pan", hecho: false, creado: 1, ...D },
+      { id: "demo-c2", texto: "Plátanos", hecho: false, creado: 2, ...D },
+      { id: "demo-c3", texto: "Proteína", hecho: false, creado: 3, ...D },
+    ],
+  };
 }
