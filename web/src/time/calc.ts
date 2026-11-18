@@ -23,7 +23,7 @@ export const cat = (id: CatTiempo) => CATS.find((c) => c.id === id) || CATS[CATS
 
 // Palabras del día a día → categoría.
 const PISTAS: [CatTiempo, RegExp][] = [
-  ["sueno", /\b(dormi|dormir|durmiendo|siesta|acostarme|me acoste)/],
+  ["sueno", /\b(dormi|dormir|durmiendo|siesta|acostar|me acoste|tuto|la cama)/],
   ["trabajo", /\b(trabaj|turno|pega|oficina|restaurant|atender)/],
   ["entreno", /\b(gym|gimnasio|gim|entren|pesas|correr|trot|corri|nadar|nade|bici|spinning|fisico|crossfit|estirar|movilidad)/],
   ["futbol", /\b(futbol|partido|pichanga|baby|club|la cancha)/],
@@ -32,8 +32,8 @@ const PISTAS: [CatTiempo, RegExp][] = [
   ["comida", /\b(comer|comiendo|almorz|almuerzo|cena|cenar|once|desayun|cocin)/],
   ["casa", /\b(limpi|orden|lavar|lavando|aseo|tramite|compras|supermercado|super|banco|medico|doctor|dentista)/],
   ["social", /\b(amigos|familia|polola|pololo|carrete|junta|juntarme|visita|mama|papa|abuel|herman|cumple)/],
-  ["pantallas", /\b(celular|redes|instagram|tiktok|youtube|scroll|telefono|whatsapp)/],
-  ["ocio", /\b(serie|netflix|pelicula|jugar|play|videojuego|juego|musica|leer|lei|libro|descans|relaj|guitarra)/],
+  ["pantallas", /\b(celular|celu|cel|redes|instagram|insta|tiktok|youtube|scroll|telefono|whatsapp|pantalla)/],
+  ["ocio", /\b(tele|tv|anime|serie|netflix|pelicula|jugar|play|videojuego|juego|musica|leer|lei|libro|descans|relaj|guitarra)/],
 ];
 export function catPara(texto: string): CatTiempo | null {
   const t = ` ${texto.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")} `;

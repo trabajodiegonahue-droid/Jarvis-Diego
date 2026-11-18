@@ -143,5 +143,5 @@ function addCmd(title: string, time: string, end: string | null, rest: string, n
   return { tool: "agregar_tarea", args: { titulo: t, hora: time, ...(end ? { hora_fin: end } : {}), ...(days ? { dias: days } : {}) } };
 }
 
-export const isYes = (s: string) => /^(si|sí|dale|ya|ok|okay|confirmo|hazlo|bueno|de una|obvio)\b/.test(norm(s).replace(/^si$/, "si"));
-export const isNo = (s: string) => /^(no|nop|cancela|cancelar|mejor no|para|olvidalo)\b/.test(norm(s));
+export const isYes = (s: string) => /^(si|sipo|sip|simon|dale|ya|ia|ok|oka|okay|okey|confirmo|hazlo|bueno|weno|de una|obvio|claro|vale|perfecto|eso|correcto|exacto|anotalo|anota)\b/.test(norm(s));
+export const isNo = (s: string) => /^(no|nop|nopo|nah|nica|ni ahi|cancela|cancelar|mejor no|para|olvidalo|dejalo|deja)\b/.test(norm(s));

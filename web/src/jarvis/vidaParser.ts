@@ -14,19 +14,21 @@ const NUM: Record<string, number> = {
 const NUM_RE = Object.keys(NUM).join("|");
 
 // "5 mil", "5.000", "$5.000", "5 lucas", "una luca", "cinco mil", "1,5 millones", "un palo", "mil pesos".
-const AMOUNT = new RegExp(`\\buna? (?:lucas?|palos?|millon)\\b|\\bmil pesos\\b|(?:\\$\\s?)?(?:\\d[\\d.,]*|\\b(?:${NUM_RE})\\b)(?:\\s*(?:millones|millon|palos?|mil|lucas?|k)\\b)?(?:\\s*pesos)?|\\bmil\\b`, "g");
+const AMOUNT = new RegExp(`\\buna? (?:lucas?|palos?|millon|gambas?|quinas?)\\b|\\bmil pesos\\b|(?:\\$\\s?)?(?:\\d[\\d.,]*|\\b(?:${NUM_RE})\\b)(?:\\s*(?:millones|millon|palos?|mil|lucas?|k|gambas?|quinas?)\\b)?(?:\\s*pesos)?|\\bmil\\b`, "g");
 
 export function montoEn(text: string): { valor: number; resto: string } | null {
   for (const m of text.matchAll(AMOUNT)) {
     let raw = m[0].trim().replace(/^\$\s?/, "").replace(/\s*pesos$/, "");
-    if (/^una? (lucas?|palos?|millon)$/.test(raw)) raw = raw.replace(/^una? /, "1 ");
+    if (/^una? (lucas?|palos?|millon|gambas?|quinas?)$/.test(raw)) raw = raw.replace(/^una? /, "1 ");
     if (raw === "mil") raw = "1 mil";
     const w = raw.match(new RegExp(`^(${NUM_RE})\\b(.*)$`));
     if (w) raw = `${NUM[w[1]]}${w[2]}`;
+    // "una gamba" = $100, "una quina" = $500 (monedas, en chileno)
+    const mon = raw.match(/^(\d+)\s*(gambas?|quinas?)$/);
     // un número suelto sin unidad, en una frase de plata, solo vale si parece monto (>= 100)
-    const v = parseCLP(raw);
+    const v = mon ? Number(mon[1]) * (/gamba/.test(mon[2]) ? 100 : 500) : parseCLP(raw);
     if (v == null) continue;
-    if (!/mil|k|luca|palo|millon|\$/.test(m[0]) && v < 100) continue;
+    if (!/mil|k|luca|palo|millon|gamba|quina|\$/.test(m[0]) && v < 100) continue;
     return { valor: v, resto: (text.slice(0, m.index) + " " + text.slice(m.index! + m[0].length)).replace(/\s+/g, " ").trim() };
   }
   return null;
@@ -47,7 +49,7 @@ const suave = (s: string) =>
 
 const limpiar = (s: string) =>
   s
-    .replace(/^\s*(oye\s+)?jarvis[,\s]*/i, "")
+    .replace(/^\s*((oye|oe|hola|wena|buenas|ey|hey)[,!\s]+)*(jarvis[,!\s]*)?/i, "")
     .replace(/[¿?¡!]/g, "")
     .replace(/\.$/, "")
     .replace(/\s+/g, " ")
@@ -113,6 +115,25 @@ const parecido = (a: string, b: string) => {
 };
 
 export function parseVida(text: string, hoy: string, ctx: CtxVida = {}): LocalCommand | null {
+  const t0 = suave(limpiar(text).toLowerCase());
+  // Despertar: cierra el sueño que corre, o pregunta a qué hora se acostó.
+  if (/^(ya )?(me desperte|desperte|me levante|buenos dias|buen dia)( recien| recién)?$/.test(t0)) {
+    if (ctx.corriendo === "sueno") return { tool: "terminar_actividad", args: {} };
+    if (/desperte|levante/.test(t0)) return { tool: "__acoste", args: {} };
+  }
+  if (/^(ayuda|que (le )?puedo (decir|decirte|pedir|pedirte)|que (sabes|puedes) hacer|que haces|como funcionas|como te uso)( jarvis)?$/.test(t0)) return { tool: "__ayuda", args: {} };
+  // Saludos y gracias: respuesta corta, sin gastar cuota.
+  const tSal = suave(text.toLowerCase().replace(/[¿?¡!.,]/g, " "));
+  if (!t0 || /^(hola|holi|wena|buenas|buenas tardes|buenas noches|que onda|que tal|como estai|como estas|como estay|oye|oe|hey|ey)( jarvis)?$/.test(tSal) || /^(hola |wena |buenas |oye |oe |hey )?jarvis$/.test(tSal)) return { tool: "__saludo", args: {} };
+  if (/^(gracias|muchas gracias|grax|vale|buena|bacan|filete|perfecto|genial|ok gracias)( jarvis)?$/.test(t0)) return { tool: "__gracias", args: {} };
+  const r = parseVidaBase(text, hoy, ctx);
+  if (r) return r;
+  // "anota que dormí 7 horas", "pon que gasté 5 lucas", "registra que hice gym": se saca el "anota que".
+  const m = limpiar(text).match(/^(?:ya\s+)?(?:anota|anotame|anótame|registra|registrame|apunta|apuntame|pon|ponme|guarda)\s+(?:que\s+)?(.+)$/i);
+  return m && !/^(un |una )?(gasto|ingreso|meta|habito|hábito)\b/i.test(m[1]) ? parseVidaBase(m[1], hoy, ctx) : null;
+}
+
+function parseVidaBase(text: string, hoy: string, ctx: CtxVida): LocalCommand | null {
   const raw = limpiar(text).toLowerCase();
   const t = suave(raw);
   if (!t) return null;
@@ -153,15 +174,17 @@ export function parseVida(text: string, hoy: string, ctx: CtxVida = {}): LocalCo
     }
     const agua = t.match(new RegExp(`^(?:ya )?(?:tome|me tome|anota) (?:(\\d+|${NUM_RE}) )?(?:vasos?|botellas?)? ?(?:de )?agua\\b`));
     if (agua) return { tool: "registrar_dia", args: { agua_suma: (num(agua[1]) || 1) * (/botella/.test(t) ? 2 : 1) } };
-    const animo = t.match(/^(?:hoy )?(?:me siento|me senti|ando|estoy|me encuentro)( muy| super| bastante| mas o menos| medio)? (bien|mal|normal|feliz|contento|triste|bajoneado|bajon|pesimo|increible|la raja|filete|cansado|reventado|sin pilas|con energia|a full|motivado|estresado)$/);
+    const animo = t.match(/^(?:hoy )?(?:me siento|me senti|ando|estoy|me encuentro|quede|amaneci)( muy| super| re| bastante| mas o menos| medio| un poco)? (bien|mal|normal|feliz|contento|triste|bajoneado|bajon|chato|aburrido|pesimo|increible|la raja|filete|bacan|piola|tranqui|tranquilo|como el pico|como las weas|para la caga|pal pico|pal gato|hecho bolsa|hecho pico|enfermo|resfriado|con sueno|cansado|reventado|muerto|sin pilas|con energia|a full|motivado|prendido|estresado|colapsado|ansioso)$/);
     if (animo) {
       const w = animo[2];
       const muy = /muy|super|bastante/.test(animo[1] || "");
-      if (/cansado|reventado|sin pilas/.test(w)) return { tool: "registrar_dia", args: { energia: w === "reventado" || muy ? 1 : 2 } };
-      if (/con energia|a full|motivado/.test(w)) return { tool: "registrar_dia", args: { energia: 5 } };
-      const v = /pesimo/.test(w) ? 1 : /mal|triste|bajoneado|bajon|estresado/.test(w) ? (muy ? 1 : 2) : /normal/.test(w) || /mas o menos|medio/.test(animo[1] || "") ? 3 : /increible|la raja|filete|feliz/.test(w) || muy ? 5 : 4;
+      if (/cansado|reventado|muerto|sin pilas|con sueno|enfermo|resfriado|hecho bolsa/.test(w)) return { tool: "registrar_dia", args: { energia: /reventado|muerto|enfermo|hecho bolsa/.test(w) || muy ? 1 : 2 } };
+      if (/con energia|a full|motivado|prendido/.test(w)) return { tool: "registrar_dia", args: { energia: 5 } };
+      const v = /pesimo|pico|weas|caga|gato/.test(w) ? 1 : /mal|triste|bajoneado|bajon|chato|aburrido|estresado|colapsado|ansioso/.test(w) ? (muy ? 1 : 2) : /normal/.test(w) || /mas o menos|medio/.test(animo[1] || "") ? 3 : /increible|la raja|filete|bacan|feliz/.test(w) || muy ? 5 : 4;
       return { tool: "registrar_dia", args: { animo: v } };
     }
+    if (/\b(como|cuanto) (dormi|he dormido|duermo|estoy durmiendo)\b|\bcomo (ando|voy|estoy) (de|con el|con mi) (sueno|animo|energia|bienestar)\b|\bmi bienestar\b/.test(t))
+      return { tool: "consultar_bienestar", args: { periodo: /\bsemana\b/.test(t) ? "semana" : /\bmes\b/.test(t) ? "mes" : "hoy" } };
     const esc = t.match(/^(?:mi )?(animo|energia) (?:de |en |es )?(\d)(?: de 5)?$/);
     if (esc && Number(esc[2]) >= 1 && Number(esc[2]) <= 5) return { tool: "registrar_dia", args: { [esc[1]]: Number(esc[2]) } };
     const nuevo = raw.match(/^(?:crea|crear|agrega|agregar|añade|nuevo|ponme|quiero)\s+(?:un\s+)?(?:el\s+)?(?:nuevo\s+)?h[aá]bito\s*(?:de\s+|:\s*)?(.+)$/);
@@ -175,6 +198,17 @@ export function parseVida(text: string, hoy: string, ctx: CtxVida = {}): LocalCo
     if (marca) return { tool: "marcar_habito", args: { nombre: marca[1] } };
     // "ya leí" / "cumplí estirar": si calza con un hábito (y no con la rutina), se marca el hábito.
     const suelto = t.match(/^(?:ya )?(?:hice|cumpli|complete|termine|tache)\s+(?:el |la |de |mi )?(.+)$/);
+    // "ya hice el gym y el inglés": cada cosa va donde corresponde (rutina, hábito o entreno).
+    if (suelto && / (y|e) |, /.test(suelto[1]) && ctx.habitos?.length) {
+      const partes = suelto[1].split(/\s*(?:,|\by\b|\be\b|\btambien\b)\s*/).map((x) => x.replace(/^(el|la|los|las|de|mi) /, "").trim()).filter(Boolean);
+      const enHab = partes.filter((q) => ctx.habitos!.some((x) => parecido(q, suave(x))) && !(ctx.rutina || []).some((r) => parecido(q, suave(r))));
+      if (enHab.length && partes.length > 1) {
+        const cmds = partes.map((q) =>
+          enHab.includes(q) ? { tool: "marcar_habito", args: { nombre: ctx.habitos!.find((x) => parecido(q, suave(x)))! } } : (ctx.rutina || []).some((r) => parecido(q, suave(r))) || !new RegExp(`^(${ENTRENO})$`).test(q) ? { tool: "tachar_tarea", args: { titulo: q } } : { tool: "registrar_entreno", args: { tipo: q } },
+        );
+        return { tool: "__varios", args: { cmds } };
+      }
+    }
     if (suelto && ctx.habitos?.length) {
       const q = suelto[1];
       const h = ctx.habitos.find((x) => parecido(q, suave(x)));
@@ -255,7 +289,7 @@ export function parseVida(text: string, hoy: string, ctx: CtxVida = {}): LocalCo
 
   // ---------- Fútbol ----------
   // "metí un gol y una asistencia", "hice 2 goles", "ganamos 3 a 1", "jugué 70 minutos", "di una asistencia"
-  if (!preg && /\bgol(es)?\b|\basistencias?\b|^(ganamos|perdimos|empatamos)\b|\bjugue\b.*\b(minutos|partido)\b/.test(resto) && !/\b(llevo|tengo|cuantos)\b/.test(resto)) {
+  if (!preg && /\bgol(es)?\b|\basistencias?\b|^(ganamos|perdimos|empatamos)\b|\bjugue\b.*\b(minutos|partido)\b|^jugue (?:los |como |unos )?\d{2,3}\b/.test(resto) && !/\b(llevo|tengo|cuantos)\b/.test(resto)) {
     const args: Record<string, unknown> = {};
     const g = resto.match(new RegExp(`\\b(\\d+|${NUM_RE}) (?:gol|goles|golazos?)\\b`));
     if (g) args.goles = num(g[1]);
@@ -263,7 +297,7 @@ export function parseVida(text: string, hoy: string, ctx: CtxVida = {}): LocalCo
     const a = resto.match(new RegExp(`\\b(\\d+|${NUM_RE}) asistencias?\\b`));
     if (a) args.asistencias = num(a[1]);
     else if (/\b(di|hice|tuve) (la )?asistencia\b/.test(resto)) args.asistencias = 1;
-    const min = resto.match(/\b(\d+) (?:minutos|min)\b/);
+    const min = resto.match(/\b(\d+) (?:minutos|min)\b/) || resto.match(/\bjugue (?:los |como |unos )?(\d{2,3})\b/);
     if (min) args.minutos = Number(min[1]);
     else if (/\b(todo el partido|los 90|el partido completo)\b/.test(resto)) args.minutos = 90;
     const r = resto.match(/\b(ganamos|perdimos|empatamos)(?: (\d+) (?:a|-|por) (\d+))?/);
@@ -367,7 +401,7 @@ export function parseVida(text: string, hoy: string, ctx: CtxVida = {}): LocalCo
     // Empezar algo ahora: "empecé a estudiar", "me pongo a ordenar", "estoy en el gym", "me voy a dormir".
     b =
       t.match(/^(?:ya )?(?:empece|empiezo|comence|comienzo|me pongo|me puse|parto|parti) (?:a |con )(.+)$/) ||
-      t.match(/^(?:me voy|voy) a (dormir|acostarme|almorzar|comer|cenar|tomar once|entrenar|estudiar|trabajar|correr|jugar .+|ver .+|leer.*)$/) ||
+      t.match(/^(?:me voy|voy|ya me voy) a (dormir|acostarme|acostar|la cama|tuto|hacer tuto|almorzar|comer|cenar|tomar once|entrenar|estudiar|trabajar|correr|jugar .+|ver .+|leer.*)$/) ||
       t.match(/^estoy (?:en el |en la |en |)(gym|gimnasio|trabajo|turno|la pega|clases?|el partido|entrenamiento|la micro|el bus|camino .+|estudiando.*|trabajando.*|entrenando.*|comiendo.*|almorzando.*|viendo .+|jugando .+|ordenando.*|limpiando.*|leyendo.*|con (?:mis |la |el )?(?:amigos|familia|polola|pololo).*)$/);
     if (b) return { tool: "iniciar_actividad", args: { texto: b[1] } };
   }

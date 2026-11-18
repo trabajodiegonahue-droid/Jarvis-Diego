@@ -1,10 +1,13 @@
 import { HISTORY_KEEP, HISTORY_LIMIT } from "../config";
-import { chileNow, toMinutes, type ChileNow } from "../core/time";
+import { chileNow, parseHour, toMinutes, type ChileNow } from "../core/time";
+
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 import type { KV } from "../core/storage";
 import { norm, type Routine, type Task } from "../routine/routine";
 import type { ToolRegistry, ToolResult } from "../tools/registry";
 import { joinY } from "../tools/routineTools";
 import { fixVerb, isNo, isYes, parseCommand, type LocalCommand } from "./commands";
+import { normalizarChileno } from "./chileno";
 import { askGemini, GeminiError, streamGemini, type Connection, type Content, type Part } from "./gemini";
 import { FRIENDLY, systemPrompt } from "./persona";
 
@@ -37,7 +40,8 @@ type Pending =
   | { kind: "confirm"; tool: string; args: any }
   | { kind: "choose"; date: string; ids: string[] }
   | { kind: "hour"; title: string }
-  | { kind: "monto"; tipo: "ingreso" | "egreso"; descripcion?: string };
+  | { kind: "monto"; tipo: "ingreso" | "egreso"; descripcion?: string }
+  | { kind: "acoste" };
 
 const NUM_WORDS: Record<string, number> = { uno: 1, una: 1, primera: 1, primero: 1, dos: 2, segunda: 2, segundo: 2, tres: 3, tercera: 3, tercero: 3, cuatro: 4, cuarta: 4, cinco: 5, quinta: 5, seis: 6, sexta: 6, siete: 7, septima: 7 };
 
@@ -97,49 +101,63 @@ export class Assistant {
     const said = text.trim();
     if (!said) return { text: "", source: "local" };
     this.turnUndo = undefined;
+    // Cómo escribe Diego ("toy en el gym nms", "gaste 5 lukas x un completo") → español que entiende el intérprete.
+    const frase = normalizarChileno(said) || said;
 
     // ¿Es la respuesta a algo que JARVIS preguntó?
     if (this.pending) {
       const p = this.pending;
       this.pending = null;
       if (p.kind === "confirm") {
-        if (isYes(said)) return this.local(said, (await this.call(p.tool, p.args)).say, onText);
-        if (isNo(said)) return this.local(said, "Ya, no hago nada.", onText);
+        if (isYes(frase)) return this.local(said, (await this.call(p.tool, p.args)).say, onText);
+        if (isNo(frase)) return this.local(said, "Ya, no hago nada.", onText);
       } else if (p.kind === "hour") {
-        const ans = said.trim();
+        const ans = frase.trim();
         const phrase = /^(a las|a la|de|desde|entre|para las)\b/i.test(ans) ? ans : `a las ${ans}`;
         const cmd = parseCommand(`agrega ${p.title} ${phrase}`, this.clock());
         if (cmd?.tool === "agregar_tarea") return this.local(said, (await this.call(cmd.tool, cmd.args)).say, onText);
-        if (isNo(said)) return this.local(said, "Ya, no agrego nada.", onText);
+        if (isNo(frase)) return this.local(said, "Ya, no agrego nada.", onText);
+      } else if (p.kind === "acoste") {
+        // "¿A qué hora te acostaste?" → "a las 12", "como a la 1", "23:30"
+        const h = parseHour(frase.replace(/^(como |tipo |a eso de |cerca de )?(a las |a la )?/i, ""));
+        if (h) {
+          // "a las 12" casi siempre es medianoche y "a las 11" de la noche: se elige la lectura que da un sueño más razonable.
+          const now = this.clock().minutes;
+          const m = toMinutes(h);
+          const dur = (x: number) => (((now - x) % 1440) + 1440) % 1440;
+          const ini = [m, (m + 720) % 1440].sort((a, b) => Math.abs(dur(a) - 480) - Math.abs(dur(b) - 480))[0];
+          return this.local(said, (await this.call("registrar_bloque", { categoria: "sueno", texto: "dormir", inicio: hhmm(ini), fin: hhmm(now) })).say, onText);
+        }
+        if (isNo(frase)) return this.local(said, "Ya, no anoto el sueño.", onText);
       } else if (p.kind === "monto") {
-        const v = this.opts.parse?.(`${p.tipo === "egreso" ? "gasté" : "me pagaron"} ${said}${p.descripcion ? ` de ${p.descripcion}` : ""}`, this.clock());
+        const v = this.opts.parse?.(`${p.tipo === "egreso" ? "gasté" : "me pagaron"} ${frase}${p.descripcion ? ` de ${p.descripcion}` : ""}`, this.clock());
         if (v && /^registrar_(gasto|ingreso)$/.test(v.tool)) {
           const local = await this.runLocal(v, true);
           if (local) return this.local(said, local, onText);
         }
-        if (isNo(said)) return this.local(said, "Ya, no anoto nada.", onText);
+        if (isNo(frase)) return this.local(said, "Ya, no anoto nada.", onText);
       } else {
-        const answer = this.answerChoice(p, said);
+        const answer = this.answerChoice(p, frase);
         if (answer) return this.local(said, answer, onText);
       }
     }
 
-    const vida = this.opts.parse?.(said, this.clock());
+    const vida = this.opts.parse?.(frase, this.clock());
     if (vida) {
       const local = await this.runLocal(vida, true);
       if (local) return this.local(said, local, onText);
     }
-    const cmd = parseCommand(said, this.clock());
+    const cmd = parseCommand(frase, this.clock());
     if (cmd) {
       const local = await this.runLocal(cmd);
       if (local) return this.local(said, local, onText);
     }
     // Modo privado: una frase con plata que no entendí no se manda a Gemini.
-    if (this.opts.privado?.() && DE_PLATA.test(said))
+    if (this.opts.privado?.() && DE_PLATA.test(frase))
       return this.local(said, 'Estás en modo privado, así que no mando frases de plata a Gemini. Dímelo así y lo anoto yo: "gasté 5 mil en comida", "me pagaron 40 mil de propina" o "¿cuánto llevo gastado este mes?".', onText);
     if (connected(this.conn())) return this.viaGemini(said, onText);
     // Sin Gemini: igual intenta ayudar con lo que sabe.
-    return this.local(said, await this.offlineHelp(cmd, said), onText);
+    return this.local(said, await this.offlineHelp(cmd, frase), onText);
   }
 
   // Devuelve lo que JARVIS dice, o null si conviene que lo resuelva Gemini.
@@ -151,6 +169,26 @@ export class Assistant {
       this.lastUndo = null;
       await u.undo();
       return "Listo, lo deshice.";
+    }
+    if (cmd.tool === "__saludo") {
+      const h = n.minutes;
+      const op = ["¿Qué anotamos?", "¿En qué te ayudo?", "¿Qué hacemos?"][n.minutes % 3];
+      return `${h < 12 * 60 ? "Buenos días" : h < 20 * 60 ? "Hola" : "Buenas noches"} Diego. ${op}`;
+    }
+    if (cmd.tool === "__ayuda")
+      return 'Puedo anotar tu plata ("gasté 5 lukas en completos"), tu tiempo ("toy en el gym", "terminé"), tu sueño y ánimo ("dormí 7 horas", "ando cansao"), entrenos y partidos ("metí un gol"), hábitos y metas. Y te respondo "¿qué tengo mañana?", "¿en qué se me fue el día?" o "resumen de la semana". Abajo, en "¿Qué le puedo decir?", tienes más ejemplos para tocar.';
+    if (cmd.tool === "__gracias") return ["De nada, para eso estoy.", "Ningún problema.", "Al tiro, cuando quieras."][n.minutes % 3];
+    if (cmd.tool === "__acoste") {
+      this.pending = { kind: "acoste" };
+      return "Buenos días. ¿A qué hora te acostaste? Así anoto cuánto dormiste.";
+    }
+    if (cmd.tool === "__varios") {
+      const says: string[] = [];
+      for (const c of (cmd.args.cmds as LocalCommand[]) || []) {
+        const r = await this.call(c.tool, c.args);
+        says.push(r.say);
+      }
+      return says.join(" ");
     }
     if (cmd.tool === "__falta_monto") {
       this.pending = { kind: "monto", tipo: cmd.args.tipo as "ingreso" | "egreso", descripcion: cmd.args.descripcion as string | undefined };
@@ -249,7 +287,7 @@ export class Assistant {
     // Sin Gemini igual responde lo que sabe (datos guardados en la app).
     const k = await this.tools.call("consultar_datos", { tema: said });
     if (k.ok) return k.say;
-    return `${FRIENDLY.config} Mientras, puedo con la rutina: "qué me toca", "cómo voy", "hice la rutina a medias", "ya hice el gym y el inglés" o "agrega leer a las 22:00".`;
+    return `Esa no la cacho sin Gemini (se conecta en Ajustes). Lo que sí entiendo al tiro: "gasté 5 lucas en almuerzo", "toy en el gym", "dormí 7 horas", "¿qué tengo mañana?", "¿en qué se me fue el día?" o "agrega leer a las 22". Toca "¿Qué le puedo decir?" para ver más.`;
   }
 
   private local(user: string, say: string, onText: (d: string) => void): Reply {
