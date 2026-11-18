@@ -240,6 +240,41 @@ export interface Chequeo {
   demo?: boolean;
 }
 
+// ---------- Hábitos y bienestar ----------
+export interface Habito {
+  id: string;
+  nombre: string;
+  dias: number[]; // días de la semana en que aplica (0 = lunes); todos = diario
+  orden: number;
+  archivado?: boolean;
+  demo?: boolean;
+}
+
+// Cómo estuvo el día: hábitos cumplidos, sueño, energía, ánimo, agua y un diario corto.
+export interface Dia {
+  id: string; // fecha AAAA-MM-DD
+  habitos: string[]; // ids de los hábitos cumplidos
+  sueno?: number; // horas
+  energia?: number; // 1 a 5
+  animo?: number; // 1 a 5
+  agua?: number; // vasos
+  diario?: string;
+  demo?: boolean;
+}
+
+// ---------- Bitácora de tiempo ----------
+// Un bloque de lo que hiciste, al minuto. Sin "fin" = está corriendo ahora (cronómetro).
+export type CatTiempo = "sueno" | "trabajo" | "estudio" | "entreno" | "futbol" | "traslado" | "comida" | "casa" | "social" | "ocio" | "pantallas" | "otro";
+
+export interface Actividad {
+  id: string;
+  cat: CatTiempo;
+  inicio: string; // AAAA-MM-DDTHH:MM, hora de Chile
+  fin?: string; // AAAA-MM-DDTHH:MM
+  nota?: string;
+  demo?: boolean;
+}
+
 export interface Datos {
   movimientos: Movimiento[];
   categorias: Categoria[];
@@ -259,12 +294,15 @@ export interface Datos {
   planes: Plan[];
   entrenos: Entreno[];
   chequeos: Chequeo[];
+  habitos: Habito[];
+  dias: Dia[];
+  actividades: Actividad[];
 }
 
 export type StoreName = keyof Datos;
-export const STORES: StoreName[] = ["movimientos", "categorias", "presupuestos", "recurrentes", "metas", "aportes", "revisiones", "turnos", "materias", "sesiones", "tareas", "evaluaciones", "partidos", "clubes", "videos", "planes", "entrenos", "chequeos"];
+export const STORES: StoreName[] = ["movimientos", "categorias", "presupuestos", "recurrentes", "metas", "aportes", "revisiones", "turnos", "materias", "sesiones", "tareas", "evaluaciones", "partidos", "clubes", "videos", "planes", "entrenos", "chequeos", "habitos", "dias", "actividades"];
 
-export const emptyDatos = (): Datos => ({ movimientos: [], categorias: [], presupuestos: [], recurrentes: [], metas: [], aportes: [], revisiones: [], turnos: [], materias: [], sesiones: [], tareas: [], evaluaciones: [], partidos: [], clubes: [], videos: [], planes: [], entrenos: [], chequeos: [] });
+export const emptyDatos = (): Datos => ({ movimientos: [], categorias: [], presupuestos: [], recurrentes: [], metas: [], aportes: [], revisiones: [], turnos: [], materias: [], sesiones: [], tareas: [], evaluaciones: [], partidos: [], clubes: [], videos: [], planes: [], entrenos: [], chequeos: [], habitos: [], dias: [], actividades: [] });
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 

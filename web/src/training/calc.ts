@@ -1,7 +1,7 @@
 // Entrenamiento: generador de rutinas, progresión, récords, volumen por músculo y carga del día.
 // Funciones puras, con pruebas.
 import { addDays, dow, lunesDe } from "../core/dates";
-import type { Chequeo, Entreno, ItemPlan, Objetivo, Partido, Plan, SesionPlan } from "../data/types";
+import type { Chequeo, Dia, Entreno, ItemPlan, Objetivo, Partido, Plan, SesionPlan } from "../data/types";
 import { EJERCICIOS, ejercicio, type Ejercicio, type Equipo, type Musculo } from "./ejercicios";
 
 // ---------- Parámetros por objetivo ----------
@@ -247,6 +247,15 @@ export function cargaDelDia(ch: Chequeo | undefined, partidos: Partido[], hoy: s
   if ((ch?.dolor || 0) >= 4) return { nivel: "suave", factor: 0.6, motivo: "Con algo de dolor: menos series y evita la zona que duele." };
   if (cans >= 4 || sueno < 6.5) return { nivel: "suave", factor: 0.75, motivo: "Vienes cansado o dormiste poco: una serie menos en cada ejercicio." };
   return { nivel: "normal", factor: 1, motivo: "Estás para entrenar normal." };
+}
+
+// El chequeo de hoy; si no lo hiciste en Físico, sale de lo que anotaste en Hábitos (sueño y energía).
+export function chequeoDeHoy(d: { chequeos: Chequeo[]; dias?: Dia[] }, hoy: string): Chequeo | undefined {
+  const ch = d.chequeos.find((c) => c.id === hoy);
+  const dia = d.dias?.find((x) => x.id === hoy);
+  if (ch) return ch.sueno == null && dia?.sueno != null ? { ...ch, sueno: dia.sueno } : ch;
+  if (dia && (dia.sueno != null || dia.energia != null)) return { id: hoy, cansancio: dia.energia ? 6 - dia.energia : 2, dolor: 0, ...(dia.sueno != null ? { sueno: dia.sueno } : {}) };
+  return undefined;
 }
 
 export const seriesAjustadas = (series: number, c: Carga) => (c.factor >= 1 ? series : Math.max(1, Math.round(series * c.factor)));

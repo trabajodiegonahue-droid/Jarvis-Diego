@@ -1,7 +1,7 @@
 // Datos de ejemplo para la bienvenida (opcionales). Todos llevan demo: true y se borran con un toque.
 import { sumarMeses } from "../money/calc";
 import { addDays, dow, lunesDe } from "../core/dates";
-import type { Datos, Entreno, Movimiento, Partido, Sesion, Turno } from "./types";
+import type { Actividad, Datos, Dia, Entreno, Habito, Movimiento, Partido, Sesion, Turno } from "./types";
 import { generarRutina } from "../training/calc";
 
 export function datosEjemplo(hoy: string): Partial<Datos> {
@@ -34,6 +34,7 @@ export function datosEjemplo(hoy: string): Partial<Datos> {
     recurrentes: [],
     ...ejemploFase2(hoy),
     ...ejemploFase3(hoy),
+    ...ejemploFase5(hoy),
   };
 }
 
@@ -63,7 +64,7 @@ function ejemploFase3(hoy: string): Partial<Datos> {
       const f = addDays(lunesDe(hoy), s.dia - 7 * w);
       if (f >= hoy) continue;
       entrenos.push({
-        id: `demo-en${w}-${s.dia}`, fecha: f, nombre: s.nombre.replace(/^\w+: /, ""), sesionId: s.id, rpe: 7,
+        id: `demo-en${w}-${s.dia}`, fecha: f, nombre: s.nombre.replace(/^[^:]+: /, ""), sesionId: s.id, rpe: 7,
         items: s.items.map((it) => ({ ejId: it.ejId, series: Array.from({ length: it.series }, () => ({ reps: Math.min(it.repsMax, it.repsMin + (3 - w)) })) })),
         ...D,
       });
@@ -127,4 +128,37 @@ function ejemploFase2(hoy: string): Partial<Datos> {
       ...[-20, -18, -15, -13, -11, -8, -6, -2].map((k) => ({ id: `demo-a${k}`, metaId: "demo-g3", fecha: addDays(hoy, k), valor: 1, ...D })),
     ],
   };
+}
+
+// Hábitos, bienestar y bitácora de tiempo de ejemplo (últimas semanas).
+function ejemploFase5(hoy: string): Partial<Datos> {
+  const D = { demo: true as const };
+  const habitos: Habito[] = [
+    { id: "demo-h1", nombre: "Leer 15 minutos", dias: [], orden: 0, ...D },
+    { id: "demo-h2", nombre: "Estirar 10 minutos", dias: [], orden: 1, ...D },
+    { id: "demo-h3", nombre: "Inglés 20 minutos", dias: [0, 1, 2, 3, 4], orden: 2, ...D },
+  ];
+  const dias: Dia[] = [];
+  for (let k = 1; k <= 20; k++) {
+    const f = addDays(hoy, -k);
+    const hs = [k % 3 !== 0 ? "demo-h1" : "", k % 4 !== 1 ? "demo-h2" : "", k % 5 !== 2 && dow(f) < 5 ? "demo-h3" : ""].filter(Boolean);
+    dias.push({ id: f, habitos: hs, sueno: [7.5, 6.5, 8, 7, 6, 7.5, 8.5][k % 7], energia: [4, 3, 4, 3, 2, 4, 5][k % 7], animo: [4, 4, 3, 4, 3, 5, 4][k % 7], agua: [6, 8, 5, 7, 8, 4, 6][k % 7], ...D });
+  }
+  dias.push({ id: hoy, habitos: ["demo-h2"], sueno: 7.5, agua: 2, ...D });
+  const actividades: Actividad[] = [];
+  const b = (id: string, cat: Actividad["cat"], ini: string, fin: string, nota?: string) => actividades.push({ id, cat, inicio: ini, fin, ...(nota ? { nota } : {}), ...D });
+  for (let k = 0; k <= 6; k++) {
+    const f = addDays(hoy, -k);
+    const ayer = addDays(f, -1);
+    b(`demo-t${k}s`, "sueno", `${ayer}T23:45`, `${f}T07:15`);
+    if (k === 0) continue;
+    b(`demo-t${k}d`, "comida", `${f}T07:30`, `${f}T08:00`, "Desayuno");
+    b(`demo-t${k}e`, "estudio", `${f}T08:30`, `${f}T${k % 2 ? "10:00" : "09:30"}`, "Inglés");
+    b(`demo-t${k}c`, "pantallas", `${f}T10:00`, `${f}T${k % 3 ? "10:40" : "11:30"}`);
+    b(`demo-t${k}a`, "comida", `${f}T13:00`, `${f}T13:40`, "Almuerzo");
+    b(`demo-t${k}m`, "traslado", `${f}T13:40`, `${f}T14:00`, "Micro al trabajo");
+    if (dow(f) >= 5) b(`demo-t${k}o`, "social", `${f}T16:00`, `${f}T19:00`, "Con amigos");
+    b(`demo-t${k}n`, "pantallas", `${f}T22:45`, `${f}T23:40`);
+  }
+  return { habitos, dias, actividades };
 }
