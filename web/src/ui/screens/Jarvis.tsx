@@ -6,6 +6,7 @@ import { chileNow } from "../../core/time";
 import { assistant, settings, speaker, tools, updateSettings } from "../../jarvis/instance";
 import { isConnected } from "../../core/settings";
 import { askGemini, limpiarClave } from "../../brain/gemini";
+import { fotoABase64, leerFoto } from "../../brain/foto";
 import { FRIENDLY } from "../../brain/persona";
 import { canListen, listenOnce, type ListenError } from "../../voice/speech";
 import { Sheet } from "../components";
@@ -170,6 +171,41 @@ export function JarvisSheet({ onClose, borrador, enviar }: { onClose: () => void
       });
   }
 
+  // Una foto de una boleta o del reloj de trote: Gemini la lee y JARVIS lo anota.
+  async function foto(el: HTMLInputElement) {
+    const f = el.files?.[0];
+    el.value = "";
+    if (!f) return;
+    if (!isConnected(settings)) {
+      chat.push({ who: "a", text: "Para leer fotos necesito estar conectado a Gemini (Ajustes)." });
+      return redraw((n) => n + 1);
+    }
+    if (getPrefs().privacy) {
+      chat.push({ who: "a", text: "Estás en modo privado: no mando fotos a Gemini. Dímelo con palabras y lo anoto." });
+      return redraw((n) => n + 1);
+    }
+    chat.push({ who: "u", text: "📷 Foto" });
+    const msg: Msg = { who: "a", text: "" };
+    chat.push(msg);
+    setEstado("thinking");
+    redraw((n) => n + 1);
+    try {
+      const l = await leerFoto(settings, await fotoABase64(f));
+      if (!l.frase) {
+        msg.text = `${l.resumen} No encontré un gasto ni un entreno para anotar.`;
+        setEstado("idle");
+        return redraw((n) => n + 1);
+      }
+      chat.splice(chat.indexOf(msg), 1);
+      chat.push({ who: "a", text: `Leí la foto: ${l.resumen}` });
+      await send(l.frase);
+    } catch {
+      msg.text = "No pude leer la foto. Prueba con una más nítida o dímelo con palabras.";
+      setEstado("error");
+      redraw((n) => n + 1);
+    }
+  }
+
   const pocos = chat.filter((m) => m.who === "u").length < 2;
 
   const conectado = isConnected(settings);
@@ -229,6 +265,10 @@ export function JarvisSheet({ onClose, borrador, enviar }: { onClose: () => void
           <Icon name={estado === "speaking" ? "stop" : "mic"} size={24} />
         </button>
         <input ref={input} aria-label="Mensaje para JARVIS" placeholder="Escríbele o toca el micrófono" enterKeyHint="send" />
+        <label class="jv-foto" aria-label="Mandar una foto (boleta o reloj de trote)">
+          <Icon name="camara" size={20} />
+          <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => void foto(e.target as HTMLInputElement)} />
+        </label>
         <button class="jv-enviar" aria-label="Enviar">
           <Icon name="send" size={18} />
         </button>

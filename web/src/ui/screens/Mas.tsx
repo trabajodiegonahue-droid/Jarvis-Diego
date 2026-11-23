@@ -29,6 +29,8 @@ const GRUPOS: { titulo: string; items: { path: string; nombre: string; detalle: 
   {
     titulo: "Áreas",
     items: [
+      { path: "/mas/cardio", nombre: "Cardio", detalle: "Trotes, kilómetros, ritmo y récords", icon: "pesa", color: "#1BAF7A" },
+      { path: "/mas/mascota", nombre: getPrefs().mascota || "Mascota", detalle: "Paseos, comida y veterinario", icon: "pata", color: "#D95926" },
       { path: "/mas/estudios", nombre: "Estudios", detalle: "Horas, pendientes y pruebas", icon: "libro", color: "#9B6BDE" },
       { path: "/mas/trabajo", nombre: "Trabajo", detalle: "Turnos, horas y propinas", icon: "trabajo", color: "#A98467" },
     ],
@@ -67,6 +69,105 @@ export function Mas() {
         </section>
       ))}
     </main>
+  );
+}
+
+// Respaldo automático y cifrado en tu intermediario de Cloudflare (una vez al día).
+function RespaldoNube() {
+  const [pass, setPass] = useState("");
+  const [, redraw] = useState(0);
+  const [ocupado, setOcupado] = useState(false);
+  const activo = !!kv.get<string>("respaldoNube", "");
+  const fecha = kv.get<string>("respaldoNubeFecha", "");
+  const nube = settings.mode === "worker" && settings.workerUrl && settings.workerToken ? { url: settings.workerUrl, token: settings.workerToken } : null;
+  return (
+    <section class="card" aria-labelledby="a-nube">
+      <h2 id="a-nube">Respaldo automático</h2>
+      <p class="small" style={{ margin: 0 }}>
+        Una vez al día, Vida guarda todo en tu intermediario de Cloudflare, <b>cifrado con una contraseña tuya</b>: Cloudflare no lo puede leer. Si cambias de teléfono, lo recuperas con esa contraseña. Si la olvidas, no se puede recuperar.
+      </p>
+      {!nube ? (
+        <span class="small" style={{ color: "var(--amber)" }}>Necesita el intermediario (Más › Ajustes › JARVIS y Gemini › Intermediario).</span>
+      ) : (
+        <>
+          {activo ? <span class="small" style={{ color: "var(--green)" }}>Activo. {fecha ? `Último respaldo: ${fecha}.` : "El primero se hace hoy."}</span> : null}
+          <form
+            class="row"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (pass.length < 8) return toast("Usa una contraseña de al menos 8 caracteres.");
+              setOcupado(true);
+              try {
+                const { subirRespaldo } = await import("../../data/nube");
+                await subirRespaldo(nube, store.data, kv, pass);
+                kv.set("respaldoNube", pass);
+                kv.set("respaldoNubeFecha", chileNow().date);
+                setPass("");
+                toast("Respaldo automático activado. Anota tu contraseña en un lugar seguro.");
+              } catch (err) {
+                toast((err as Error).message);
+              }
+              setOcupado(false);
+              redraw((n) => n + 1);
+            }}
+          >
+            <input type="password" autocomplete="new-password" aria-label="Contraseña del respaldo" placeholder={activo ? "Cambiar contraseña" : "Contraseña (mín. 8)"} value={pass} onInput={(e) => setPass((e.target as HTMLInputElement).value)} style={{ flex: 1, minWidth: 0, minHeight: "44px", borderRadius: "12px", border: "1px solid var(--line)", background: "var(--card2)", color: "var(--ink)", padding: "0 12px" }} />
+            <button class="btn sm main" disabled={ocupado}>
+              {ocupado ? "…" : activo ? "Cambiar" : "Activar"}
+            </button>
+          </form>
+          <div class="row">
+            {activo && (
+              <button
+                class="btn sm"
+                disabled={ocupado}
+                onClick={async () => {
+                  setOcupado(true);
+                  try {
+                    const { subirRespaldo } = await import("../../data/nube");
+                    await subirRespaldo(nube, store.data, kv, kv.get<string>("respaldoNube", ""));
+                    kv.set("respaldoNubeFecha", chileNow().date);
+                    toast("Respaldado.");
+                  } catch (err) {
+                    toast((err as Error).message);
+                  }
+                  setOcupado(false);
+                  redraw((n) => n + 1);
+                }}
+              >
+                Respaldar ahora
+              </button>
+            )}
+            <button
+              class="btn sm"
+              disabled={ocupado}
+              onClick={async () => {
+                const p = prompt("Contraseña del respaldo en la nube:");
+                if (!p) return;
+                setOcupado(true);
+                try {
+                  const { bajarRespaldo } = await import("../../data/nube");
+                  const r = await bajarRespaldo(nube, p);
+                  if (confirm(`Esto reemplaza todo lo de ahora por el respaldo del ${r.fecha.slice(0, 10)}. ¿Seguir?`)) {
+                    await store.replaceAll(r.datos);
+                    applyExtra(kv, r.extra);
+                    kv.set("respaldoNube", p);
+                    reloadPrefs();
+                    reloadJarvis();
+                    toast("Respaldo restaurado.");
+                  }
+                } catch (err) {
+                  toast((err as Error).message);
+                }
+                setOcupado(false);
+              }}
+            >
+              Restaurar desde la nube
+            </button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -251,6 +352,8 @@ export function Ajustes() {
           El respaldo no incluye tu clave de Gemini.
         </p>
       </section>
+
+      <RespaldoNube />
 
       <section class="card" aria-labelledby="a-inicio">
         <h2 id="a-inicio">Tarjetas del inicio</h2>

@@ -373,3 +373,11 @@ nav.tabs a.on::before { content: ""; position: absolute; top: -7px; width: 28px;
 .area-card strong { overflow-wrap: anywhere; hyphens: auto; line-height: 1.2; }
 .area-card { transition: transform 0.12s; }
 .area-card:active { transform: scale(0.98); }
+/* Tarjetas de números grandes (cardio, mascota) */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; }
+.kpi { display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: var(--r); background: linear-gradient(180deg, var(--card-hi), transparent), var(--card); border: 1px solid var(--line); min-width: 0; }
+.kpi strong { font-size: 20px; letter-spacing: -0.3px; overflow-wrap: anywhere; }
+.jv-foto { width: 40px; height: 44px; flex: none; display: grid; place-items: center; color: var(--muted); cursor: pointer; border-radius: 12px; }
+.jv-foto:active { background: var(--card); }
+.ver-mas { color: var(--muted); }
+.kpis.dos { grid-template-columns: repeat(2, minmax(0, 1fr)); }

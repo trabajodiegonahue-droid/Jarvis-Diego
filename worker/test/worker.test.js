@@ -28,7 +28,7 @@ describe("intermediario", () => {
     expect((await worker.fetch(req("/v1beta/models/x:generateContent", { headers: { Authorization: "Bearer malo" } }), env)).status).toBe(401);
     expect((await worker.fetch(req("/v1beta/models/x:generateContent", { headers: { Origin: "https://otro.com" } }), env)).status).toBe(403);
     expect((await worker.fetch(req("/v1beta/files"), env)).status).toBe(404);
-    expect((await worker.fetch(req("/v1beta/models/x:generateContent", { body: "x".repeat(70000) }), env)).status).toBe(413);
+    expect((await worker.fetch(req("/v1beta/models/x:generateContent", { body: "x".repeat(3 * 1024 * 1024 + 10) }), env)).status).toBe(413);
     expect(fetch).not.toHaveBeenCalled();
   });
   it("responde al preflight CORS", async () => {
@@ -306,5 +306,18 @@ describe("varias cosas de una vez", () => {
     expect(await r.text()).toBe("Listo. 3 cosas: 1, anoté troté 2,89 km en Entrenamiento. 2, anoté saqué al apolo en Mascota. 3, anoté gasté 5 lucas en almuerzo en Dinero.");
     const textos = [...BUZON.m.entries()].filter(([k]) => k.startsWith("m:")).map(([, v]) => JSON.parse(v).texto);
     expect(textos).toEqual(["troté 2,89 km en 19 minutos 35 segundos y quemé 234 calorías", "saqué al Apolo", "gasté 5000 en almuerzo"]);
+  });
+});
+
+describe("respaldo cifrado", () => {
+  it("guarda y devuelve el paquete tal cual, solo con tu código", async () => {
+    const e = { ...env, BUZON: kvFalso() };
+    const paquete = '{"v":1,"gz":true,"s":"a","i":"b","c":"c"}';
+    expect((await worker.fetch(req("/respaldo", { method: "GET", body: null }), e)).status).toBe(404);
+    expect((await worker.fetch(req("/respaldo", { body: JSON.stringify({ paquete }) }), e)).status).toBe(200);
+    const r = await (await worker.fetch(req("/respaldo", { method: "GET", body: null }), e)).json();
+    expect(r.paquete).toBe(paquete);
+    expect((await worker.fetch(req("/respaldo", { method: "GET", body: null, headers: { Authorization: "Bearer x" } }), e)).status).toBe(401);
+    expect((await worker.fetch(req("/respaldo", { body: JSON.stringify({ paquete: "no cifrado" }) }), e)).status).toBe(400);
   });
 });

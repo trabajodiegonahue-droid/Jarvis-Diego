@@ -238,3 +238,43 @@ describe("Apolo y el trote", () => {
     expect(r.guardado?.[0]).toMatchObject({ id: "entreno" });
   });
 });
+
+describe("cardio, mascota, aviso semanal y respaldo cifrado", () => {
+  it("cardio: km por semana, récords y tendencia", async () => {
+    const { salidas, records, kmPorSemana, tendenciaRitmo } = await import("../src/cardio/calc");
+    const E = (fecha: string, km: number, seg: number) => ({ id: fecha + km, fecha, nombre: "Trote", items: [], km, seg });
+    const ss = salidas([E("2026-11-23", 2.89, 1175), E("2026-11-20", 5, 1800), E("2026-11-18", 3, 1200), E("2026-11-10", 4, 1800), { id: "g", fecha: "2026-11-22", nombre: "Gimnasio", items: [] }] as any);
+    expect(ss).toHaveLength(4);
+    const r = records(ss, "2026-11-23");
+    expect(r.masLarga?.km).toBe(5);
+    expect(r.mejorRitmo?.ritmo).toBe(360);
+    expect(r.kmMes).toBe(14.9);
+    expect(kmPorSemana(ss, "2026-11-23", 3).map((x) => x.valor)).toEqual([4, 8, 2.9]);
+    expect(tendenciaRitmo(ss)).toBeLessThan(0);
+  });
+  it("mascota: paseos, pendientes y horas sin salir", async () => {
+    const { eventosMascota, minutosSinSalir, porDia } = await import("../src/mascota/calc");
+    const n = (fecha: string, texto: string) => ({ id: fecha, fecha, area: "mascota", texto, origen: "app" }) as any;
+    const ev = eventosMascota([n("2026-11-23T08:00", "saqué al Apolo"), n("2026-11-23T09:00", "tengo que sacar al Apolo"), n("2026-11-23T10:00", "Apolo comió")]);
+    expect(ev.map((e) => [e.tipo, e.pendiente])).toEqual([["comida", false], ["paseo", true], ["paseo", false]]);
+    expect(minutosSinSalir(ev, "2026-11-23T12:00")).toBe(240);
+    expect(porDia(ev, "paseo", "2026-11-23", 2).map((x) => x.valor)).toEqual([0, 1]);
+  });
+  it("el domingo llega el resumen de la semana, sin plata", async () => {
+    const { planAvisos } = await import("../src/jarvis/avisos");
+    const { emptyDatos } = await import("../src/data/types");
+    const d = { ...emptyDatos(), entrenos: [{ id: "a", fecha: "2026-11-23", nombre: "Trote", items: [], km: 3 }] } as any;
+    const av = planAvisos(d, [], { manana: "08:00", noche: "21:30", agua: false, rutina: false } as any, "2026-11-23T10:00");
+    const s = av.find((a) => a.id.startsWith("s:"));
+    expect(s?.cuando).toBe("2026-11-29T20:00");
+    expect(s?.cuerpo).toMatch(/^Esta semana: 1 entreno \(3 km\)/);
+    expect(s?.cuerpo).not.toMatch(/\$/);
+  });
+  it("respaldo: cifrado y descifrado con la contraseña; con otra falla", async () => {
+    const { cifrar, descifrar } = await import("../src/data/nube");
+    const p = await cifrar('{"hola":"Apolo"}', "contraseña larga");
+    expect(p).not.toContain("Apolo");
+    expect(await descifrar(p, "contraseña larga")).toBe('{"hola":"Apolo"}');
+    await expect(descifrar(p, "otra")).rejects.toThrow(/no es correcta/);
+  });
+});

@@ -7,8 +7,11 @@ import { Dinero } from "./screens/Dinero";
 import { Bienvenida, Bloqueo } from "./screens/Entrada";
 import { Inicio } from "./screens/Inicio";
 import { alChat, JarvisSheet } from "./screens/Jarvis";
+import { Cardio } from "./screens/Cardio";
+import { Mascota } from "./screens/Mascota";
 import { revisarBuzon } from "../jarvis/buzon";
 import { assistant, settings } from "../jarvis/instance";
+import { chileNow } from "../core/time";
 import { Ajustes, Mas } from "./screens/Mas";
 import { Metas } from "./screens/Metas";
 import { Trabajo } from "./screens/Trabajo";
@@ -73,6 +76,10 @@ export function App() {
     abrirDesdeEnlace();
     void buzon();
     iniciarAvisos();
+    // Respaldo automático y cifrado (si lo activaste), una vez al día.
+    void import("../data/nube").then(({ respaldoDiario }) =>
+      respaldoDiario(settings.mode === "worker" && settings.workerUrl && settings.workerToken ? { url: settings.workerUrl, token: settings.workerToken } : null, store.data, kv, chileNow().date),
+    );
     const vis = () => !document.hidden && void buzon();
     addEventListener("hashchange", abrirDesdeEnlace);
     document.addEventListener("visibilitychange", vis);
@@ -123,6 +130,10 @@ export function App() {
         return <Recordatorios />;
       case "/mas/compras":
         return <Compras />;
+      case "/mas/cardio":
+        return <Cardio />;
+      case "/mas/mascota":
+        return <Mascota />;
       case "/areas":
         return <Areas />;
       default:

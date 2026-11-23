@@ -19,7 +19,7 @@
 
 const GEMINI = "https://generativelanguage.googleapis.com";
 const ALLOWED_METHODS = new Set(["streamGenerateContent", "generateContent"]);
-const MAX_BODY = 64 * 1024;
+const MAX_BODY = 3 * 1024 * 1024; // fotos para Gemini (achicadas en el teléfono)
 const MAX_SIRI = 500; // caracteres de lo dictado
 const BUZON_TTL = 14 * 24 * 3600; // lo no leído se borra solo a las 2 semanas
 
@@ -182,6 +182,20 @@ export default {
         if (v) items.push({ id: k.name, ...JSON.parse(v) });
       }
       return json({ items, configurado: true });
+    }
+    // Respaldo cifrado (el teléfono lo cifra con tu contraseña; aquí solo se guarda el paquete).
+    if (url.pathname === "/respaldo") {
+      if (!env.BUZON) return fail(501, "Falta el buzón (KV) en el intermediario");
+      if (request.method === "GET") {
+        const v = await env.BUZON.get("respaldo");
+        return v ? json(JSON.parse(v)) : fail(404, "No hay respaldo");
+      }
+      if (request.method === "POST") {
+        const b = await request.json().catch(() => null);
+        if (!b || typeof b.paquete !== "string" || b.paquete.length > 20 * 1024 * 1024 || !/^\{"v":1/.test(b.paquete)) return fail(400, "Respaldo inválido");
+        await env.BUZON.put("respaldo", JSON.stringify({ paquete: b.paquete, fecha: new Date().toISOString() }));
+        return json({ ok: true });
+      }
     }
     // Aviso de prueba: llega en segundos, para confirmar que las notificaciones funcionan.
     if (url.pathname === "/push/prueba" && request.method === "POST") {

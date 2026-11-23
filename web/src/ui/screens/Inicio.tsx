@@ -271,6 +271,9 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
   };
 
   const fecha = `${DAY_NAMES[n.dow][0].toUpperCase() + DAY_NAMES[n.dow].slice(1)} ${dia} de ${MESES[Number(mes.slice(5)) - 1]}`;
+  // Lo principal arriba; el resto, a un toque (ordénalo en Ajustes › Tarjetas del inicio).
+  const visibles = prefs.cards.filter((c) => c.on && cardReady(c.id));
+  const [todo, setTodo] = useState(false);
   return (
     <main class="page">
       <header class="hero">
@@ -308,9 +311,14 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
       <SemanaDificil />
       <LogroNuevo />
       <BackupReminder />
-      {prefs.cards.filter((c) => c.on && cardReady(c.id)).map((c) => (
+      {visibles.slice(0, todo ? visibles.length : 4).map((c) => (
         <div key={c.id}>{cards[c.id]()}</div>
       ))}
+      {visibles.length > 4 && (
+        <button class="btn full ver-mas" onClick={() => setTodo(!todo)} aria-expanded={todo}>
+          {todo ? "Ver menos" : `Ver más (${visibles.length - 4})`}
+        </button>
+      )}
       {!tot.ingresos && !tot.egresos && (
         <button class="btn main" onClick={onAdd}>
           Registrar mi primer movimiento

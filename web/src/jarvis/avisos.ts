@@ -1,6 +1,7 @@
 // Avisos: qué te avisa JARVIS y cuándo. Lo que se calcula aquí sirve para tres caminos:
 // 1) con la app abierta suena en pantalla; 2) con los avisos activados, el intermediario de Cloudflare
 // manda la notificación al iPhone aunque la app esté cerrada; 3) sin servidor, se exporta al Calendario (.ics).
+import { areaEfectiva, getNombreMascota } from "../areas/calc";
 import { hhmm, joinY } from "../core/texto";
 import { addDays, dow } from "../core/dates";
 import type { Datos, Recordatorio } from "../data/types";
@@ -71,6 +72,31 @@ export function planAvisos(d: Datos, tasks: Task[], p: PrefsAvisos, ahora: strin
         out.push({ id: `t:${t.id}:${f}`, cuando: `${f}T${hhmm(antes)}`, titulo: t.title, cuerpo: `En 10 minutos: ${min(t.title)} (${t.time}).` });
       }
     if (p.agua) for (const h of ["11:00", "14:00", "17:00", "20:00"]) out.push({ id: `a:${f}:${h}`, cuando: `${f}T${h}`, titulo: "Agua", cuerpo: "Tómate un vaso de agua." });
+  }
+  // Domingo en la noche: cómo te fue en la semana (sin montos de plata: los avisos pasan por Apple y Cloudflare).
+  for (let i = 0; i <= dias; i++) {
+    const f = addDays(hoy, i);
+    if (dow(f) !== 6) continue;
+    const lunes = addDays(f, -6);
+    const ent = d.entrenos.filter((e) => e.fecha >= lunes && e.fecha <= f);
+    const km = Math.round(ent.reduce((t, e) => t + (e.km || 0), 0) * 10) / 10;
+    const sueno = d.dias.filter((x) => x.id >= lunes && x.id <= f && x.sueno);
+    const prom = sueno.length ? Math.round((sueno.reduce((t, x) => t + (x.sueno || 0), 0) / sueno.length) * 10) / 10 : 0;
+    const nom = getNombreMascota();
+    const paseos = d.notas.filter((n) => n.fecha >= lunes && n.fecha <= `${f}T23:59` && areaEfectiva(n) === "mascota" && /pase|saque|sacar|salir|caca/i.test(n.texto) && !/tengo que|hay que|debo/i.test(n.texto)).length;
+    const partes = [`${ent.length} ${ent.length === 1 ? "entreno" : "entrenos"}${km ? ` (${String(km).replace(".", ",")} km)` : ""}`, prom ? `dormiste ${String(prom).replace(".", ",")} h en promedio` : "", nom && paseos ? `${nom} salió ${paseos} ${paseos === 1 ? "vez" : "veces"}` : ""].filter(Boolean);
+    out.push({ id: `s:${f}`, cuando: `${f}T20:00`, titulo: "Tu semana", cuerpo: `Esta semana: ${joinY(partes)}. Abre Vida para ver el resumen completo.` });
+  }
+  // La mascota: si lleva 8 horas sin salir, un aviso.
+  const nom = getNombreMascota();
+  const ultPaseo = d.notas
+    .filter((n) => areaEfectiva(n) === "mascota" && /pase|saque|sacar|salir|caca|pipi/i.test(n.texto) && !/tengo que|hay que|debo|recuerd/i.test(n.texto))
+    .map((n) => n.fecha)
+    .sort()
+    .pop();
+  if (ultPaseo) {
+    const t = new Date(Date.parse(ultPaseo + ":00Z") + 8 * 3600_000).toISOString().slice(0, 16);
+    if (t > ahora && t.slice(11) >= "08:00" && t.slice(11) <= "22:30") out.push({ id: `p:${ultPaseo}`, cuando: t, titulo: nom || "Tu mascota", cuerpo: `${nom || "Tu mascota"} lleva 8 horas sin salir. ¿Lo sacas un rato?` });
   }
   return out.filter((a) => a.cuando > ahora && a.cuando <= hasta).sort((a, b) => a.cuando.localeCompare(b.cuando));
 }

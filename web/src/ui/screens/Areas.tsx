@@ -12,7 +12,7 @@ import { Icon } from "../icons";
 import { go, toast, useApp } from "../state";
 
 const cuando = (iso: string, hoy: string) => (iso.startsWith(hoy) ? `hoy ${iso.slice(11)}` : fechaCorta(iso.slice(0, 10)));
-const RUTA: Partial<Record<AreaVida, string>> = { dinero: "/dinero", entreno: "/futbol?fisico", futbol: "/futbol", estudios: "/mas/estudios", trabajo: "/mas/trabajo", salud: "/mas/habitos", animo: "/mas/habitos", casa: "/mas/compras", metas: "/metas", social: "/mas/recordatorios" };
+const RUTA: Partial<Record<AreaVida, string>> = { dinero: "/dinero", entreno: "/mas/cardio", mascota: "/mas/mascota", futbol: "/futbol", estudios: "/mas/estudios", trabajo: "/mas/trabajo", salud: "/mas/habitos", animo: "/mas/habitos", casa: "/mas/compras", metas: "/metas", social: "/mas/recordatorios" };
 
 export function Areas() {
   const { data } = useApp();
