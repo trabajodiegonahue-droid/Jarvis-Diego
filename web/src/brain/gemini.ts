@@ -38,14 +38,19 @@ export interface StreamResult {
   parts: Part[]; // partes tal como llegaron (hay que devolverlas igual en la siguiente vuelta)
 }
 
+// Deja solo los caracteres que puede tener una clave (letras, números y . _ -).
+export const limpiarClave = (k: string) => k.replace(/[^A-Za-z0-9._-]/g, "");
+
 function endpoint(c: Connection, method: "streamGenerateContent" | "generateContent"): { url: string; headers: Record<string, string> } {
   const path = `/models/${encodeURIComponent(GEMINI_MODEL)}:${method}${method === "streamGenerateContent" ? "?alt=sse" : ""}`;
   if (c.mode === "worker") {
     if (!c.workerUrl) throw new GeminiError("config", "Falta la dirección del intermediario.");
     return { url: c.workerUrl.replace(/\/+$/, "") + "/v1beta" + path, headers: { Authorization: `Bearer ${c.workerToken || ""}` } };
   }
-  if (!c.apiKey) throw new GeminiError("config", "Falta la clave de Gemini.");
-  return { url: GEMINI_API_BASE + path, headers: { "x-goog-api-key": c.apiKey } };
+  // Al copiar desde el iPhone a veces se cuela un espacio o un carácter invisible: se limpia.
+  const key = limpiarClave(c.apiKey || "");
+  if (!key) throw new GeminiError("config", "Falta la clave de Gemini.");
+  return { url: GEMINI_API_BASE + path, headers: { "x-goog-api-key": key } };
 }
 
 function body(r: Request, think: boolean) {

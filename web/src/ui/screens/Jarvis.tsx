@@ -4,7 +4,7 @@ import { GREETING } from "../../brain/persona";
 import { chileNow } from "../../core/time";
 import { assistant, settings, speaker, tools, updateSettings } from "../../jarvis/instance";
 import { isConnected } from "../../core/settings";
-import { askGemini } from "../../brain/gemini";
+import { askGemini, limpiarClave } from "../../brain/gemini";
 import { FRIENDLY } from "../../brain/persona";
 import { canListen, listenOnce, type ListenError } from "../../voice/speech";
 import { Sheet } from "../components";
@@ -263,7 +263,7 @@ function Conexion({ onResponder }: { onResponder: (ps: string[]) => void }) {
         class="row"
         onSubmit={async (e) => {
           e.preventDefault();
-          const k = clave.trim();
+          const k = limpiarClave(clave);
           // Google entrega claves con dos formatos: las clásicas (AIza…) y las nuevas (AQ.…). La prueba real la hace Gemini.
           if (!/^(AIza[\w-]{20,}|AQ\.[\w.-]{20,})$/.test(k)) return setEstado("Esa no parece una clave de Gemini (empiezan con AIza o AQ.). Cópiala completa desde AI Studio.");
           setEstado("Probando…");

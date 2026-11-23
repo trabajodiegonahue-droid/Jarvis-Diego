@@ -89,7 +89,12 @@ ${routineContext(n, routine)}${summary ? `\nResumen de lo conversado antes: ${su
 export const FRIENDLY: Record<string, string> = {
   quota: "Uy, se me acabó la cuota gratis de Gemini por ahora. Las órdenes de la rutina siguen funcionando; para conversar, prueba en un rato.",
   auth: "La clave de Gemini no me está funcionando. Revísala en Ajustes.",
-  network: "Estoy sin internet. Lo de la rutina lo puedo hacer igual; para conversar necesito conexión.",
+  network:
+    typeof location !== "undefined" && /claude\.ai|claudeusercontent/.test(location.hostname)
+      ? "Esta es la demo de claude.ai, que no deja conectarse a internet. Conecta a Gemini en la app publicada (trabajodiegonahue-droid.github.io/Jarvis-Diego)."
+      : typeof navigator !== "undefined" && navigator.onLine
+        ? "No pude llegar a Gemini. Revisa que la clave esté completa (sin espacios) y prueba de nuevo; si sigue, puede ser la red en que estás."
+        : "Estoy sin internet. Lo de la rutina lo puedo hacer igual; para conversar necesito conexión.",
   down: "Gemini no me responde ahora. Prueba en un ratito.",
   config: "Para conversar libremente me falta conectarme a Gemini (Ajustes).",
   blocked: "Eso no te lo puedo responder. Pregúntame de otra forma.",

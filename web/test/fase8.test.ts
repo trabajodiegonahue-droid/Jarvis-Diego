@@ -152,3 +152,11 @@ describe("que responda todo", () => {
     expect((await a.handle("cuándo fue la última vez que fui al dentista")).text).toMatch(/^Encontré esto: hoy, fui al dentista/);
   });
 });
+
+describe("clave de Gemini", () => {
+  it("se limpia de espacios y caracteres invisibles al copiarla", async () => {
+    const { limpiarClave } = await import("../src/brain/gemini");
+    expect(limpiarClave(" AQ.Ab8_x-Y​\n")).toBe("AQ.Ab8_x-Y");
+    expect(limpiarClave("AIzaSyD-ab_12")).toBe("AIzaSyD-ab_12");
+  });
+});

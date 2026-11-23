@@ -6,7 +6,7 @@ import { store } from "../../data/store";
 import { emptyDatos } from "../../data/types";
 import { reloadJarvis, settings, updateSettings } from "../../jarvis/instance";
 import { GEMINI_MODEL } from "../../config";
-import { askGemini } from "../../brain/gemini";
+import { askGemini, limpiarClave } from "../../brain/gemini";
 import { FRIENDLY } from "../../brain/persona";
 import { Empty, Sheet } from "../components";
 import { buscarCiudad, type Ciudad } from "../../weather/clima";
@@ -394,7 +394,7 @@ function JarvisAjustes() {
           <label class="lbl" for="g-key">
             Clave de Google AI Studio
           </label>
-          <input id="g-key" type="password" autocomplete="off" autoCapitalize="off" spellcheck={false} value={s.apiKey || ""} onInput={(e) => setS({ ...s, apiKey: (e.target as HTMLInputElement).value.trim() })} placeholder="AIza… o AQ.…" />
+          <input id="g-key" type="password" autocomplete="off" autoCapitalize="off" spellcheck={false} value={s.apiKey || ""} onInput={(e) => setS({ ...s, apiKey: limpiarClave((e.target as HTMLInputElement).value) })} placeholder="AIza… o AQ.…" />
         </div>
       ) : (
         <>
