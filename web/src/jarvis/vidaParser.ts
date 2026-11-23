@@ -108,6 +108,7 @@ export interface CtxVida {
   corriendo?: string | null; // categoría del cronómetro que corre, si hay
   compras?: string[];
   dificil?: boolean;
+  minutos?: number; // la hora actual en minutos del día, para calcular "hace 10 minutos"
 }
 
 const DIAS_SEM = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
@@ -119,6 +120,22 @@ const parecido = (a: string, b: string) => {
 
 export function parseVida(text: string, hoy: string, ctx: CtxVida = {}): LocalCommand | null {
   const t0 = suave(limpiar(text).toLowerCase());
+  // "hace 10 minutos empecé a estudiar", "terminé hace media hora": se calcula la hora y se interpreta el resto.
+  const hace = ctx.minutos != null ? haceCuanto(text) : null;
+  if (hace) {
+    const r = parseVida(hace.resto, hoy, { ...ctx, minutos: undefined });
+    const m = (ctx.minutos! - hace.minutos + 1440) % 1440;
+    const hora = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    if (!r) return null;
+    if (r.tool === "iniciar_actividad") return { ...r, args: { ...r.args, inicio: hora } };
+    if (r.tool === "terminar_actividad") return { ...r, args: { ...r.args, fin: hora } };
+    if (r.tool === "registrar_bloque" && Number(r.args.minutos) > 0) {
+      const i = (m - Number(r.args.minutos) + 1440) % 1440;
+      const { minutos: _x, ...resto } = r.args;
+      return { ...r, args: { ...resto, inicio: `${String(Math.floor(i / 60)).padStart(2, "0")}:${String(i % 60).padStart(2, "0")}`, fin: hora } };
+    }
+    return { ...r, args: { ...r.args, hora } };
+  }
   // Despertar: cierra el sueño que corre, o pregunta a qué hora se acostó.
   if (/^(ya )?(me desperte|desperte|me levante|buenos dias|buen dia)( recien| recién)?$/.test(t0)) {
     if (ctx.corriendo === "sueno") return { tool: "terminar_actividad", args: {} };
@@ -406,10 +423,23 @@ function parseVidaBase(text: string, hoy: string, ctx: CtxVida): LocalCommand | 
     // Empezar algo ahora: "empecé a estudiar", "me pongo a ordenar", "estoy en el gym", "me voy a dormir".
     b =
       t.match(/^(?:ya )?(?:empece|empiezo|comence|comienzo|me pongo|me puse|parto|parti) (?:a |con )(.+)$/) ||
+      t.match(/^(?:ya )?(?:llegue|entre) (?:al |a la |a )(gym|gimnasio|trabajo|turno|la pega|pega|clases?|entrenamiento|la u|universidad|colegio)$/) ||
       t.match(/^(?:me voy|voy|ya me voy) a (dormir|acostarme|acostar|la cama|tuto|hacer tuto|almorzar|comer|cenar|tomar once|entrenar|estudiar|trabajar|correr|jugar .+|ver .+|leer.*)$/) ||
       t.match(/^estoy (?:en el |en la |en |)(gym|gimnasio|trabajo|turno|la pega|clases?|el partido|entrenamiento|la micro|el bus|camino .+|estudiando.*|trabajando.*|entrenando.*|comiendo.*|almorzando.*|viendo .+|jugando .+|ordenando.*|limpiando.*|leyendo.*|con (?:mis |la |el )?(?:amigos|familia|polola|pololo).*)$/);
     if (b) return { tool: "iniciar_actividad", args: { texto: b[1] } };
   }
 
   return null;
+}
+
+const NUMS: Record<string, number> = { un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, diez: 10, quince: 15, veinte: 20, treinta: 30, cuarenta: 40, cincuenta: 50 };
+// "hace 10 minutos", "desde hace 2 horas", "hace 1 hora y media" → minutos atrás y el resto de la frase.
+export function haceCuanto(text: string): { minutos: number; resto: string } | null {
+  const re = /\s*,?\s*\b(?:desde )?hace (?:como |unos |unas )?(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|diez|quince|veinte|treinta|cuarenta|cincuenta) (minutos?|mins?|horas?|hrs?)( y media)?\b\s*,?/i;
+  const m = text.match(re);
+  if (!m) return null;
+  const n = /^\d+$/.test(m[1]) ? Number(m[1]) : NUMS[m[1].toLowerCase()];
+  const minutos = /^h/i.test(m[2]) ? n * 60 + (m[3] ? 30 : 0) : n;
+  const resto = text.replace(re, " ").replace(/\s+/g, " ").trim();
+  return minutos > 0 && minutos < 24 * 60 && resto ? { minutos, resto } : null;
 }

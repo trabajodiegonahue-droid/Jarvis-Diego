@@ -134,7 +134,7 @@ export function parseExtras(text: string, ctx: CtxExtras = {}): LocalCommand | n
   return null;
 }
 
-const HORA_RE = /(?:a las?|tipo|como a las?|para las?|desde las?) (\d{1,2}(?:[:.]\d{2})?|una)(?: y media)?(?: ?(?:hrs?|horas|h)\b)?(?: de la (?:manana|tarde|noche)| am\b| pm\b)?/;
+const HORA_RE = /(?:(?:a las?|tipo|como a las?|para las?|desde las?) (\d{1,2}(?:[:.]\d{2})?|una)(?: y media)?(?: ?(?:hrs?|horas|h)\b)?(?: de la (?:manana|tarde|noche)| am\b| pm\b)?|\ben (?:\d+|un|una|dos|tres|cinco|diez|quince|veinte|treinta) (?:minutos?|min|horas?)(?: y media)?\b)/;
 const DIA_RE = /\b(pasado manana|manana|hoy|esta (?:tarde|noche)|(?:el |este )?(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)(?: que viene)?|(?:el )?\d{1,2} de (?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre))\b/;
 
 export function parseAgenda(raw: string, t: string): LocalCommand | null {

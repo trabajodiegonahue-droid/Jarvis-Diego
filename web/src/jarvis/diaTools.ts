@@ -28,6 +28,12 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
     const n = clock();
     return iso(n.date, hhmm(n.minutes));
   };
+  // "13:50" dicho como hora pasada → fecha y hora completas (si es más tarde que ahora, fue ayer).
+  const horaAIso = (h: unknown): string | null => {
+    if (typeof h !== "string" || !/^\d{2}:\d{2}$/.test(h)) return null;
+    const n = clock();
+    return iso(h > hhmm(n.minutes) ? addDays(n.date, -1) : n.date, h);
+  };
   const catDe = (a: any): CatTiempo => (CAT_IDS.includes(a.categoria) ? a.categoria : catPara(String(a.texto || "")) || "otro");
   const notaDe = (a: any, _c: CatTiempo) => {
     const t = String(a.texto || "")
@@ -70,9 +76,9 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
     {
       name: "iniciar_actividad",
       description: "Parte el cronómetro de la bitácora: Diego empezó a hacer algo ahora (estudiar, trabajar, gym, celular, dormir…). Cierra lo que estaba corriendo.",
-      parameters: { type: "object", properties: { texto: { type: "string", description: "Qué empezó a hacer, en sus palabras" }, categoria: { type: "string", enum: CAT_IDS } } },
+      parameters: { type: "object", properties: { texto: { type: "string", description: "Qué empezó a hacer, en sus palabras" }, categoria: { type: "string", enum: CAT_IDS }, inicio: { type: "string", description: "HH:MM si empezó antes (\"hace 10 minutos\" = calcula la hora); omitir si es ahora" } } },
       run: (a) => {
-        const now = ahora();
+        const now = horaAIso(a.inicio) || ahora();
         const c = catDe(a);
         const prev = cerrarCorriendo(now);
         const act: Actividad = { id: uid(), cat: c, inicio: now, ...(notaDe(a, c) ? { nota: notaDe(a, c) } : {}) };
@@ -92,9 +98,9 @@ export function diaTools({ store, routine, clock, clima, aguaMeta = () => 8 }: D
     {
       name: "terminar_actividad",
       description: "Detiene el cronómetro de la bitácora (Diego terminó lo que estaba haciendo).",
-      parameters: { type: "object", properties: {} },
-      run: async () => {
-        const now = ahora();
+      parameters: { type: "object", properties: { fin: { type: "string", description: "HH:MM si terminó antes (\"hace 10 minutos\"); omitir si es ahora" } } },
+      run: async (a: any = {}) => {
+        const now = horaAIso(a?.fin) || ahora();
         const prev = cerrarCorriendo(now);
         if (prev?.anulado) return { ok: true, say: `Listo, anulé ${prev.act.nota?.toLowerCase() || cat(prev.act.cat).nombre.toLowerCase()}: no alcanzó a durar un minuto.`, undo: () => store.put("actividades", prev.antes) };
         if (!prev) return { ok: false, say: 'No tenías nada corriendo. Si quieres anotar algo que ya pasó, dime por ejemplo "de 14 a 16 estuve estudiando".' };
