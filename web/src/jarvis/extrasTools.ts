@@ -17,6 +17,10 @@ import { area, AREAS_VIDA, clasificarArea, estadoArea, type AreaVida } from "../
 import { hhmm } from "../core/texto";
 import type { Nota } from "../data/types";
 
+const sinTilde = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const VACIAS = new Set(["que", "dije", "conte", "te", "de", "del", "la", "el", "los", "las", "mi", "mis", "sobre", "cuando", "fue", "ultima", "vez", "una", "uno", "con", "por", "para", "en", "y", "lo", "me", "se", "hace", "anote"]);
+const palabrasClave = (t: string) => sinTilde(t).replace(/[^a-zñ0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !VACIAS.has(w)).map((w) => w.replace(/(es|s)$/, "")).filter((w) => w.length > 2);
+
 export interface ExtrasDeps {
   store: AppStore;
   routine?: Routine;
@@ -245,6 +249,33 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
         const nota: Nota = { id: uid(), fecha: `${n.date}T${hhmm(n.minutes)}`, area: id, texto: cap(texto), origen: "jarvis" };
         await store.put("notas", nota);
         return { ok: true, say: `Anotado en ${area(id).nombre}.`, undo: () => store.remove("notas", nota.id).then(() => {}) };
+      },
+    },
+    {
+      name: "buscar_en_mi_vida",
+      description: "Busca en todo lo que Diego ha contado o anotado (notas por área, recuerdos, gastos, entrenos, partidos, recordatorios) y dice cuándo fue. Úsala para '¿qué te dije de…?', '¿cuándo fue la última vez que…?'.",
+      parameters: { type: "object", properties: { texto: { type: "string" } }, required: ["texto"] },
+      run: (a) => {
+        const hoy = clock().date;
+        const ws = palabrasClave(String(a.texto || ""));
+        if (!ws.length) return { ok: false, say: "¿Qué busco? Dime una palabra, por ejemplo: rodilla, dentista o polola." };
+        const items: { fecha: string; texto: string }[] = [
+          ...d().notas.map((n) => ({ fecha: n.fecha.slice(0, 10), texto: n.texto })),
+          ...d().recuerdos.map((r) => ({ fecha: r.creado, texto: r.texto })),
+          ...d().movimientos.filter((m) => m.nota).map((m) => ({ fecha: m.fecha, texto: `${m.tipo === "egreso" ? "gasto" : "ingreso"} de ${clp(m.monto)}: ${m.nota}` })),
+          ...d().entrenos.map((e) => ({ fecha: e.fecha, texto: `entreno: ${e.nombre}${e.nota ? ` (${e.nota})` : ""}` })),
+          ...d().partidos.filter((p) => p.fui).map((p) => ({ fecha: p.fecha, texto: `${p.tipo === "partido" ? "partido" : "entrenamiento con el equipo"}${p.rival ? ` vs. ${p.rival}` : ""}${p.goles ? `, ${p.goles} goles` : ""}` })),
+          ...d().recordatorios.map((r) => ({ fecha: r.cuando.slice(0, 10), texto: `recordatorio: ${r.texto}` })),
+        ];
+        const hits = items
+          .map((x) => ({ x, s: ws.filter((w) => sinTilde(x.texto).includes(w)).length }))
+          .filter((h) => h.s > 0)
+          .sort((p, q) => q.s - p.s || q.x.fecha.localeCompare(p.x.fecha))
+          .slice(0, 4)
+          .sort((p, q) => q.x.fecha.localeCompare(p.x.fecha));
+        if (!hits.length) return { ok: true, say: `No encuentro nada sobre "${a.texto}" en lo que me has contado.` };
+        const cuando = (f: string) => (f === hoy ? "hoy" : f === addDays(hoy, -1) ? "ayer" : `el ${fechaCorta(f)}`);
+        return { ok: true, say: `Encontré esto: ${hits.map((h) => `${cuando(h.x.fecha)}, ${h.x.texto.charAt(0).toLowerCase()}${h.x.texto.slice(1).replace(/[.!]+$/, "")}`).join("; ")}.`, privado: true };
       },
     },
     {

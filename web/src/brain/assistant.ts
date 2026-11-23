@@ -243,7 +243,8 @@ export class Assistant {
       return ask;
     }
     const r = await this.call(cmd.tool, cmd.args);
-    if (r.ok || vida) return r.say;
+    // Si el teléfono no pudo (no encontró la meta, faltó un dato…), con Gemini conectado se lo pasa a él.
+    if (r.ok || (vida && !connected(this.conn()))) return r.say;
     // No encontró la tarea: Gemini puede razonarlo; si no hay Gemini, pregunta con opciones.
     if (connected(this.conn())) return null;
     if (/^(tachar_tarea|tachar_tareas)$/.test(cmd.tool)) {
@@ -321,7 +322,18 @@ export class Assistant {
     // Sin Gemini igual responde lo que sabe (datos guardados en la app).
     const k = await this.tools.call("consultar_datos", { tema: said });
     if (k.ok) return k.say;
-    return `Esa no la cacho sin Gemini (se conecta en Ajustes). Lo que sí entiendo al tiro: "gasté 5 lucas en almuerzo", "toy en el gym", "dormí 7 horas", "¿qué tengo mañana?", "¿en qué se me fue el día?" o "agrega leer a las 22". Toca "¿Qué le puedo decir?" para ver más.`;
+    // Una pregunta que necesita a Gemini: se guarda y se responde apenas se conecte.
+    const pend = this.pendientes();
+    if (!pend.includes(said)) this.kv.set("pendientes", [...pend, said].slice(-20));
+    return "Para responder eso necesito a Gemini, que todavía no está conectado. Guardé tu pregunta y te la respondo apenas lo conectes: arriba está el botón, es gratis y toma 2 minutos.";
+  }
+
+  // Preguntas que llegaron sin Gemini conectado, para responderlas después.
+  pendientes(): string[] {
+    return this.kv.get<string[]>("pendientes", []);
+  }
+  quitarPendiente(p: string) {
+    this.kv.set("pendientes", this.pendientes().filter((x) => x !== p));
   }
 
   private local(user: string, say: string, onText: (d: string) => void): Reply {

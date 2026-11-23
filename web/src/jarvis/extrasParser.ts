@@ -120,6 +120,10 @@ export function parseExtras(text: string, ctx: CtxExtras = {}): LocalCommand | n
     }
   }
 
+  // ---------- Buscar en lo que contó ----------
+  if ((m = t.match(/^(?:que (?:te )?(?:dije|conte|anote|he dicho|he contado) (?:de|sobre|del|de la|de los|acerca de) |cuando fue la ultima vez que |busca en (?:mis notas|mi vida|lo que te dije) |cuando (?:fue que |)(?:me |fui |jugue |vi |sali |compre |pague )?)(.+)$/)) && !/\b(manana|hoy|el (lunes|martes|miercoles|jueves|viernes|sabado|domingo))\b/.test(t))
+    return { tool: "buscar_en_mi_vida", args: { texto: m[1] } };
+
   // ---------- Logros ----------
   if (/^(?:mis |que |ver )?logros(?: tengo)?$|^que he logrado$/.test(t)) return { tool: "ver_logros", args: {} };
   return null;
