@@ -6,7 +6,7 @@ import { store } from "../../data/store";
 import { uid, type FechaImportante, type Recordatorio } from "../../data/types";
 import { esSensible, fechaTxt, proximasFechas } from "../../extras/calc";
 import { exportarIcs } from "../../jarvis/avisos";
-import { activarPush, desactivarPush, pushPosible, sincronizarPush, type EstadoPush } from "../../jarvis/avisosApp";
+import { activarPush, desactivarPush, detallePush, probarPush, pushPosible, sincronizarPush, type EstadoPush } from "../../jarvis/avisosApp";
 import { routine } from "../../jarvis/instance";
 import { ahoraIso, cuandoTxt, original, parseCuando, proximos, REPETIR_TXT } from "../../reminders/calc";
 import { Empty } from "../components";
@@ -283,13 +283,14 @@ const ESTADO: Record<EstadoPush, string> = {
   "no-soportado": "Este navegador no permite avisos de una página web. Usa Exportar al Calendario.",
   instalar: "En el iPhone, los avisos solo funcionan con Vida agregada a la pantalla de inicio (Compartir → Agregar a inicio) y abierta desde ahí.",
   denegado: "No diste permiso para las notificaciones. Se activa en Ajustes del iPhone → Notificaciones → Vida.",
-  error: "No pude activar los avisos. Revisa que el intermediario tenga el buzón y las claves de avisos (README).",
+  error: "No pude activar los avisos.",
 };
 
 function AvisosIphone() {
   const { data, prefs } = useApp();
   const [estado, setEstado] = useState<EstadoPush | null>(prefs.avisos.activos ? "listo" : pushPosible());
   const [cargando, setCargando] = useState(false);
+  const [prueba, setPrueba] = useState("");
   const a = prefs.avisos;
   const cambiar = (patch: Partial<typeof a>) => {
     setPrefs({ avisos: { ...a, ...patch } });
@@ -300,32 +301,43 @@ function AvisosIphone() {
       <div class="card" style={{ gap: "10px" }}>
         <h2>Avisos en el iPhone</h2>
         <span class="small">Te llegan aunque la app esté cerrada: tus recordatorios, lo que te toca cada mañana, lo de mañana en la noche, tu rutina 10 minutos antes y los cumpleaños.</span>
-        {a.activos ? (
-          <button
-            class="btn full"
-            onClick={async () => {
-              await desactivarPush();
-              setEstado(null);
-              toast("Avisos apagados.");
-            }}
-          >
-            Apagar avisos
-          </button>
-        ) : (
-          <button
-            class="btn main full"
-            disabled={cargando}
-            onClick={async () => {
-              setCargando(true);
-              const r = await activarPush();
-              setEstado(r);
-              setCargando(false);
-            }}
-          >
-            {cargando ? "Activando…" : "Activar avisos"}
-          </button>
+        <button
+          class="btn main full"
+          disabled={cargando}
+          onClick={async () => {
+            setCargando(true);
+            const r = await activarPush();
+            setEstado(r);
+            setCargando(false);
+          }}
+        >
+          {cargando ? "Activando…" : a.activos ? "Volver a activar avisos" : "Activar avisos"}
+        </button>
+        {a.activos && (
+          <div class="row">
+            <button class="btn sm" onClick={async () => setPrueba(await probarPush())}>
+              Enviar aviso de prueba
+            </button>
+            <button
+              class="btn sm"
+              onClick={async () => {
+                await desactivarPush();
+                setEstado(null);
+                setPrueba("");
+                toast("Avisos apagados.");
+              }}
+            >
+              Apagar avisos
+            </button>
+          </div>
         )}
-        {estado && <p style={{ margin: 0, fontSize: "14px", borderLeft: `3px solid ${estado === "listo" ? "var(--green)" : "var(--amber)"}`, paddingLeft: "10px" }}>{ESTADO[estado]}</p>}
+        {estado && (
+          <p style={{ margin: 0, fontSize: "14px", borderLeft: `3px solid ${estado === "listo" ? "var(--green)" : "var(--amber)"}`, paddingLeft: "10px" }}>
+            {ESTADO[estado]}
+            {estado === "error" && detallePush ? ` ${detallePush}` : ""}
+          </p>
+        )}
+        {prueba && <p style={{ margin: 0, fontSize: "14px", borderLeft: "3px solid var(--blue)", paddingLeft: "10px" }}>{prueba}</p>}
       </div>
       <div class="card" style={{ gap: "10px" }}>
         <h2>Qué y cuándo</h2>

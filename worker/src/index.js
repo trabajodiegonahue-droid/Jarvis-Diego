@@ -176,6 +176,17 @@ export default {
       }
       return json({ items, configurado: true });
     }
+    // Aviso de prueba: llega en segundos, para confirmar que las notificaciones funcionan.
+    if (url.pathname === "/push/prueba" && request.method === "POST") {
+      if (!env.BUZON || !env.VAPID_PUBLIC || !env.VAPID_PRIVATE) return fail(501, "Faltan el buzón o las claves de avisos");
+      const b = await request.json().catch(() => null);
+      const dev = b && typeof b.id === "string" ? await leerAparato(env, b.id) : null;
+      if (!dev || !(await iguales(dev.k, String(b.k || "")))) return fail(404, "Este teléfono no está registrado: toca Activar avisos");
+      if (!dev.sub) return fail(409, "Este teléfono no tiene permiso de avisos: toca Activar avisos");
+      await env.BUZON.put(`dev:${b.id}`, JSON.stringify({ ...dev, cola: [...(dev.cola || []), { titulo: "JARVIS", cuerpo: "Prueba: así te van a llegar los avisos." }].slice(-10) }));
+      const r = await empujar(dev.sub.endpoint, env, fetch);
+      return r >= 200 && r < 300 ? json({ ok: true }) : fail(502, `Apple no aceptó el aviso (${r})`);
+    }
     if (url.pathname === "/push/clave" && request.method === "GET") {
       if (!env.VAPID_PUBLIC || !env.VAPID_PRIVATE) return fail(501, "Faltan las claves de los avisos en el intermediario");
       return json({ clave: env.VAPID_PUBLIC });
@@ -195,6 +206,7 @@ export default {
       for (const [f, cosas] of Object.entries(b.agenda && typeof b.agenda === "object" ? b.agenda : {}).slice(0, 8))
         if (/^\d{4}-\d{2}-\d{2}$/.test(f) && Array.isArray(cosas)) agenda[f] = cosas.slice(0, 12).map((c) => String(c).slice(0, 120));
       await env.BUZON.put(`dev:${b.id}`, JSON.stringify({ k: b.k, sub: b.suscripcion, avisos, agenda, enviados: [...enviados].slice(-300), cola: antes.cola || [] }));
+      await indexar(env, b.id);
       return json({ ok: true, avisos: avisos.length });
     }
     // Solo la agenda (sin avisos push): para que Siri responda "¿qué tengo mañana?" aunque no actives las notificaciones.
@@ -208,11 +220,15 @@ export default {
       for (const [f, cosas] of Object.entries(b.agenda && typeof b.agenda === "object" ? b.agenda : {}).slice(0, 8))
         if (/^\d{4}-\d{2}-\d{2}$/.test(f) && Array.isArray(cosas)) agenda[f] = cosas.slice(0, 12).map((c) => String(c).slice(0, 120));
       await env.BUZON.put(`dev:${b.id}`, JSON.stringify({ ...antes, k: b.k, agenda }));
+      await indexar(env, b.id);
       return json({ ok: true });
     }
     if (url.pathname === "/avisos/borrar" && request.method === "POST") {
       const { id } = await request.json().catch(() => ({}));
-      if (env.BUZON && typeof id === "string") await env.BUZON.delete(`dev:${id}`);
+      if (env.BUZON && typeof id === "string") {
+        await env.BUZON.delete(`dev:${id}`);
+        await indexar(env, id, true);
+      }
       return json({ ok: true });
     }
     if (url.pathname === "/buzon/borrar" && request.method === "POST") {
@@ -268,6 +284,21 @@ async function siri(request, env) {
     const r = await agendaDe(env, t);
     if (r) return texto(r);
   }
+  // "Recuérdame X en 10 minutos": el aviso se programa al tiro (sin esperar a que abras la app).
+  const rec = recordatorioSiri(t, Date.now());
+  if (rec && env.BUZON) {
+    let n = 0;
+    for (const id of await idsAparatos(env)) {
+      const dev = await leerAparato(env, id);
+      if (!dev?.sub) continue;
+      const avisos = [...(dev.avisos || []), { id: `siri-${Date.now()}`, t: rec.t, titulo: "JARVIS", cuerpo: rec.texto }].slice(-MAX_AVISOS);
+      await env.BUZON.put(`dev:${id}`, JSON.stringify({ ...dev, avisos }));
+      n++;
+    }
+    const id = `m:${Date.now().toString().padStart(15, "0")}:${Math.random().toString(36).slice(2, 6)}`;
+    await env.BUZON.put(id, JSON.stringify({ texto: dicho, fecha: new Date().toISOString() }), { expirationTtl: BUZON_TTL });
+    return texto(n ? `Listo, te aviso ${rec.cuando}: ${rec.texto.toLowerCase()}.` : `Lo anoté para ${rec.cuando}, pero tu iPhone no tiene los avisos activados: en Vida ve a Más, Recordatorios, Avisos.`);
+  }
   // Algo que cuenta o pide anotar: queda en el buzón y se guarda en su área al abrir la app.
   if (PARA_ANOTAR.test(t) || !PREGUNTA.test(t)) {
     if (!env.BUZON) return texto("Para anotar desde Siri falta crear el buzón en Cloudflare. Mientras, ábreme en la app y dímelo ahí.");
@@ -306,8 +337,8 @@ async function siri(request, env) {
 export async function enviarAvisos(env, ahora = Date.now(), fetcher = fetch) {
   if (!env.BUZON || !env.VAPID_PUBLIC || !env.VAPID_PRIVATE) return 0;
   let n = 0;
-  const lista = await env.BUZON.list({ prefix: "dev:" });
-  for (const k of lista.keys) {
+  for (const id of await idsAparatos(env)) {
+    const k = { name: `dev:${id}` };
     const dev = JSON.parse((await env.BUZON.get(k.name)) || "null");
     if (!dev?.sub) continue;
     const tocan = dev.avisos.filter((a) => a.t <= ahora);
@@ -321,6 +352,7 @@ export async function enviarAvisos(env, ahora = Date.now(), fetcher = fetch) {
       const r = await empujar(dev.sub.endpoint, env, fetcher);
       if (r === 404 || r === 410) {
         await env.BUZON.delete(k.name); // la suscripción ya no existe (se desinstaló o quitó el permiso)
+        await indexar(env, id, true);
         continue;
       }
       n += frescos.length;
@@ -356,6 +388,22 @@ async function empujar(endpoint, env, fetcher) {
 // ---------- Agenda por Siri ----------
 const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
 const DIAS_TXT = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+// Los aparatos se guardan en un índice (una lectura) en vez de listar el KV en cada minuto:
+// el plan gratis de Cloudflare permite pocas listas al día.
+export async function idsAparatos(env) {
+  const idx = JSON.parse((await env.BUZON.get("idx:devs")) || "null");
+  if (Array.isArray(idx)) return idx;
+  const lista = await env.BUZON.list({ prefix: "dev:" });
+  const ids = lista.keys.map((k) => k.name.slice(4));
+  await env.BUZON.put("idx:devs", JSON.stringify(ids));
+  return ids;
+}
+async function indexar(env, id, quitar = false) {
+  const ids = await idsAparatos(env);
+  const nuevo = quitar ? ids.filter((x) => x !== id) : ids.includes(id) ? ids : [...ids, id];
+  if (nuevo.length !== ids.length) await env.BUZON.put("idx:devs", JSON.stringify(nuevo));
+}
+
 export function fechaChile(ahora = Date.now()) {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(ahora)).map((x) => [x.type, x.value]));
   return `${p.year}-${p.month}-${p.day}`;
@@ -364,9 +412,9 @@ const sumarDias = (f, n) => new Date(Date.parse(f + "T12:00:00Z") + n * 864e5).t
 const yy = (xs) => (xs.length > 1 ? xs.slice(0, -1).join(", ") + " y " + xs[xs.length - 1] : xs[0] || "");
 
 export async function agendaDe(env, t, ahora = Date.now()) {
-  const lista = await env.BUZON.list({ prefix: "dev:" });
   let agenda = null;
-  for (const k of lista.keys) {
+  for (const id of await idsAparatos(env)) {
+    const k = { name: `dev:${id}` };
     const dev = JSON.parse((await env.BUZON.get(k.name)) || "null");
     if (dev?.agenda && Object.keys(dev.agenda).length) {
       agenda = dev.agenda;
@@ -396,4 +444,75 @@ export async function agendaDe(env, t, ahora = Date.now()) {
   }
   const partes = dias.filter((f) => agenda[f]?.length).map((f) => `el ${DIAS_TXT[new Date(f + "T12:00:00Z").getUTCDay()]}, ${yy(agenda[f].slice(0, 3))}`);
   return partes.length ? `${cuando}: ${partes.slice(0, 5).join("; ")}.` : `${cuando} no tienes nada anotado fuera de tu rutina.`;
+}
+
+// ---------- Recordatorios dichos a Siri ----------
+const NUMS = { un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, quince: 15, veinte: 20, treinta: 30, cuarenta: 40 };
+const numero = (x) => (/^\d+$/.test(x) ? Number(x) : NUMS[x]);
+
+// Hora de Chile → instante UTC (milisegundos).
+function chileAUtcMs(fecha, minutos) {
+  const [y, mo, d] = fecha.split("-").map(Number);
+  const guess = Date.UTC(y, mo - 1, d, Math.floor(minutos / 60), minutos % 60);
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/Santiago", hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(new Date(guess)).map((x) => [x.type, x.value]));
+  const local = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour) % 24, Number(p.minute));
+  return guess - (local - guess);
+}
+function minutosChile(ahora) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/Santiago", hourCycle: "h23", hour: "2-digit", minute: "2-digit" }).formatToParts(new Date(ahora)).map((x) => [x.type, x.value]));
+  return (Number(p.hour) % 24) * 60 + Number(p.minute);
+}
+const hhmmTxt = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+// "recuerdame sacar al perro en 10 minutos", "avisame a las 5 que llame a mi mama", "tengo que comprar pan altiro".
+export function recordatorioSiri(t, ahora = Date.now()) {
+  let m = t.match(/^(?:ya )?(?:recuerdame|recordarme|recuerdeme|avisame|avisarme|no me dejes olvidar|ponme un recordatorio(?: de| para)?|pon un recordatorio(?: de| para)?)\s+(?:de |que |para |a (?!las?\b))?(.+)$/);
+  let resto = m?.[1];
+  let altiro = false;
+  if (!resto) {
+    m = t.match(/^(?:ya )?(?:tengo que|tengo q|debo|necesito|hay que)\s+(.+?)\s+(ahora|ahorita|altiro|al tiro|ahora mismo|ya mismo)$/);
+    if (!m) return null;
+    resto = m[1];
+    altiro = true;
+  }
+  resto = resto.replace(/\bdentro de\b/g, "en").replace(/\b(?:una |1 )?hora y media\b/g, "90 minutos").replace(/\bmedia hora\b/g, "30 minutos").replace(/\b(?:un )?cuarto de hora\b/g, "15 minutos");
+  const hoy = fechaChile(ahora);
+  const ahoraMin = minutosChile(ahora);
+  let cuandoMs = null;
+  let cuando = "";
+  let quitar = null;
+  if (altiro) {
+    cuandoMs = ahora + 10 * 60000;
+    cuando = "en 10 minutos";
+  } else if ((m = resto.match(/\ben (\d+|un|una|dos|tres|cuatro|cinco|diez|quince|veinte|treinta|cuarenta) (minutos?|min|horas?|hrs?)( y media)?\b/))) {
+    const n = numero(m[1]);
+    const min = /^h/.test(m[2]) ? n * 60 + (m[3] ? 30 : 0) : n;
+    cuandoMs = ahora + min * 60000;
+    cuando = `a las ${hhmmTxt((ahoraMin + min) % 1440)}`;
+    quitar = m[0];
+  } else if ((m = resto.match(/\b(?:a las?|tipo|como a las?|para las?) (\d{1,2})(?:[:.](\d{2}))?(?: ?(?:hrs?|horas))?( de la manana| de la tarde| de la noche| am| pm)?\b/))) {
+    let h = Number(m[1]);
+    const mi = Number(m[2] || 0);
+    if (h > 23 || mi > 59) return null;
+    const manana = /\bmanana\b/.test(resto.replace(/de la manana/, ""));
+    if (/tarde|noche|pm/.test(m[3] || "") && h < 12) h += 12;
+    else if (!m[3] && h >= 1 && h <= 7) h += 12; // "a las 3" casi siempre es en la tarde
+    let fecha = manana ? sumarDias(hoy, 1) : hoy;
+    let total = h * 60 + mi;
+    if (!manana && !m[3] && h < 12 && total <= ahoraMin && (h + 12) * 60 + mi > ahoraMin) total += 720;
+    if (!manana && total <= ahoraMin) fecha = sumarDias(hoy, 1);
+    cuandoMs = chileAUtcMs(fecha, total);
+    cuando = `${fecha === hoy ? "hoy" : "mañana"} a las ${hhmmTxt(total)}`;
+    quitar = m[0];
+  } else return null;
+  const texto = resto
+    .replace(quitar || "\u0000", " ")
+    .replace(/\b(hoy|pasado manana|manana)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^(?:de |que |para |a )+/, "")
+    .replace(/\s+(?:de|que|para|a)$/, "")
+    .trim();
+  if (!texto || texto.length > 200) return null;
+  return { t: cuandoMs, cuando, texto: texto.charAt(0).toUpperCase() + texto.slice(1) };
 }
