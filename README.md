@@ -218,11 +218,12 @@ El buzón guarda solo la frase dictada, hasta que abres la app o por un máximo 
 2. **Obtener contenido de URL**:
    - URL: `https://jarvis.<tu-usuario>.workers.dev/siri`
    - Método: POST
-   - Encabezado: `Authorization` con el valor `Bearer <tu código de acceso>`
-   - Cuerpo: JSON, con la clave `texto` y el valor «Texto dictado».
-3. **Leer texto**, con «Contenido de URL».
+   - Sin encabezados.
+   - Cuerpo: JSON, con dos campos de texto: `texto` = «Texto dictado» y `codigo` = tu código de acceso.
+   - (También sirve el encabezado `Authorization: Bearer <código>`, pero en algunos iPhone Cloudflare lo rechaza con «400»; el campo `codigo` evita eso.)
+3. **Leer texto**, con «Contenido de URL», en español y con una voz en español.
 
-Dile «Oye Siri, Jarvis», espera el sonido y habla. Si quieres un código distinto solo para el atajo (por si alguna vez se lo muestras a alguien), crea `SIRI_TOKEN` con `npx wrangler secret put SIRI_TOKEN` y úsalo en el encabezado: el atajo acepta ese o el de la app.
+Dile «Oye Siri, Jarvis», espera el sonido y habla. Si quieres un código distinto solo para el atajo (por si alguna vez se lo muestras a alguien), crea `SIRI_TOKEN` con `npx wrangler secret put SIRI_TOKEN` y úsalo en el campo `codigo`: el atajo acepta ese o el de la app.
 
 La app también abre JARVIS con un texto si entras a `…/#/jarvis?q=gasté 5 mil en comida`. Por seguridad no lo ejecuta solo: lo deja escrito para que lo revises y lo envíes. Sirve, por ejemplo, desde un atajo cuando usas Vida en Safari sin instalarla.
 

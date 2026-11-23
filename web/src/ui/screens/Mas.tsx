@@ -525,9 +525,9 @@ function JarvisAjustes() {
         <div class="small stack" style={{ gap: "6px", marginTop: "4px" }}>
           <span>Necesita el intermediario de Cloudflare (modo "intermediario" arriba). En la app Atajos crea un atajo llamado Jarvis con estas acciones:</span>
           <ol style={{ margin: 0, paddingLeft: "18px", display: "grid", gap: "4px" }}>
-            <li>Dictar texto (idioma español).</li>
-            <li>Obtener contenido de URL: {(settings.workerUrl || "https://tu-intermediario.workers.dev").replace(/\/+$/, "")}/siri, método POST, encabezado Authorization con el valor "Bearer " más tu código de acceso, y cuerpo JSON con la clave texto = Texto dictado.</li>
-            <li>Leer texto en voz alta: Contenido de URL.</li>
+            <li>Dictar texto (Dictate Text), idioma Español (Chile), dejar de escuchar después de una pausa.</li>
+            <li>Obtener contenido de URL (Get Contents of URL): {(settings.workerUrl || "https://tu-intermediario.workers.dev").replace(/\/+$/, "")}/siri, método POST, sin encabezados, y cuerpo JSON con dos campos de texto: texto = Texto dictado, y codigo = tu código de acceso.</li>
+            <li>Leer texto en voz alta (Speak Text): Contenido de URL, idioma Español y una voz en español.</li>
           </ol>
           <span>
             <b>Qué hace:</b> todo lo que le cuentas ("me duele la rodilla", "gasté 5 lukas en completos", "salí con la polola") queda guardado y Siri te dice en qué área va. Se anota en Vida apenas la abres. "¿Qué tengo mañana?" te lo responde al tiro con tu agenda. Las preguntas generales las responde Gemini. Tus montos de plata no salen del teléfono: eso pregúntalo dentro de la app.
