@@ -13,6 +13,9 @@ import type { Tool } from "../tools/registry";
 import { buscarMeta } from "./resumenes";
 import { clp } from "../money/format";
 import { logros } from "../extras/calc";
+import { area, AREAS_VIDA, clasificarArea, estadoArea, type AreaVida } from "../areas/calc";
+import { hhmm } from "../core/texto";
+import type { Nota } from "../data/types";
 
 export interface ExtrasDeps {
   store: AppStore;
@@ -230,6 +233,33 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
       },
     },
 
+    {
+      name: "anotar_en_area",
+      description: "Guarda algo que Diego cuenta en un área de su vida: salud, animo, dinero, amor, social (familia y amigos), entreno, futbol, estudios, trabajo, casa, metas, ocio u otro.",
+      parameters: { type: "object", properties: { area: { type: "string", enum: AREAS_VIDA.map((a) => a.id) }, texto: { type: "string" } }, required: ["texto"] },
+      run: async (a) => {
+        const texto = String(a.texto || "").trim();
+        if (!texto) return { ok: false, say: "¿Qué anoto?" };
+        const id: AreaVida = AREAS_VIDA.some((x) => x.id === a.area) ? a.area : clasificarArea(texto);
+        const n = clock();
+        const nota: Nota = { id: uid(), fecha: `${n.date}T${hhmm(n.minutes)}`, area: id, texto: cap(texto), origen: "jarvis" };
+        await store.put("notas", nota);
+        return { ok: true, say: `Anotado en ${area(id).nombre}.`, undo: () => store.remove("notas", nota.id).then(() => {}) };
+      },
+    },
+    {
+      name: "ver_area",
+      description: "Cómo va un área de la vida de Diego y lo último que contó de ella.",
+      parameters: { type: "object", properties: { area: { type: "string", enum: AREAS_VIDA.map((a) => a.id) } }, required: ["area"] },
+      run: (a) => {
+        const x = AREAS_VIDA.find((z) => z.id === a.area);
+        if (!x) return { ok: false, say: `Las áreas son ${joinY(AREAS_VIDA.map((z) => z.nombre.toLowerCase()))}.` };
+        const e = estadoArea(x.id, d(), clock().date);
+        const ult = e.notas.slice(0, 3).map((nn) => nn.texto.charAt(0).toLowerCase() + nn.texto.slice(1).replace(/[.!]+$/, ""));
+        if (!e.dato && !ult.length) return { ok: true, say: `En ${x.nombre.toLowerCase()} todavía no tienes nada. Cuéntame y lo voy guardando ahí.` };
+        return { ok: true, say: `${x.nombre}: ${e.dato ? `${e.dato}.` : ""}${ult.length ? ` Lo último que me contaste: ${joinY(ult)}.` : ""}`.replace(": ", ": ").trim(), privado: x.id === "dinero" };
+      },
+    },
     {
       name: "ver_logros",
       description: "Los logros de Diego (entrenos, goles, rachas, horas de estudio, meses con ahorro).",

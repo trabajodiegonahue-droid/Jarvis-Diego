@@ -6,7 +6,8 @@ import { store } from "../data/store";
 import { uid, type Recordatorio } from "../data/types";
 import { ahoraIso, alSonar, vencidos } from "../reminders/calc";
 import { getPrefs, setPrefs } from "../ui/state";
-import { planAvisos } from "./avisos";
+import { agendaDia, planAvisos } from "./avisos";
+import { addDays } from "../core/dates";
 import { routine, settings, speaker } from "./instance";
 
 // ---------- En pantalla ----------
@@ -80,9 +81,13 @@ export function iniciarAvisos() {
   let t = 0;
   store.subscribe(() => {
     clearTimeout(t);
-    t = window.setTimeout(() => void sincronizarPush(), 8000);
+    t = window.setTimeout(() => {
+      void sincronizarPush();
+      void sincronizarAgenda();
+    }, 8000);
   });
   void sincronizarPush();
+  void sincronizarAgenda();
 }
 
 // ---------- Avisos en el iPhone (push) ----------
@@ -145,6 +150,23 @@ export async function desactivarPush() {
   } catch {}
 }
 
+// La agenda de los próximos días va al intermediario aunque no actives los avisos (para preguntarle a Siri).
+let ultimaAgenda = "";
+export async function sincronizarAgenda(): Promise<boolean> {
+  if (settings.mode !== "worker" || !settings.workerUrl || !settings.workerToken || !store.ready) return false;
+  try {
+    const n = chileNow();
+    const agenda = Object.fromEntries(Array.from({ length: 8 }, (_, i) => addDays(n.date, i)).map((f) => [f, agendaDia(store.data, routine.tasks, f, true)]));
+    const cuerpo = JSON.stringify({ ...aparato(), agenda });
+    if (cuerpo === ultimaAgenda) return true;
+    const r = await fetch(`${base()}/agenda`, { method: "POST", headers: headers(), body: cuerpo });
+    if (r.ok) ultimaAgenda = cuerpo;
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 let ultimo = "";
 export async function sincronizarPush(forzar = false): Promise<boolean> {
   const p = getPrefs().avisos;
@@ -155,7 +177,9 @@ export async function sincronizarPush(forzar = false): Promise<boolean> {
     if (!sub) return false;
     const n = chileNow();
     const avisos = planAvisos(store.data, routine.tasks, p, ahoraIso(n.date, n.minutes)).map((a) => ({ id: a.id, t: chileAUtc(a.cuando), titulo: a.titulo, cuerpo: a.cuerpo }));
-    const cuerpo = JSON.stringify({ ...aparato(), suscripcion: sub.toJSON(), avisos });
+    // Agenda de los próximos 7 días (sin plata) para que Siri responda "¿qué tengo mañana?" sin abrir la app.
+    const agenda = Object.fromEntries(Array.from({ length: 8 }, (_, i) => addDays(n.date, i)).map((f) => [f, agendaDia(store.data, routine.tasks, f, true)]));
+    const cuerpo = JSON.stringify({ ...aparato(), suscripcion: sub.toJSON(), avisos, agenda });
     if (!forzar && cuerpo === ultimo) return true;
     const r = await fetch(`${base()}/avisos`, { method: "POST", headers: headers(), body: cuerpo });
     if (r.ok) ultimo = cuerpo;

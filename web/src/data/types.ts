@@ -315,6 +315,18 @@ export interface Compra {
   demo?: boolean;
 }
 
+// ---------- Mi vida por áreas ----------
+// Todo lo que Diego cuenta queda guardado en su área (lo que JARVIS anota y lo que solo cuenta).
+export interface Nota {
+  id: string;
+  fecha: string; // AAAA-MM-DDTHH:MM (hora de Chile)
+  area: "salud" | "animo" | "dinero" | "amor" | "social" | "entreno" | "futbol" | "estudios" | "trabajo" | "casa" | "metas" | "ocio" | "otro";
+  texto: string; // lo que dijo, tal cual
+  origen: "jarvis" | "siri" | "app";
+  registro?: string; // si JARVIS además anotó algo (qué herramienta)
+  demo?: boolean;
+}
+
 export interface Datos {
   movimientos: Movimiento[];
   categorias: Categoria[];
@@ -341,12 +353,13 @@ export interface Datos {
   fechas: FechaImportante[];
   compras: Compra[];
   recordatorios: Recordatorio[];
+  notas: Nota[];
 }
 
 export type StoreName = keyof Datos;
-export const STORES: StoreName[] = ["movimientos", "categorias", "presupuestos", "recurrentes", "metas", "aportes", "revisiones", "turnos", "materias", "sesiones", "tareas", "evaluaciones", "partidos", "clubes", "videos", "planes", "entrenos", "chequeos", "habitos", "dias", "actividades", "recuerdos", "fechas", "compras", "recordatorios"];
+export const STORES: StoreName[] = ["movimientos", "categorias", "presupuestos", "recurrentes", "metas", "aportes", "revisiones", "turnos", "materias", "sesiones", "tareas", "evaluaciones", "partidos", "clubes", "videos", "planes", "entrenos", "chequeos", "habitos", "dias", "actividades", "recuerdos", "fechas", "compras", "recordatorios", "notas"];
 
-export const emptyDatos = (): Datos => ({ movimientos: [], categorias: [], presupuestos: [], recurrentes: [], metas: [], aportes: [], revisiones: [], turnos: [], materias: [], sesiones: [], tareas: [], evaluaciones: [], partidos: [], clubes: [], videos: [], planes: [], entrenos: [], chequeos: [], habitos: [], dias: [], actividades: [], recuerdos: [], fechas: [], compras: [], recordatorios: [] });
+export const emptyDatos = (): Datos => ({ movimientos: [], categorias: [], presupuestos: [], recurrentes: [], metas: [], aportes: [], revisiones: [], turnos: [], materias: [], sesiones: [], tareas: [], evaluaciones: [], partidos: [], clubes: [], videos: [], planes: [], entrenos: [], chequeos: [], habitos: [], dias: [], actividades: [], recuerdos: [], fechas: [], compras: [], recordatorios: [], notas: [] });
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 

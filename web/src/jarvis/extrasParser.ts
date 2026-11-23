@@ -103,6 +103,23 @@ export function parseExtras(text: string, ctx: CtxExtras = {}): LocalCommand | n
   if (/^(?:desactiva|quita|saca|apaga) (?:el )?modo semana dificil$|^(?:ya )?(?:volvi a|vuelvo a) (?:la normalidad|lo normal|mi ritmo)$/.test(t) || (ctx.dificil && /^ya (?:estoy|ando|me siento) (?:bien|mejor)$/.test(t)))
     return { tool: "semana_dificil", args: { activar: false } };
 
+  // ---------- Áreas de la vida ----------
+  {
+    const AREA: [string, RegExp][] = [["salud", /salud/], ["animo", /animo|mente/], ["dinero", /dinero|plata|finanzas/], ["amor", /amor|pololeo|pareja|polola|pololo/], ["social", /familia|amigos|amistades/], ["entreno", /entrenamiento|gym|gimnasio/], ["futbol", /futbol/], ["estudios", /estudios|ingles|universidad/], ["trabajo", /trabajo|pega/], ["casa", /casa|tramites/], ["metas", /metas|proyectos/], ["ocio", /ocio|hobbies|pasatiempos/]];
+    const q = t.match(/^(?:que (?:he contado|te he contado|tengo|anote|hay) (?:de|en|sobre) (?:mi |la |el )?|(?:mi )?area de |como (?:voy|va|ando|anda|esta|estoy) (?:en|con) (?:mi |la |el )?)(.+)$/);
+    if (q) {
+      const a = AREA.find(([, re]) => re.test(q[1]));
+      // "cómo voy con la plata / las metas / el fútbol" ya tienen su propia respuesta, más completa.
+      const propia = /^como/.test(t) && a && ["dinero", "metas", "futbol", "entreno", "estudios"].includes(a[0]);
+      if (a && !propia) return { tool: "ver_area", args: { area: a[0] } };
+    }
+    const n = raw.match(/^(?:anota|guarda|pon)\s+en\s+(?:mi\s+|el\s+área\s+de\s+|el\s+area\s+de\s+)?(\S+(?:\s+y\s+\S+)?)\s*(?::|que)\s*(.+)$/i);
+    if (n) {
+      const a = AREA.find(([, re]) => re.test(suave(n[1])));
+      if (a) return { tool: "anotar_en_area", args: { area: a[0], texto: n[2] } };
+    }
+  }
+
   // ---------- Logros ----------
   if (/^(?:mis |que |ver )?logros(?: tengo)?$|^que he logrado$/.test(t)) return { tool: "ver_logros", args: {} };
   return null;

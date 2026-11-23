@@ -1,3 +1,5 @@
+import { esPregunta } from "../areas/calc";
+import { crearNotar } from "./notas";
 // JARVIS dentro de la app: una sola instancia compartida por todas las pantallas.
 import { Assistant } from "../brain/assistant";
 import { loadSettings, saveSettings, type Settings } from "../core/settings";
@@ -40,6 +42,9 @@ export const assistant = new Assistant(tools, routine, () => settings, localKV, 
       compras: store.data.compras.filter((c) => !c.hecho).map((c) => c.texto),
       dificil: enDificil(getPrefs().dificil, n.date),
     }),
+  // Mi vida por áreas: lo que dices (y lo que JARVIS anota) queda en su bloque.
+  notar: crearNotar(store, chileNow),
+  esPregunta,
   // Memoria: a Gemini solo le llegan los recuerdos que tienen que ver con lo que dices ahora.
   contexto: (texto, n) => {
     const rs = relevantes(store.data.recuerdos, texto, n.date);

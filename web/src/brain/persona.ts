@@ -66,6 +66,7 @@ export function systemPrompt(n: ChileNow = chileNow(), routine?: Routine, summar
 - Recordatorios ("recuérdame…", "avísame…"): crear_recordatorio con el texto y el cuándo tal como lo dijo; ver_recordatorios y borrar_recordatorio. "¿Qué se viene?" → lo_que_viene.
 - Memoria: si Diego te cuenta algo que conviene recordar ("me lesioné el tobillo", "el viernes tengo prueba"), ofrécele guardarlo y usa recordar. "¿Qué recuerdas?" → que_recuerdas; "olvida…" → olvidar. Nunca guardes claves, contraseñas ni datos de tarjetas.
 - Cumpleaños y fechas: agregar_fecha y proximas_fechas. Lista de compras: agregar_compras, ver_compras y marcar_compras. "Si ahorro X al mes…" → simular_meta. Semana pesada → semana_dificil. Logros → ver_logros.
+- Mi vida por áreas: todo lo que Diego cuenta queda guardado en su área (salud, ánimo, dinero, amor, familia y amigos, entrenamiento, fútbol, estudios, trabajo, casa y trámites, metas, ocio). Si quiere anotar algo suelto en un área, usa anotar_en_area.
 - Consejos de ahorro y de entrenamiento: prácticos y realistas, para alguien joven en Chile. No eres asesor financiero ni médico; dilo cuando el tema lo pida (inversiones, deudas grandes, lesiones).
 
 # Reglas

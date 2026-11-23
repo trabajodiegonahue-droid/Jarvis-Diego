@@ -182,6 +182,15 @@ function ejemploExtras(hoy: string): Partial<Datos> {
       { id: "demo-m1", texto: "Me duele un poco el tobillo izquierdo desde el partido", creado: addDays(hoy, -2), ...D },
       { id: "demo-m2", texto: "Tengo que pedir el certificado de alumno regular", creado: addDays(hoy, -1), fecha: addDays(hoy, 2), ...D },
     ],
+    notas: [
+      { id: "demo-n1", fecha: `${addDays(hoy, -2)}T21:10`, area: "salud", texto: "Me duele un poco el tobillo izquierdo desde el partido", origen: "jarvis", ...D },
+      { id: "demo-n2", fecha: `${addDays(hoy, -1)}T22:30`, area: "amor", texto: "Salí con la polola a comer sushi, lo pasamos bacán", origen: "siri", ...D },
+      { id: "demo-n3", fecha: `${addDays(hoy, -1)}T13:05`, area: "dinero", texto: "Gasté 5 lukas en completos", origen: "jarvis", registro: "registrar_gasto", ...D },
+      { id: "demo-n4", fecha: `${addDays(hoy, -3)}T19:00`, area: "social", texto: "Asado en la casa del Benja", origen: "jarvis", ...D },
+      { id: "demo-n5", fecha: `${hoy}T08:15`, area: "animo", texto: "Amanecí motivado", origen: "siri", registro: "registrar_dia", ...D },
+      { id: "demo-n6", fecha: `${addDays(hoy, -4)}T17:40`, area: "trabajo", texto: "Mi jefa me dijo que puedo tomar más turnos en diciembre", origen: "jarvis", ...D },
+      { id: "demo-n7", fecha: `${addDays(hoy, -2)}T10:00`, area: "metas", texto: "Quiero tener el inglés listo para postular a la Working Holiday", origen: "app", ...D },
+    ],
     compras: [
       { id: "demo-c1", texto: "Pan", hecho: false, creado: 1, ...D },
       { id: "demo-c2", texto: "Plátanos", hecho: false, creado: 2, ...D },

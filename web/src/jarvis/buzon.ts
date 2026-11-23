@@ -24,7 +24,7 @@ export async function revisarBuzon(s: Settings, assistant: Assistant, fetcher: t
     const out: Anotado[] = [];
     const listos: string[] = [];
     for (const it of items) {
-      const rep = await assistant.handle(it.texto);
+      const rep = await assistant.handle(it.texto, () => {}, "siri");
       out.push({ texto: it.texto, respuesta: rep.text, undo: rep.undo });
       listos.push(it.id);
     }

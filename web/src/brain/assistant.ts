@@ -30,6 +30,11 @@ export interface AssistantOptions {
   privado?: () => boolean;
   // Contexto extra para Gemini según lo que dijo Diego (por ejemplo, los recuerdos que tienen que ver).
   contexto?: (texto: string, n: ChileNow) => string;
+  // Guarda lo que Diego dijo en su área de la vida. tool = lo que JARVIS anotó (si anotó algo).
+  // Devuelve el nombre del área y cómo deshacer la nota.
+  notar?: (n: { texto: string; tool?: string; args?: any; origen: "jarvis" | "siri" }) => Promise<{ area: string; undo: () => Promise<void> } | null>;
+  // ¿Es una pregunta (va a Gemini) o algo que cuenta (se guarda en su área)?
+  esPregunta?: (texto: string) => boolean;
 }
 
 // Frases que hablan de plata: en modo privado no salen del teléfono.
@@ -93,16 +98,32 @@ export class Assistant {
   private async call(name: string, args: any): Promise<ToolResult> {
     const r = await this.tools.call(name, args);
     if (r.ok && r.undo) {
-      this.lastUndo = { undo: r.undo };
-      this.turnUndo = r.undo;
+      let undo = r.undo;
+      // Lo anotado también queda en su área, con la frase tal como la dijiste.
+      const nota = this.dicho && this.opts.notar ? await this.opts.notar({ texto: this.dicho, tool: name, args, origen: this.origen }).catch(() => null) : null;
+      if (nota) {
+        const u0 = undo;
+        undo = async () => {
+          await u0();
+          await nota.undo();
+        };
+        this.dicho = ""; // una nota por frase, aunque JARVIS haga varias cosas
+      }
+      this.lastUndo = { undo };
+      this.turnUndo = undo;
     }
     return r;
   }
 
-  async handle(text: string, onText: (delta: string) => void = () => {}): Promise<Reply> {
+  private dicho = "";
+  private origen: "jarvis" | "siri" = "jarvis";
+
+  async handle(text: string, onText: (delta: string) => void = () => {}, origen: "jarvis" | "siri" = "jarvis"): Promise<Reply> {
     const said = text.trim();
     if (!said) return { text: "", source: "local" };
     this.turnUndo = undefined;
+    this.dicho = said;
+    this.origen = origen;
     // Cómo escribe Diego ("toy en el gym nms", "gaste 5 lukas x un completo") → español que entiende el intérprete.
     const frase = normalizarChileno(said) || said;
 
@@ -157,6 +178,17 @@ export class Assistant {
     // Modo privado: una frase con plata que no entendí no se manda a Gemini.
     if (this.opts.privado?.() && DE_PLATA.test(frase))
       return this.local(said, 'Estás en modo privado, así que no mando frases de plata a Gemini. Dímelo así y lo anoto yo: "gasté 5 mil en comida", "me pagaron 40 mil de propina" o "¿cuánto llevo gastado este mes?".', onText);
+    // Algo que Diego cuenta (no una pregunta): se guarda en su área de la vida.
+    if (!cmd && this.opts.notar && this.opts.esPregunta && !this.opts.esPregunta(frase)) {
+      const nota = await this.opts.notar({ texto: said, origen }).catch(() => null);
+      if (nota) {
+        this.lastUndo = { undo: nota.undo };
+        this.turnUndo = nota.undo;
+        if (!connected(this.conn())) return this.local(said, `Anotado en ${nota.area}: ${said.charAt(0).toLowerCase()}${said.slice(1).replace(/[.!]+$/, "")}.`, onText);
+        const r = await this.viaGemini(said, onText, `\nLo que Diego acaba de contar ya quedó guardado en su área "${nota.area}" de la app. Respóndele corto y con empatía si corresponde; no repitas que lo guardaste.`);
+        return { ...r, text: r.text, undo: nota.undo };
+      }
+    }
     if (connected(this.conn())) return this.viaGemini(said, onText);
     // Sin Gemini: igual intenta ayudar con lo que sabe.
     return this.local(said, await this.offlineHelp(cmd, frase), onText);
@@ -298,11 +330,11 @@ export class Assistant {
     return { text: say, source: "local", ...(this.turnUndo ? { undo: this.turnUndo } : {}) };
   }
 
-  private async viaGemini(said: string, onText: (d: string) => void): Promise<Reply> {
+  private async viaGemini(said: string, onText: (d: string) => void, extra = ""): Promise<Reply> {
     const conn = this.conn();
     const contents: Content[] = this.history.map((t) => ({ role: t.role, parts: [{ text: t.text }] }));
     contents.push({ role: "user", parts: [{ text: said }] });
-    const system = systemPrompt(this.clock(), this.routine, this.summary, conn.about) + (this.opts.contexto?.(said, this.clock()) || "");
+    const system = systemPrompt(this.clock(), this.routine, this.summary, conn.about) + (this.opts.contexto?.(said, this.clock()) || "") + extra;
     let spoken = "";
     try {
       for (let round = 0; round < 4; round++) {
