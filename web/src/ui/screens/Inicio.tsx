@@ -11,6 +11,7 @@ import { eventosDia } from "../../calendar/calc";
 import { Empty } from "../components";
 import { Icon } from "../icons";
 import { abrirJarvis } from "./Jarvis";
+import { Graficos, HoyLinea, Numeros, SemanaFila } from "./Panel";
 import { AREAS, cardReady, go, useApp, type CardId, getPrefs } from "../state";
 import { diffDays, fechaCorta } from "../../core/dates";
 import { equilibrioMetas, metasPrincipales } from "../../goals/calc";
@@ -307,18 +308,23 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
           <button onClick={() => abrirJarvis({ borrador: "¿Qué se viene los próximos días?", enviar: true })}>Lo que viene</button>
         </div>
       </div>
+      <HoyLinea data={data} />
+      <Numeros data={data} />
+      <SemanaFila data={data} />
+      <Graficos data={data} />
       {store.hasDemo() && <DemoBanner />}
       <SemanaDificil />
       <LogroNuevo />
       <BackupReminder />
-      {visibles.slice(0, todo ? visibles.length : 4).map((c) => (
-        <div key={c.id}>{cards[c.id]()}</div>
-      ))}
-      {visibles.length > 4 && (
+      {visibles.length > 0 && (
         <button class="btn full ver-mas" onClick={() => setTodo(!todo)} aria-expanded={todo}>
-          {todo ? "Ver menos" : `Ver más (${visibles.length - 4})`}
+          {todo ? "Ocultar detalles" : `Más detalles (${visibles.length})`}
         </button>
       )}
+      {visibles.slice(0, todo ? visibles.length : 0).map((c) => (
+        <div key={c.id}>{cards[c.id]()}</div>
+      ))}
+
       {!tot.ingresos && !tot.egresos && (
         <button class="btn main" onClick={onAdd}>
           Registrar mi primer movimiento

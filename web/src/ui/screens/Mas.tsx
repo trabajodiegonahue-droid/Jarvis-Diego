@@ -59,7 +59,7 @@ export function Mas() {
                   <Icon name={s.icon} size={18} />
                 </span>
                 <span>
-                  <span class="t">{s.nombre}</span>
+                  <span class="t">{s.path === "/mas/mascota" ? getPrefs().mascota || "Mascota" : s.nombre}</span>
                   <span class="d">{s.detalle}</span>
                 </span>
                 <Icon name="chevron" size={18} />
