@@ -23,6 +23,27 @@ const MAX_BODY = 64 * 1024;
 const MAX_SIRI = 500; // caracteres de lo dictado
 const BUZON_TTL = 14 * 24 * 3600; // lo no leído se borra solo a las 2 semanas
 
+// Preguntas o pedidos (van a la agenda o a Gemini). Todo lo demás es algo que Diego cuenta: se guarda.
+const PREGUNTA = /^(que|como|cuando|cuanto|cuanta|cuantos|cuantas|donde|por que|cual|cuales|quien|puedes|podrias|me puedes|dime|explicame|ayudame|recomiendame|sabes|crees|opinas|deberia|conviene|busca|traduce|dame|ensename|hay)\b/;
+// La agenda que la app manda junto con los avisos (sin plata) permite responder esto sin abrir la app.
+const AGENDA = /\b(que (tengo|hay|me toca)|mi agenda|mis (turnos|recordatorios|pendientes))\b/;
+// En qué área de la vida queda lo que cuenta (la misma idea que web/src/areas/calc.ts, en corto).
+const AREAS = [
+  ["Amor", /\b(polola|pololo|novia|novio|pareja|cita|aniversario|beso|mi ex\b|terminamos|enamorad)/],
+  ["Salud", /\b(duele|dolor|lesion|tobillo|rodilla|espalda|resfri|gripe|fiebre|enferm|medico|doctor|dentista|kine|remedio|pastilla|dormi|sueno|insomnio|agua)/],
+  ["Ánimo", /\b(triste|feliz|contento|bajoneado|bajon|ansios|estres|angustia|me siento|ando|motivad|frustrad|enojad|cansad|reventad)/],
+  ["Dinero", /\b(gaste|me gaste|pague|compre|me pagaron|sueldo|propina|plata|lucas|luca|pesos|ahorr|deuda|debo|presupuesto|cobre|vendi)/],
+  ["Fútbol", /\b(futbol|partido|gol|goles|asistencia|ganamos|perdimos|empatamos|jugue|cancha|club|pichanga)/],
+  ["Entrenamiento", /\b(gym|gimnasio|entrene|entreno|pesas|pierna|correr|corri|trote|km|cardio)/],
+  ["Estudios", /\b(estudie|estudiar|ingles|clase|prueba|examen|ensayo|curso|universidad|preu|tarea)/],
+  ["Trabajo", /\b(trabaje|trabajo|turno|pega|jefe|jefa|cliente)/],
+  ["Familia y amigos", /\b(mama|papa|abuel|herman|familia|amigo|amiga|amigos|carrete|junta|cumpleanos|cumple|asado)/],
+  ["Casa y trámites", /\b(casa|pieza|arriendo|aseo|ordenar|lavar|supermercado|compras|lista|tramite|pasaporte|visa|cuentas)/],
+  ["Ocio y hobbies", /\b(pelicula|peli|serie|netflix|cine|concierto|musica|guitarra|videojuego|play|libro|paseo|playa|lago|volcan|pesca|camping)/],
+  ["Metas y proyectos", /\b(meta|proyecto|working holiday|australia|viaje|negocio)/],
+];
+const areaDe = (t) => (AREAS.find(([, re]) => re.test(` ${t} `)) || ["tus notas"])[0];
+
 // Frases que son para anotar en la app (no para conversar).
 const PARA_ANOTAR = /^(ya )?(gaste|me gaste|pague|compre|me pagaron|me dieron|me llego|gane|recibi|cobre|hice|fui|entrene|corri|sali a|meti|marque|di una|ganamos|perdimos|empatamos|jugue|estudie|repase|trabaje|tuve turno|aporte|guarde|ahorre|anota|anotame|agrega|agregame|agenda|ponme|tacha|termine|crea|nueva meta|quita|borra|cambia)\b/;
 // Preguntas sobre sus propios datos: viven en el teléfono, el intermediario no los ve.
@@ -132,8 +153,25 @@ export default {
         .slice(0, MAX_AVISOS)
         .filter((a) => a && typeof a.id === "string" && Number.isFinite(a.t) && !enviados.has(a.id))
         .map((a) => ({ id: a.id.slice(0, 80), t: a.t, titulo: String(a.titulo || "JARVIS").slice(0, 60), cuerpo: String(a.cuerpo || "").slice(0, 240) }));
-      await env.BUZON.put(`dev:${b.id}`, JSON.stringify({ k: b.k, sub: b.suscripcion, avisos, enviados: [...enviados].slice(-300), cola: antes.cola || [] }));
+      // Agenda de los próximos días (textos cortos, sin plata) para responder "¿qué tengo mañana?" por Siri.
+      const agenda = {};
+      for (const [f, cosas] of Object.entries(b.agenda && typeof b.agenda === "object" ? b.agenda : {}).slice(0, 8))
+        if (/^\d{4}-\d{2}-\d{2}$/.test(f) && Array.isArray(cosas)) agenda[f] = cosas.slice(0, 12).map((c) => String(c).slice(0, 120));
+      await env.BUZON.put(`dev:${b.id}`, JSON.stringify({ k: b.k, sub: b.suscripcion, avisos, agenda, enviados: [...enviados].slice(-300), cola: antes.cola || [] }));
       return json({ ok: true, avisos: avisos.length });
+    }
+    // Solo la agenda (sin avisos push): para que Siri responda "¿qué tengo mañana?" aunque no actives las notificaciones.
+    if (url.pathname === "/agenda" && request.method === "POST") {
+      if (!env.BUZON) return fail(501, "Falta el buzón (KV) en el intermediario");
+      const b = await request.json().catch(() => null);
+      if (!b || !/^[a-z0-9]{16,40}$/.test(b.id || "") || typeof b.k !== "string") return fail(400, "Datos de agenda inválidos");
+      const antes = (await leerAparato(env, b.id)) || { avisos: [], enviados: [], cola: [] };
+      if (antes.k && !(await iguales(antes.k, b.k))) return fail(401, "Aparato desconocido");
+      const agenda = {};
+      for (const [f, cosas] of Object.entries(b.agenda && typeof b.agenda === "object" ? b.agenda : {}).slice(0, 8))
+        if (/^\d{4}-\d{2}-\d{2}$/.test(f) && Array.isArray(cosas)) agenda[f] = cosas.slice(0, 12).map((c) => String(c).slice(0, 120));
+      await env.BUZON.put(`dev:${b.id}`, JSON.stringify({ ...antes, k: b.k, agenda }));
+      return json({ ok: true });
     }
     if (url.pathname === "/avisos/borrar" && request.method === "POST") {
       const { id } = await request.json().catch(() => ({}));
@@ -187,11 +225,18 @@ async function siri(request, env) {
   if (!dicho) return texto("No te escuché. Dime de nuevo qué necesitas.");
   const t = norm(dicho);
 
-  if (PARA_ANOTAR.test(t)) {
+  // ¿Qué tengo hoy, mañana, el viernes? Se responde con la agenda que mandó la app (sin abrirla).
+  if (AGENDA.test(t) && env.BUZON) {
+    const r = await agendaDe(env, t);
+    if (r) return texto(r);
+  }
+  // Algo que cuenta o pide anotar: queda en el buzón y se guarda en su área al abrir la app.
+  if (PARA_ANOTAR.test(t) || !PREGUNTA.test(t)) {
     if (!env.BUZON) return texto("Para anotar desde Siri falta crear el buzón en Cloudflare. Mientras, ábreme en la app y dímelo ahí.");
     const id = `m:${Date.now().toString().padStart(15, "0")}:${Math.random().toString(36).slice(2, 6)}`;
     await env.BUZON.put(id, JSON.stringify({ texto: dicho, fecha: new Date().toISOString() }), { expirationTtl: BUZON_TTL });
-    return texto("Listo, lo dejé anotado. Se guarda en Vida apenas abras la app.");
+    const a = areaDe(t);
+    return texto(`Listo, lo guardo en ${a}. Queda en Vida apenas abras la app.`);
   }
   if (DE_LA_APP.test(t)) return texto("Eso lo tengo guardado en tu teléfono, no en internet. Abre Vida y pregúntamelo ahí.");
 
@@ -268,4 +313,49 @@ async function empujar(endpoint, env, fetcher) {
   } catch {
     return 0;
   }
+}
+
+// ---------- Agenda por Siri ----------
+const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+const DIAS_TXT = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+export function fechaChile(ahora = Date.now()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(ahora)).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+const sumarDias = (f, n) => new Date(Date.parse(f + "T12:00:00Z") + n * 864e5).toISOString().slice(0, 10);
+const yy = (xs) => (xs.length > 1 ? xs.slice(0, -1).join(", ") + " y " + xs[xs.length - 1] : xs[0] || "");
+
+export async function agendaDe(env, t, ahora = Date.now()) {
+  const lista = await env.BUZON.list({ prefix: "dev:" });
+  let agenda = null;
+  for (const k of lista.keys) {
+    const dev = JSON.parse((await env.BUZON.get(k.name)) || "null");
+    if (dev?.agenda && Object.keys(dev.agenda).length) {
+      agenda = dev.agenda;
+      break;
+    }
+  }
+  if (!agenda) return null;
+  const hoy = fechaChile(ahora);
+  const dow = new Date(hoy + "T12:00:00Z").getUTCDay();
+  let dias = [hoy];
+  let cuando = "Hoy";
+  if (/\bpasado manana\b/.test(t)) [dias, cuando] = [[sumarDias(hoy, 2)], "Pasado mañana"];
+  else if (/\bmanana\b/.test(t) && !/\bde la manana\b/.test(t)) [dias, cuando] = [[sumarDias(hoy, 1)], "Mañana"];
+  else if (/\bsemana\b/.test(t)) [dias, cuando] = [Array.from({ length: 7 }, (_, i) => sumarDias(hoy, i)), "Esta semana"];
+  else {
+    const m = t.match(/\b(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/);
+    if (m) {
+      const n = (DIAS.indexOf(m[1]) - dow + 7) % 7 || 7;
+      dias = [sumarDias(hoy, n)];
+      cuando = `El ${DIAS_TXT[DIAS.indexOf(m[1])]}`;
+    }
+  }
+  if (dias.length === 1) {
+    const cosas = agenda[dias[0]];
+    if (!cosas) return `${cuando} no lo tengo en la agenda que mandó la app. Abre Vida para actualizarla.`;
+    return cosas.length ? `${cuando} tienes ${yy(cosas.slice(0, 6))}.` : `${cuando} no tienes nada anotado.`;
+  }
+  const partes = dias.filter((f) => agenda[f]?.length).map((f) => `el ${DIAS_TXT[new Date(f + "T12:00:00Z").getUTCDay()]}, ${yy(agenda[f].slice(0, 3))}`);
+  return partes.length ? `${cuando}: ${partes.slice(0, 5).join("; ")}.` : `${cuando} no tienes nada anotado fuera de tu rutina.`;
 }

@@ -57,7 +57,7 @@ describe("atajo de Siri y buzón", () => {
     const BUZON = kvFalso();
     const e = { ...env, BUZON };
     const r = await worker.fetch(siri("Jarvis, gasté 5 mil en almuerzo"), e);
-    expect(await r.text()).toMatch(/anotado/i);
+    expect(await r.text()).toBe("Listo, lo guardo en Dinero. Queda en Vida apenas abras la app.");
     expect(fetch).not.toHaveBeenCalled(); // no pasa por Gemini
     const lista = await (await worker.fetch(req("/buzon", { method: "GET", body: null }), e)).json();
     expect(lista.items.map((i) => i.texto)).toEqual(["Jarvis, gasté 5 mil en almuerzo"]);
@@ -150,5 +150,39 @@ describe("avisos en el iPhone (push)", () => {
     expect((await worker.fetch(req("/avisos", { body: JSON.stringify({ id: ID, k: "x", suscripcion: SUB, avisos: [] }), headers: { Origin: "https://otro.com" } }), e)).status).toBe(403);
     expect((await worker.fetch(req("/avisos", { body: JSON.stringify({ id: "../x", k: "x", suscripcion: SUB }) }), e)).status).toBe(400);
     expect((await worker.fetch(req("/avisos", { body: JSON.stringify({ id: ID, k: "x", suscripcion: { endpoint: "http://inseguro" } }) }), e)).status).toBe(400);
+  });
+});
+
+describe("Siri sin abrir la app", () => {
+  it("lo que cuentas (sin verbo de anotar) también se guarda, en su área", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const e = { ...env, BUZON: kvFalso() };
+    expect(await (await worker.fetch(siri("me duele la rodilla derecha"), e)).text()).toBe("Listo, lo guardo en Salud. Queda en Vida apenas abras la app.");
+    expect(await (await worker.fetch(siri("hoy salí con la polola al cine"), e)).text()).toMatch(/en Amor/);
+    expect(e.BUZON.m.size).toBe(2);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it("responde '¿qué tengo mañana?' con la agenda que mandó la app", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const { fechaChile } = await import("../src/index.js");
+    const BUZON = kvFalso();
+    const e = { ...env, BUZON };
+    const hoy = fechaChile();
+    const man = new Date(Date.parse(hoy + "T12:00:00Z") + 864e5).toISOString().slice(0, 10);
+    await worker.fetch(req("/avisos", { body: JSON.stringify({ id: "a1b2c3d4e5f6a7b8c9d0", k: "x", suscripcion: { endpoint: "https://web.push.apple.com/x" }, avisos: [], agenda: { [hoy]: ["Turno de trabajo 14:00–22:30"], [man]: ["Partido vs. Frutillar 11:00", "Pagar la luz 10:00"] } }) }), e);
+    expect(await (await worker.fetch(siri("oye jarvis qué tengo mañana"), e)).text()).toBe("Mañana tienes Partido vs. Frutillar 11:00 y Pagar la luz 10:00.");
+    expect(await (await worker.fetch(siri("qué tengo hoy"), e)).text()).toBe("Hoy tienes Turno de trabajo 14:00–22:30.");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("agenda sin avisos", () => {
+  it("se guarda con la clave del aparato y no la puede pisar otro", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const e = { ...env, BUZON: kvFalso() };
+    const id = "a1b2c3d4e5f6a7b8c9d0";
+    expect((await worker.fetch(req("/agenda", { body: JSON.stringify({ id, k: "clave-1", agenda: { "2026-11-24": ["Turno 14:00"] } }) }), e)).status).toBe(200);
+    expect((await worker.fetch(req("/agenda", { body: JSON.stringify({ id, k: "otra", agenda: {} }) }), e)).status).toBe(401);
+    expect(JSON.parse(e.BUZON.m.get(`dev:${id}`)).agenda).toEqual({ "2026-11-24": ["Turno 14:00"] });
   });
 });
