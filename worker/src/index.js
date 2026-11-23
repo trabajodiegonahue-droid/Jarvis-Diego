@@ -145,16 +145,21 @@ export default {
     }
 
     // El Atajo de Siri no manda "Origin" (no es una página): basta con el código de acceso.
-    if (/^\/siri\/?$/i.test(url.pathname.trim())) {
+    if (/^\/siri\/?$/i.test(decodeURIComponent(url.pathname).trim())) {
       // En la app Atajos es fácil que se cuele un espacio, comillas o un salto de línea: se perdona.
-      const codigo = limpiarCodigo(auth);
+      // El código puede venir en el encabezado Authorization o, más simple, como campo "codigo" del JSON.
       const cuerpo = await request.clone().text().catch(() => "");
+      let delCuerpo = "";
+      try {
+        delCuerpo = String(JSON.parse(cuerpo)?.codigo ?? "");
+      } catch {}
+      const codigo = limpiarCodigo(auth) || limpiarCodigo(delCuerpo);
       if (env.BUZON) await diagnostico(env, request, auth, codigo, cuerpo).catch(() => {});
       if (request.method !== "POST") return texto("El atajo tiene que usar el método POST (en Get Contents of URL, Method: POST).", 405);
       const tokens = [env.SIRI_TOKEN, env.ACCESS_TOKEN].filter(Boolean).map((t) => limpiarCodigo(t));
       let ok = false;
       for (const t of tokens) ok = (await iguales(codigo, t)) || ok;
-      if (!ok) return texto(codigo ? "El código de acceso del atajo no es correcto. Revísalo en la app Atajos." : "Al atajo le falta el encabezado Authorization con tu código.", 401);
+      if (!ok) return texto(codigo ? "El código de acceso del atajo no es correcto. Revísalo en la app Atajos." : "Al atajo le falta tu código: agrégalo como campo codigo en el cuerpo JSON.", 401);
       return siri(request, env);
     }
 
@@ -251,7 +256,8 @@ async function siri(request, env) {
   let dicho = raw;
   try {
     const j = JSON.parse(raw);
-    dicho = j.texto ?? j.text ?? raw;
+    // Si es JSON, solo vale el texto dictado (nunca el código que viene al lado).
+    dicho = j && typeof j === "object" ? (j.texto ?? j.text ?? "") : raw;
   } catch {}
   dicho = String(dicho || "").trim().slice(0, MAX_SIRI);
   if (!dicho) return texto("No te escuché. Dime de nuevo qué necesitas.");

@@ -199,3 +199,15 @@ describe("atajo con errores de tipeo", () => {
     expect(d.cuerpo.json).toEqual(["texto"]);
   });
 });
+
+describe("código dentro del JSON (sin encabezado)", () => {
+  it("acepta {texto, codigo} y nunca guarda el código", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const e = { ...env, BUZON: kvFalso() };
+    const r = await worker.fetch(new Request("https://w.dev/siri", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ texto: "me duele la rodilla", codigo: " secreto\n" }) }), e);
+    expect(r.status).toBe(200);
+    expect(JSON.stringify([...e.BUZON.m.values()])).not.toContain("secreto");
+    const mal = await worker.fetch(new Request("https://w.dev/siri", { method: "POST", body: JSON.stringify({ texto: "hola", codigo: "otro" }) }), e);
+    expect(mal.status).toBe(401);
+  });
+});
