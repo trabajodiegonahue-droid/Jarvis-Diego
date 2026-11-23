@@ -6,7 +6,7 @@ import { Icon } from "./icons";
 import { Dinero } from "./screens/Dinero";
 import { Bienvenida, Bloqueo } from "./screens/Entrada";
 import { Inicio } from "./screens/Inicio";
-import { alChat, JarvisSheet } from "./screens/Jarvis";
+import { alChat, dondeTxt, JarvisSheet } from "./screens/Jarvis";
 import { revisarBuzon } from "../jarvis/buzon";
 import { assistant, settings } from "../jarvis/instance";
 import { Ajustes, Mas } from "./screens/Mas";
@@ -59,8 +59,8 @@ export function App() {
     const buzon = async () => {
       const r = await revisarBuzon(settings, assistant);
       if (!r.length) return;
-      alChat(...r.flatMap((x) => [{ who: "u" as const, text: `Desde Siri: ${x.texto}` }, { who: "a" as const, text: x.respuesta, undo: x.undo }]));
-      if (r.length === 1 && r[0].undo) toast(`Desde Siri. ${r[0].respuesta}`, () => void r[0].undo!());
+      alChat(...r.flatMap((x) => [{ who: "u" as const, text: `Desde Siri: ${x.texto}` }, { who: "a" as const, text: x.respuesta, undo: x.undo, guardado: x.guardado }]));
+      if (r.length === 1 && r[0].undo) toast(`Desde Siri. ${r[0].respuesta}${r[0].guardado?.length ? ` (quedó en ${dondeTxt(r[0].guardado)})` : ""}`, () => void r[0].undo!());
       else setJarvis({});
     };
     abrirDesdeEnlace();

@@ -11,48 +11,97 @@ export function canListen(): boolean {
   return typeof window !== "undefined" && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 }
 
-export function listenOnce(onPartial: (t: string) => void): { promise: Promise<string>; stop: () => void } {
+export type ListenOptions = {
+  /** Silencio (ms) después de hablar que da por terminado el mensaje. */
+  silencio?: number;
+  /** Si no dices nada en este tiempo (ms), se rinde. */
+  espera?: number;
+  /** Tope total (ms) por si queda escuchando ruido. */
+  maximo?: number;
+};
+
+// Escucha sin cortarse en las pausas: el mensaje se envía cuando dejas de hablar
+// `silencio` ms (3 s). Safari a veces termina el reconocimiento solo a mitad de frase;
+// en ese caso lo vuelve a arrancar y sigue sumando lo que dices. Llamar a stop()
+// envía al tiro lo que lleva.
+export function listenOnce(onPartial: (t: string) => void, opts: ListenOptions = {}): { promise: Promise<string>; stop: () => void } {
+  const { silencio = 3000, espera = 8000, maximo = 60000 } = opts;
   const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
   if (!SR) return { promise: Promise.reject("unsupported" as ListenError), stop: () => {} };
-  const rec = new SR();
-  rec.lang = SPEECH_LANG;
-  rec.interimResults = true;
-  rec.continuous = false;
-  rec.maxAlternatives = 1;
-  let finalText = "";
-  let lastPartial = "";
+  let rec: any = null;
+  let base = ""; // lo dicho en sesiones anteriores (si Safari cortó y se reinició)
+  let actual = "";
+  let settled = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let tope: ReturnType<typeof setTimeout> | undefined;
+  let finish: (err?: ListenError) => void = () => {};
+  const texto = () => actual.trim();
+
   const promise = new Promise<string>((resolve, reject) => {
-    let settled = false;
-    rec.onresult = (e: any) => {
-      let interim = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const r = e.results[i];
-        if (r.isFinal) finalText += r[0].transcript;
-        else interim += r[0].transcript;
-      }
-      lastPartial = (finalText + " " + interim).trim();
-      onPartial(lastPartial);
-    };
-    rec.onerror = (e: any) => {
+    finish = (err) => {
       if (settled) return;
       settled = true;
-      const map: Record<string, ListenError> = { "not-allowed": "denied", "service-not-allowed": "denied", "no-speech": "no-speech", network: "network" };
-      reject(map[e.error] || "failed");
+      clearTimeout(timer);
+      clearTimeout(tope);
+      try { rec?.stop(); } catch { /* ya terminó */ }
+      const t = texto();
+      if (t) resolve(t);
+      else reject(err || ("no-speech" as ListenError));
     };
-    rec.onend = () => {
-      if (settled) return;
-      settled = true;
-      const t = (finalText || lastPartial).trim();
-      t ? resolve(t) : reject("no-speech" as ListenError);
+    const armar = (ms: number) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => finish(), ms);
+    };
+    const arrancar = () => {
+      rec = new SR();
+      rec.lang = SPEECH_LANG;
+      rec.interimResults = true;
+      rec.continuous = true;
+      rec.maxAlternatives = 1;
+      rec.onresult = (e: any) => {
+        let fin = "";
+        let interim = "";
+        for (let i = 0; i < e.results.length; i++) {
+          const r = e.results[i];
+          if (r.isFinal) fin += r[0].transcript;
+          else interim += r[0].transcript;
+        }
+        actual = [base, fin, interim].map((x) => x.trim()).filter(Boolean).join(" ");
+        onPartial(texto());
+        armar(silencio);
+      };
+      rec.onerror = (e: any) => {
+        if (settled) return;
+        if (e.error === "no-speech" || e.error === "aborted") return; // lo maneja onend / el reloj
+        const map: Record<string, ListenError> = { "not-allowed": "denied", "service-not-allowed": "denied", network: "network" };
+        if (texto() && !map[e.error]) return finish();
+        settled = true;
+        clearTimeout(timer);
+        clearTimeout(tope);
+        reject(map[e.error] || "failed");
+      };
+      rec.onend = () => {
+        if (settled) return;
+        // Safari cortó solo: guarda lo que llevaba y sigue escuchando.
+        base = actual;
+        try {
+          arrancar();
+        } catch {
+          finish();
+        }
+      };
+      rec.start();
     };
     try {
-      rec.start();
+      arrancar();
+      armar(espera);
+      tope = setTimeout(() => finish(), maximo);
     } catch {
       settled = true;
       reject("failed" as ListenError);
     }
   });
-  return { promise, stop: () => { try { rec.stop(); } catch { /* ya terminó */ } } };
+  return { promise, stop: () => finish() };
 }
 
 // ---------- Hablar (speechSynthesis) ----------

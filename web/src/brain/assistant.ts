@@ -21,7 +21,17 @@ export interface Reply {
   source: "local" | "gemini" | "error";
   error?: string;
   undo?: () => Promise<void> | void; // si la respuesta anotó algo, cómo deshacerlo
+  guardado?: Guardado[]; // qué se guardó en este turno y dónde
 }
+
+export interface Guardado {
+  area: string; // nombre del área ("Salud")
+  id: string; // id del área ("salud")
+  texto: string; // lo que se guardó
+  seccion?: { nombre: string; ruta: string }; // dónde más quedó (Dinero, Hábitos…)
+}
+
+const sinUndo = ({ area, id, texto, seccion }: Guardado): Guardado => ({ area, id, texto, ...(seccion ? { seccion } : {}) });
 
 export interface AssistantOptions {
   // Intérprete extra que se prueba antes que el de la rutina (en la app: plata, entrenos, fútbol, metas).
@@ -32,7 +42,7 @@ export interface AssistantOptions {
   contexto?: (texto: string, n: ChileNow) => string;
   // Guarda lo que Diego dijo en su área de la vida. tool = lo que JARVIS anotó (si anotó algo).
   // Devuelve el nombre del área y cómo deshacer la nota.
-  notar?: (n: { texto: string; tool?: string; args?: any; origen: "jarvis" | "siri" }) => Promise<{ area: string; undo: () => Promise<void> } | null>;
+  notar?: (n: { texto: string; tool?: string; args?: any; origen: "jarvis" | "siri" }) => Promise<(Guardado & { undo: () => Promise<void> }) | null>;
   // ¿Es una pregunta (va a Gemini) o algo que cuenta (se guarda en su área)?
   esPregunta?: (texto: string) => boolean;
 }
@@ -102,6 +112,7 @@ export class Assistant {
       // Lo anotado también queda en su área, con la frase tal como la dijiste.
       const nota = this.dicho && this.opts.notar ? await this.opts.notar({ texto: this.dicho, tool: name, args, origen: this.origen }).catch(() => null) : null;
       if (nota) {
+        this.guardados.push(sinUndo(nota));
         const u0 = undo;
         undo = async () => {
           await u0();
@@ -118,7 +129,15 @@ export class Assistant {
   private dicho = "";
   private origen: "jarvis" | "siri" = "jarvis";
 
+  private guardados: Guardado[] = [];
+
   async handle(text: string, onText: (delta: string) => void = () => {}, origen: "jarvis" | "siri" = "jarvis"): Promise<Reply> {
+    this.guardados = [];
+    const r = await this.turno(text, onText, origen);
+    return this.guardados.length && !r.guardado ? { ...r, guardado: this.guardados } : r;
+  }
+
+  private async turno(text: string, onText: (delta: string) => void, origen: "jarvis" | "siri"): Promise<Reply> {
     const said = text.trim();
     if (!said) return { text: "", source: "local" };
     this.turnUndo = undefined;
@@ -182,10 +201,11 @@ export class Assistant {
     if (!cmd && this.opts.notar && this.opts.esPregunta && !this.opts.esPregunta(frase)) {
       const nota = await this.opts.notar({ texto: said, origen }).catch(() => null);
       if (nota) {
+        this.guardados.push(sinUndo(nota));
         this.lastUndo = { undo: nota.undo };
         this.turnUndo = nota.undo;
         if (!connected(this.conn())) return this.local(said, `Anotado en ${nota.area}: ${said.charAt(0).toLowerCase()}${said.slice(1).replace(/[.!]+$/, "")}.`, onText);
-        const r = await this.viaGemini(said, onText, `\nLo que Diego acaba de contar ya quedó guardado en su área "${nota.area}" de la app. Respóndele corto y con empatía si corresponde; no repitas que lo guardaste.`);
+        const r = await this.viaGemini(said, onText, `\nLo que Diego acaba de contar ya quedó guardado en su área "${nota.area}" de la app. Empieza diciendo en pocas palabras que lo guardaste en "${nota.area}" (por ejemplo "Lo dejé en ${nota.area}."), y después respóndele corto y con empatía si corresponde.`);
         return { ...r, text: r.text, undo: nota.undo };
       }
     }

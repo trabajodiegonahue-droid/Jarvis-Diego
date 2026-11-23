@@ -127,3 +127,34 @@ describe("JARVIS con los datos de ejemplo (modo práctica)", () => {
     expect((await a.handle("aporté 20 lukas a la meta")).text).toBe('Sumé $20.000 a "Ahorrar $200.000". Llevas $20.000 de $200.000 (10%).');
   });
 });
+
+describe("JARVIS avisa qué guardó y dónde", () => {
+  beforeEach(async () => {
+    resetDB();
+    await new Promise<void>((res) => {
+      const r = indexedDB.deleteDatabase("vida");
+      r.onsuccess = r.onerror = () => res();
+    });
+  });
+  it("un gasto queda en Mi vida › Dinero y en la pestaña Dinero; algo contado, en su área", async () => {
+    const kv = memoryKV();
+    const routine = new Routine(kv);
+    const store = new AppStore();
+    await store.load();
+    const reloj = at("15:00");
+    const reg = new ToolRegistry();
+    reg.register(...routineTools(routine, reloj), ...vidaTools({ store, routine, clock: reloj }));
+    const a = new Assistant(reg, routine, () => ({ mode: "key", apiKey: "" }) as any, kv, reloj, { stream: vi.fn(), ask: vi.fn() } as any, {
+      parse: (t, n) => parseVida(t, n.date, {}),
+      notar: crearNotar(store, reloj),
+      esPregunta,
+    });
+    const r = await a.handle("gaste 5 lukas en completos");
+    expect(r.guardado).toEqual([{ area: "Dinero", id: "dinero", texto: "gaste 5 lukas en completos", seccion: { nombre: "Dinero", ruta: "/dinero" } }]);
+    const r2 = await a.handle("me duele la rodilla");
+    expect(r2.guardado?.[0]).toMatchObject({ id: "salud", texto: "me duele la rodilla" });
+    expect(r2.text).toMatch(/Anotado en Salud/);
+    const r3 = await a.handle("¿que tengo mañana?");
+    expect(r3.guardado).toBeUndefined();
+  });
+});
