@@ -321,3 +321,16 @@ describe("respaldo cifrado", () => {
     expect((await worker.fetch(req("/respaldo", { body: JSON.stringify({ paquete: "no cifrado" }) }), e)).status).toBe(400);
   });
 });
+
+describe("Siri pregunta los ejercicios del gym", () => {
+  it("hice gym → ¿qué ejercicios? → press banca 4 de 8 con 50 → ¿algo más? → listo", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const BUZON = kvFalso();
+    const e = { ...env, BUZON };
+    expect(await (await worker.fetch(siri("hice gym"), e)).text()).toBe("Listo, lo guardo en Entrenamiento. ¿Qué ejercicios hiciste? Dime ejercicio, series, repeticiones y peso.");
+    expect(await (await worker.fetch(siri("press banca 4 de 8 con 50 kilos"), e)).text()).toBe("Anotado. ¿Algo más?");
+    expect(await (await worker.fetch(siri("listo"), e)).text()).toBe("Listo, quedó guardado tu entreno. Bien ahí.");
+    const textos = [...BUZON.m.entries()].filter(([k]) => k.startsWith("m:")).map(([, v]) => JSON.parse(v).texto);
+    expect(textos).toEqual(["hice gym", "press banca 4 de 8 con 50 kilos"]);
+  });
+});

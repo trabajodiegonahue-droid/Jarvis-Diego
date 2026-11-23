@@ -308,6 +308,19 @@ async function siri(request, env) {
   // ¿Es la respuesta a "¿cuándo te lo recuerdo?" (lo que preguntó la vez anterior, hace menos de 5 minutos)?
   let rec = null;
   const pend = env.BUZON ? JSON.parse((await env.BUZON.get("pend:siri")) || "null") : null;
+  // Respuesta a "¿Qué ejercicios hiciste?": se anota tal cual (la app lo separa en ejercicios, series y peso).
+  if (pend?.kind === "ejercicios") {
+    if (/^(no|nada|listo|eso|eso es todo|eso seria|nada mas|termine|ya|solo eso)\b/.test(t)) {
+      await env.BUZON.delete("pend:siri");
+      return texto("Listo, quedó guardado tu entreno. Bien ahí.");
+    }
+    if (/\d|\b(una|dos|tres|cuatro|cinco|seis|ocho|diez|doce)\b/.test(t)) {
+      await alBuzon(env, dicho);
+      await env.BUZON.put("pend:siri", JSON.stringify({ kind: "ejercicios" }), { expirationTtl: 300 });
+      return texto("Anotado. ¿Algo más?");
+    }
+    await env.BUZON.delete("pend:siri");
+  }
   if (pend && /^(no|nada|olvidalo|dejalo|cancela)\b/.test(t)) {
     await env.BUZON.delete("pend:siri");
     return texto("Ya, no lo agendo.");
@@ -352,9 +365,15 @@ async function siri(request, env) {
           dichos.push(`anoté ${it.texto.toLowerCase()}${it.hora ? ` a las ${it.hora}` : ""} en ${areaDe(norm(it.frase || it.texto), mascota)}`);
         } else if (it.respuesta) dichos.push(it.respuesta.replace(/[.!]+$/, ""));
       }
+      // Entreno de fuerza sin ejercicios: se pregunta (y lo que contestes se suma al entreno).
+      const fuerza = items.find((it) => it.tipo === "registro" && /\b(gym|gimnasio|pesas|pierna|piernas|pecho|espalda|brazos?|hombros?|tren superior|tren inferior|entrene|entreno|entrenamiento)\b/.test(norm(it.frase || it.texto)) && !/\d/.test(it.frase || it.texto) && !/\b(trot|corr|km|bici|nad|camin|futbol|partido)/.test(norm(it.frase || it.texto)));
+      if (fuerza && env.BUZON && !dichos.some((d) => /^¿/.test(d))) {
+        await env.BUZON.put("pend:siri", JSON.stringify({ kind: "ejercicios" }), { expirationTtl: 300 });
+        dichos.push("¿Qué ejercicios hiciste? Dime ejercicio, series, repeticiones y peso");
+      }
       if (dichos.length) {
         const cuerpo = dichos.length === 1 ? cap1(dichos[0]) : `${dichos.length} cosas: ${dichos.map((d, i) => `${i + 1}, ${d}`).join(". ")}`;
-        return texto(`${/^¿/.test(cuerpo) ? "" : "Listo. "}${cuerpo}.${sinPush ? " Ojo: tu iPhone no tiene los avisos activados (Vida, Más, Recordatorios, Avisos)." : ""}`.replace(/\?\.$/, "?").replace(/\.\./g, "."));
+        return texto(`${/^¿/.test(cuerpo) ? "" : "Listo. "}${cuerpo}${/\?$/.test(cuerpo) ? "" : /repeticiones y peso$/.test(cuerpo) ? "?" : "."}${sinPush ? " Ojo: tu iPhone no tiene los avisos activados (Vida, Más, Recordatorios, Avisos)." : ""}`.replace(/\?\.$/, "?").replace(/\.\./g, "."));
       }
     }
   }
@@ -374,6 +393,10 @@ async function siri(request, env) {
     const id = `m:${Date.now().toString().padStart(15, "0")}:${Math.random().toString(36).slice(2, 6)}`;
     await env.BUZON.put(id, JSON.stringify({ texto: dicho, fecha: new Date().toISOString() }), { expirationTtl: BUZON_TTL });
     const a = areaDe(t, mascota);
+    if (/\b(gym|gimnasio|pesas|pierna|piernas|pecho|espalda|brazos?|hombros?|entrene|entreno)\b/.test(t) && !/\d/.test(t) && !/\b(trot|corr|km|bici|nad|camin|futbol|partido)/.test(t)) {
+      await env.BUZON.put("pend:siri", JSON.stringify({ kind: "ejercicios" }), { expirationTtl: 300 });
+      return texto(`Listo, lo guardo en ${a}. ¿Qué ejercicios hiciste? Dime ejercicio, series, repeticiones y peso.`);
+    }
     return texto(`Listo, lo guardo en ${a}. Queda en Vida apenas abras la app.`);
   }
   if (DE_LA_APP.test(t)) return texto("Eso lo tengo guardado en tu teléfono, no en internet. Abre Vida y pregúntamelo ahí.");

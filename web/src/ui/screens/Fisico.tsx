@@ -592,8 +592,13 @@ function Historial() {
             <span class="stack" style={{ gap: 0 }}>
               <span>{e.nombre}</span>
               <span class="small">
-                {fechaCorta(e.fecha)} · {e.items.reduce((a, i) => a + i.series.length, 0)} series{e.rpe ? ` · esfuerzo ${e.rpe}` : ""}
+                {fechaCorta(e.fecha)} · {e.items.length ? `${e.items.reduce((a, i) => a + i.series.length, 0)} series` : e.nota || "sin detalle"}{e.rpe ? ` · esfuerzo ${e.rpe}` : ""}
               </span>
+              {e.items.length > 0 && (
+                <span class="small">
+                  {e.items.map((i) => `${(ejercicio(i.ejId)?.nombre || i.ejId.replace(/^libre:/, "")).split(" (")[0]} ${i.series.length}×${i.series[0]?.reps ?? "?"}${i.series[0]?.kg ? ` ${String(i.series[0].kg).replace(".", ",")} kg` : ""}`).join(" · ")}
+                </span>
+              )}
             </span>
             <span />
             <button
@@ -615,7 +620,7 @@ function Historial() {
         const e = ejercicio(id);
         return (
           <div key={id} class="between small">
-            <span style={{ color: "var(--ink)" }}>{e?.nombre || id}</span>
+            <span style={{ color: "var(--ink)" }}>{e?.nombre || id.replace(/^libre:/, "")}</span>
             <span class="num">{r.maxKg ? `${String(r.maxKg.kg).replace(".", ",")} kg × ${r.maxKg.reps}` : r.maxReps ? `${r.maxReps.reps}${e?.porTiempo ? " s" : " reps"}` : "—"}</span>
           </div>
         );
