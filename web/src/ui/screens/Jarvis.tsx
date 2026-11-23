@@ -1,6 +1,7 @@
 // Chat y voz de JARVIS dentro de la app: registrar hablando, preguntar y pedir resúmenes.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { GREETING } from "../../brain/persona";
+import type { Guardado } from "../../brain/assistant";
 import { chileNow } from "../../core/time";
 import { assistant, settings, speaker, tools, updateSettings } from "../../jarvis/instance";
 import { isConnected } from "../../core/settings";
@@ -19,8 +20,37 @@ export interface Msg {
   text: string;
   undo?: () => Promise<void> | void;
   deshecho?: boolean;
+  guardado?: Guardado[];
 }
 let chat: Msg[] = [];
+
+// "Mi vida › Salud y Hábitos": dónde quedó lo que se guardó.
+export function dondeTxt(gs: Guardado[]): string {
+  const partes = new Set<string>();
+  for (const g of gs) {
+    partes.add(`Mi vida › ${g.area}`);
+    if (g.seccion) partes.add(g.seccion.nombre);
+  }
+  return [...partes].join(" y ");
+}
+
+function Guardados({ gs }: { gs: Guardado[] }) {
+  return (
+    <div class="guardado" role="note">
+      {gs.map((g, i) => (
+        <div key={i} class="stack" style={{ gap: "4px" }}>
+          <span class="small" style={{ fontWeight: 600, color: "var(--ink)" }}>
+            <Icon name="estrella" size={14} /> Guardé: “{g.texto}”
+          </span>
+          <span class="row" style={{ gap: "6px", flexWrap: "wrap" }}>
+            <a class="pill-link" href={`#/areas?a=${g.id}`}>Mi vida › {g.area}</a>
+            {g.seccion && <a class="pill-link" href={`#${g.seccion.ruta}`}>{g.seccion.nombre}</a>}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // Para lo que llega desde el Atajo de Siri: queda en la conversación con su "Deshacer".
 export function alChat(...ms: Msg[]) {
@@ -88,6 +118,7 @@ export function JarvisSheet({ onClose, borrador }: { onClose: () => void; borrad
     });
     msg.text = r.text;
     msg.undo = r.undo;
+    msg.guardado = r.guardado;
     speaker.flush();
     redraw((n) => n + 1);
     if (r.source === "error") setEstado("error");
@@ -111,6 +142,7 @@ export function JarvisSheet({ onClose, borrador }: { onClose: () => void; borrad
     }
     speaker.stop();
     setEstado("listening");
+    setDetalle("Habla tranquilo: lo envío cuando te quedes callado 3 segundos (o toca para enviar ya).");
     const l = listenOnce((p) => setDetalle(p));
     stop.current = l.stop;
     l.promise
@@ -192,6 +224,7 @@ export function JarvisSheet({ onClose, borrador }: { onClose: () => void; borrad
         {[...chat].reverse().slice(0, 12).map((m, i) => (
           <div key={chat.length - i} style={{ alignSelf: m.who === "u" ? "flex-end" : "flex-start", maxWidth: "88%", padding: "10px 13px", borderRadius: "14px", border: "1px solid var(--line)", background: m.who === "u" ? "var(--card2)" : "var(--card)", fontSize: "15px" }}>
             {m.text || "…"}
+            {m.guardado?.length ? <Guardados gs={m.guardado} /> : null}
             {m.undo && (
               <div style={{ marginTop: "6px" }}>
                 {m.deshecho ? (

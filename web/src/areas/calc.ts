@@ -72,6 +72,38 @@ export function areaDeHerramienta(tool: string, args: any, texto: string): AreaV
   return a && a !== "otro" ? a : clasificarArea(texto);
 }
 
+// En qué parte de la app queda lo que anota cada herramienta (para decirle a Diego dónde quedó).
+const SECCION: Record<string, [string, string]> = {
+  registrar_gasto: ["Dinero", "/dinero"],
+  registrar_ingreso: ["Dinero", "/dinero"],
+  registrar_turno: ["Trabajo", "/mas/trabajo"],
+  registrar_entreno: ["Fútbol › Físico", "/futbol?fisico"],
+  registrar_partido: ["Fútbol", "/futbol"],
+  registrar_estudio: ["Estudios", "/mas/estudios"],
+  registrar_dia: ["Hábitos", "/mas/habitos"],
+  marcar_habito: ["Hábitos", "/mas/habitos"],
+  crear_habito: ["Hábitos", "/mas/habitos"],
+  crear_meta: ["Metas", "/metas"],
+  aportar_meta: ["Metas", "/metas"],
+  crear_recordatorio: ["Recordatorios", "/mas/recordatorios"],
+  agregar_compras: ["Compras", "/mas/compras"],
+  marcar_compras: ["Compras", "/mas/compras"],
+  agregar_fecha: ["Calendario", "/mas/calendario"],
+  agregar_tarea: ["Rutina de hoy", "/"],
+  cambiar_tarea: ["Rutina de hoy", "/"],
+  tachar_tarea: ["Rutina de hoy", "/"],
+  tachar_tareas: ["Rutina de hoy", "/"],
+  tachar_todo_hoy: ["Rutina de hoy", "/"],
+  iniciar_actividad: ["Mi tiempo", "/mas/tiempo"],
+  terminar_actividad: ["Mi tiempo", "/mas/tiempo"],
+  registrar_bloque: ["Mi tiempo", "/mas/tiempo"],
+  recordar: ["Memoria de JARVIS", "/mas"],
+};
+export const seccionDe = (tool?: string): { nombre: string; ruta: string } | null => {
+  const s = tool ? SECCION[tool] : undefined;
+  return s ? { nombre: s[0], ruta: s[1] } : null;
+};
+
 // ¿Es una pregunta o un pedido (para Gemini), o algo que Diego cuenta (para guardar en su área)?
 export function esPregunta(texto: string): boolean {
   const t = sinTilde(texto).trim();

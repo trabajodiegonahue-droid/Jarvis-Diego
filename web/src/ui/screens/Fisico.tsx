@@ -350,7 +350,7 @@ function SesionGuiada({ s, onClose, onEj }: { s: SesionPlan; onClose: () => void
     if (!manosRef.current) return;
     if (!canListen()) return setOido((o) => `${o} (Aquí no puedo escucharte: usa los botones.)`);
     stopEsc.current?.();
-    const l = listenOnce((p) => setOido(`Escuché: ${p}`));
+    const l = listenOnce((p) => setOido(`Escuché: ${p}`), { silencio: 1500 });
     stopEsc.current = l.stop;
     l.promise
       .then((txt) => {
