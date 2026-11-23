@@ -90,6 +90,8 @@ docs/       los briefs
 
 **¿Qué le puedo decir?** En la hoja de JARVIS hay una guía con frases por tema; tocas una y se la manda. Una prueba automática revisa que JARVIS entienda todas sin Gemini.
 
+**Mi vida por áreas.** Todo lo que le cuentas a JARVIS queda guardado en su bloque: salud, ánimo, dinero, amor, familia y amigos, entrenamiento, fútbol, estudios, trabajo, casa y trámites, metas y proyectos, y ocio. Por ejemplo, «me duele la rodilla» va a Salud, «salí con la polola» a Amor y «gasté 5 lukas en completos» a Dinero (además de anotarse el gasto). Las preguntas no se guardan. Cada bloque muestra un dato al día sacado de la app (sueño promedio, balance del mes, entrenos de la semana, próximo turno…) y lo último que contaste. Se ve en la tarjeta del inicio y en Más → Mi vida por áreas. Ahí puedes escribir algo, moverlo de área o borrarlo. Por voz: «¿qué he contado de salud?», «¿cómo voy en el amor?», «anota en salud: me tomé la presión».
+
 **Recordatorios y lo que viene.** Dile a JARVIS «recuérdame pagar la luz mañana a las 10», «avísame en 30 minutos que saque la ropa» o «recuérdame la creatina todos los días a las 8». Entiende «el viernes», «pasado mañana en la noche», «el 3 de enero», «en 2 horas» y repeticiones (todos los días, todos los lunes, cada mes, cada año). Si no dices la hora, avisa a las 9. Con la app abierta, el aviso aparece arriba con «Listo», «En 10 min» y «En 1 hora». «¿Qué se viene los próximos días?» junta turnos, partidos, pruebas, recordatorios, cumpleaños y lo que le contaste.
 
 **Memoria.** «Acuérdate que el viernes tengo prueba de inglés» o «acuérdate que me lesioné el tobillo»: JARVIS lo guarda en el teléfono, te lo menciona en el resumen del día que corresponde y, si usas Gemini, le pasa solo los recuerdos que tienen que ver con lo que preguntas. «¿Qué recuerdas?» y «olvida lo del tobillo». Nunca guarda claves, contraseñas ni datos de tarjetas.
@@ -106,7 +108,7 @@ docs/       los briefs
 
 ## Calidad (fase 6)
 
-- **Pruebas:** 177 pruebas automáticas en la app (`npm test` en `web/`) y 11 en el intermediario (`npm test` en `worker/`), incluida la firma de los avisos verificada con criptografía real.
+- **Pruebas:** 190 pruebas automáticas en la app (`npm test` en `web/`) y 14 en el intermediario (`npm test` en `worker/`), incluida la firma de los avisos verificada con criptografía real.
 - **Velocidad:** con el procesador 4 veces más lento y red 3G, la app abre en unos 1,3 s la primera vez y en 0,6 s después. Cambiar de pantalla toma menos de 0,1 s.
 - **Accesibilidad:** las 16 pantallas y hojas principales pasan la revisión de [axe-core](https://github.com/dequelabs/axe-core) en tema oscuro y claro. Las hojas atrapan el foco y lo devuelven al cerrarse.
 - **Errores amables:** si una pantalla falla, aparece un aviso con «Probar de nuevo» y el resto de la app sigue. Si abrir los datos demora más de 10 s, se ofrece recargar.
@@ -184,6 +186,10 @@ npx wrangler deploy
 El intermediario solo acepta pedidos que vienen de tu página (`ALLOWED_ORIGIN` en `worker/wrangler.toml`) y que traen el código. Además, el modelo lo decide el intermediario: nadie puede pedir otro modelo.
 
 ### Atajo de Siri: «Oye Siri, Jarvis»
+
+**Para hablarle sin abrir la app:** «Oye Siri, Jarvis» (también con el teléfono bloqueado o con AirPods), doble toque en la espalda del iPhone (Ajustes → Accesibilidad → Tocar → Tocar atrás), el botón de acción del iPhone 15 Pro o más nuevo, el control «Atajo» del centro de control o de la pantalla bloqueada, y la app Atajos del Apple Watch. Todos lanzan el mismo atajo «Jarvis».
+
+**Qué hace el atajo:** todo lo que cuentas queda en el buzón y Siri te dice en qué área va («Listo, lo guardo en Salud»). Se anota en Vida apenas la abres, porque tus datos viven solo en el teléfono. «¿Qué tengo mañana?», «¿qué tengo el viernes?» y «¿qué tengo esta semana?» las responde al tiro con la agenda de los próximos 7 días que la app le manda al intermediario (turnos, partidos, pruebas, recordatorios y rutina; nunca montos de plata). Las preguntas generales las responde Gemini.
 
 **Qué es posible y qué no.** En el iPhone, un atajo que abre una dirección web la abre en Safari, no en la app instalada en el inicio. Además, Safari y la app instalada guardan sus datos por separado. Por eso el atajo no abre la app: le habla al intermediario.
 - **Para anotar** («gasté 5 mil en almuerzo», «hice gym», «metí un gol»): el intermediario lo deja en un **buzón** y responde «Listo, lo dejé anotado». Al abrir Vida, la app lo lee, lo anota (con Deshacer) y lo borra del buzón.
