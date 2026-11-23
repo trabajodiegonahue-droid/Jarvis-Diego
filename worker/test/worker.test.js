@@ -62,7 +62,7 @@ describe("atajo de Siri y buzón", () => {
     const lista = await (await worker.fetch(req("/buzon", { method: "GET", body: null }), e)).json();
     expect(lista.items.map((i) => i.texto)).toEqual(["Jarvis, gasté 5 mil en almuerzo"]);
     await worker.fetch(req("/buzon/borrar", { body: JSON.stringify({ ids: lista.items.map((i) => i.id) }) }), e);
-    expect(BUZON.m.size).toBe(0);
+    expect([...BUZON.m.keys()].filter((k) => k.startsWith("m:")).length).toBe(0);
   });
   it("el buzón solo se lee desde tu página y con tu código", async () => {
     const e = { ...env, BUZON: kvFalso() };
@@ -159,7 +159,7 @@ describe("Siri sin abrir la app", () => {
     const e = { ...env, BUZON: kvFalso() };
     expect(await (await worker.fetch(siri("me duele la rodilla derecha"), e)).text()).toBe("Listo, lo guardo en Salud. Queda en Vida apenas abras la app.");
     expect(await (await worker.fetch(siri("hoy salí con la polola al cine"), e)).text()).toMatch(/en Amor/);
-    expect(e.BUZON.m.size).toBe(2);
+    expect([...e.BUZON.m.keys()].filter((k) => k.startsWith("m:")).length).toBe(2);
     expect(fetch).not.toHaveBeenCalled();
   });
   it("responde '¿qué tengo mañana?' con la agenda que mandó la app", async () => {
@@ -184,5 +184,18 @@ describe("agenda sin avisos", () => {
     expect((await worker.fetch(req("/agenda", { body: JSON.stringify({ id, k: "clave-1", agenda: { "2026-11-24": ["Turno 14:00"] } }) }), e)).status).toBe(200);
     expect((await worker.fetch(req("/agenda", { body: JSON.stringify({ id, k: "otra", agenda: {} }) }), e)).status).toBe(401);
     expect(JSON.parse(e.BUZON.m.get(`dev:${id}`)).agenda).toEqual({ "2026-11-24": ["Turno 14:00"] });
+  });
+});
+
+describe("atajo con errores de tipeo", () => {
+  it("perdona comillas, espacios, saltos de línea y 'bearer' en minúscula; y deja un diagnóstico sin el código", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const e = { ...env, BUZON: kvFalso() };
+    const pide = (auth) => worker.fetch(new Request("https://w.dev/siri", { method: "POST", headers: { Authorization: auth, "Content-Type": "application/json" }, body: JSON.stringify({ texto: "me duele la rodilla" }) }), e);
+    for (const a of ["Bearer secreto", "bearer secreto ", "Bearer \"secreto\"", "secreto", "Bearer: secreto"]) expect((await pide(a)).status, a).toBe(200);
+    expect((await pide("Bearer otro")).status).toBe(401);
+    const d = JSON.parse(e.BUZON.m.get("diag:siri"));
+    expect(JSON.stringify(d)).not.toContain("otro");
+    expect(d.cuerpo.json).toEqual(["texto"]);
   });
 });

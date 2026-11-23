@@ -64,6 +64,34 @@ const chileAhora = () => new Intl.DateTimeFormat("es-CL", { timeZone: "America/S
 const MAX_AVISOS = 400;
 
 // Compara códigos en tiempo constante (se comparan sus huellas SHA-256), para no dar pistas por el tiempo de respuesta.
+// "Bearer código" → "código", sin comillas, espacios raros ni saltos de línea.
+function limpiarCodigo(v) {
+  return String(v || "")
+    .replace(/[\u00a0\u200b-\u200d\ufeff]/g, " ")
+    .replace(/[“”"'‘’]/g, "")
+    .trim()
+    .replace(/^bearer\s*:?\s*/i, "")
+    .trim();
+}
+
+// Cómo llegó el último pedido del atajo (sin el código ni lo que dijiste), para encontrar errores de configuración.
+async function diagnostico(env, request, auth, codigo, cuerpo) {
+  let json = null;
+  try {
+    json = Object.keys(JSON.parse(cuerpo));
+  } catch {}
+  const d = {
+    fecha: new Date().toISOString(),
+    metodo: request.method,
+    ruta: new URL(request.url).pathname,
+    tipo: request.headers.get("Content-Type"),
+    encabezados: [...request.headers.keys()].filter((k) => !/^(cf-|x-forwarded|x-real-ip|cdn-loop|true-client)/.test(k)),
+    auth: { largo: auth.length, empiezaBearer: /^bearer /i.test(auth.trim()), largoCodigo: codigo.length, raros: /[^\x20-\x7e]/.test(auth) },
+    cuerpo: { largo: cuerpo.length, json },
+  };
+  await env.BUZON.put("diag:siri", JSON.stringify(d), { expirationTtl: 86400 });
+}
+
 async function iguales(a, b) {
   const enc = new TextEncoder();
   const [x, y] = await Promise.all([crypto.subtle.digest("SHA-256", enc.encode(String(a))), crypto.subtle.digest("SHA-256", enc.encode(String(b)))]);
@@ -117,12 +145,16 @@ export default {
     }
 
     // El Atajo de Siri no manda "Origin" (no es una página): basta con el código de acceso.
-    if (url.pathname === "/siri") {
-      if (request.method !== "POST") return fail(405, "Solo POST");
-      const tokens = [env.SIRI_TOKEN, env.ACCESS_TOKEN].filter(Boolean);
+    if (/^\/siri\/?$/i.test(url.pathname.trim())) {
+      // En la app Atajos es fácil que se cuele un espacio, comillas o un salto de línea: se perdona.
+      const codigo = limpiarCodigo(auth);
+      const cuerpo = await request.clone().text().catch(() => "");
+      if (env.BUZON) await diagnostico(env, request, auth, codigo, cuerpo).catch(() => {});
+      if (request.method !== "POST") return texto("El atajo tiene que usar el método POST (en Get Contents of URL, Method: POST).", 405);
+      const tokens = [env.SIRI_TOKEN, env.ACCESS_TOKEN].filter(Boolean).map((t) => limpiarCodigo(t));
       let ok = false;
-      for (const t of tokens) ok = (await iguales(auth, `Bearer ${t}`)) || ok;
-      if (!ok) return texto("El código de acceso del atajo no es correcto. Revísalo en la app Atajos.", 401);
+      for (const t of tokens) ok = (await iguales(codigo, t)) || ok;
+      if (!ok) return texto(codigo ? "El código de acceso del atajo no es correcto. Revísalo en la app Atajos." : "Al atajo le falta el encabezado Authorization con tu código.", 401);
       return siri(request, env);
     }
 
