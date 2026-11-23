@@ -3,6 +3,7 @@
 import type { Settings } from "../core/settings";
 import type { Assistant, Guardado } from "../brain/assistant";
 import { normalizarChileno } from "../brain/chileno";
+import { chileNow } from "../core/time";
 
 export interface Anotado {
   texto: string;
@@ -32,14 +33,21 @@ export async function revisarBuzon(s: Settings, assistant: Assistant, fetcher: t
     const headers = { Authorization: `Bearer ${s.workerToken}` };
     const r = await fetcher(`${base}/buzon`, { headers });
     if (!r.ok) return [];
-    const { items } = (await r.json()) as { items: { id: string; texto: string; fecha: string }[] };
+    const { items } = (await r.json()) as { items: { id: string; texto: string; fecha: string; hora?: string }[] };
     if (!items?.length) return [];
     const out: Anotado[] = [];
     const listos: string[] = [];
     for (const it of items) {
       // "hace 10 minutos" / "en 10 minutos" se cuentan desde que lo dijiste a Siri, no desde que abriste la app.
       const edad = Math.max(0, Math.round((ahora() - Date.parse(it.fecha)) / 60000));
-      const rep = await assistant.handle(ajustarRelativo(it.texto, Number.isFinite(edad) ? edad : 0), () => {}, "siri");
+      // Algo que ya hizo a una hora ("saqué al Apolo a las 15:24"): se anota a esa hora.
+      let txt = ajustarRelativo(it.texto, Number.isFinite(edad) ? edad : 0);
+      if (it.hora && /^\d{2}:\d{2}$/.test(it.hora)) {
+        const [h, m] = it.hora.split(":").map(Number);
+        const hace = ((chileNow().minutes - (h * 60 + m)) % 1440 + 1440) % 1440;
+        txt = `${hace > 0 ? `hace ${hace} minutos ` : ""}${txt.replace(/\b(ahora|recién|recien)\b/gi, "").replace(/\s*(a las?|como a las?|tipo) \d{1,2}([:.\s]\d{2})?( hrs?| horas)?\b/gi, "").replace(/\s+/g, " ").trim()}`;
+      }
+      const rep = await assistant.handle(txt, () => {}, "siri");
       out.push({ texto: it.texto, respuesta: rep.text, undo: rep.undo, guardado: rep.guardado });
       listos.push(it.id);
     }

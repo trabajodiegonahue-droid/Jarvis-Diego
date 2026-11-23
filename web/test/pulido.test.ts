@@ -194,3 +194,23 @@ describe("dictado", () => {
     expect(normalizarChileno("en 15 minutos")).toBe("en 15 minutos");
   });
 });
+
+describe("más formas de pedir un aviso", () => {
+  const p = (s: string) => parseVida(normalizarChileno(s), "2026-11-23", { minutos: 926 });
+  it("entiende 'a las cuatro', 'quiero que me envíes un recordatorio', 'ponme una alarma' y 'agenda'", () => {
+    expect(p("Quiero que me envíes un recordatorio a las cuatro para ver el seminario Fénix")).toMatchObject({ tool: "crear_recordatorio", args: { texto: "ver el seminario Fénix" } });
+    expect(p("ponme una alarma a las 7 para el gym")?.tool).toBe("crear_recordatorio");
+    expect(p("recuérdame a las 5 llamar a mi mamá")).toMatchObject({ args: { texto: "llamar a mi mamá" } });
+    expect(p("Agenda ver el seminario Phoenix a las cuatro")).toMatchObject({ args: { texto: "ver el seminario Phoenix" } });
+  });
+  it("'saqué al perro a las 11:24' (ya pasó) queda como nota a esa hora, no como aviso", async () => {
+    resetDB();
+    await new Promise<void>((res) => { const r = indexedDB.deleteDatabase("vida"); r.onsuccess = r.onerror = () => res(); });
+    const { kv, routine, store, reloj, reg } = registro();
+    await store.load();
+    const a = new Assistant(reg, routine, () => ({ mode: "key", apiKey: "" }) as any, kv, reloj, { stream: vi.fn(), ask: vi.fn() } as any, { parse: (t, n) => parseVida(t, n.date, { minutos: n.minutes }), notar: crearNotar(store, reloj), esPregunta });
+    await a.handle("saqué al perro ahora a las 11:24");
+    expect(store.data.recordatorios).toHaveLength(0);
+    expect(store.data.notas[0].fecha.slice(11)).toBe("11:24");
+  });
+});

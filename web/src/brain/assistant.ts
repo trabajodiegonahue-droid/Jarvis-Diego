@@ -219,7 +219,7 @@ export class Assistant {
         this.lastUndo = { undo: nota.undo };
         this.turnUndo = nota.undo;
         if (!connected(this.conn())) return this.local(said, `Anotado en ${nota.area}: ${said.charAt(0).toLowerCase()}${said.slice(1).replace(/[.!]+$/, "")}.`, onText);
-        const r = await this.viaGemini(said, onText, `\nLo que Diego acaba de contar ya quedó guardado en su área "${nota.area}" de la app. Empieza diciendo en pocas palabras que lo guardaste en "${nota.area}" (por ejemplo "Lo dejé en ${nota.area}."), y después respóndele corto y con empatía si corresponde.`);
+        const r = await this.viaGemini(said, onText, `\nLo que Diego acaba de contar ya quedó guardado en su área "${nota.area}" de la app. Empieza diciendo en pocas palabras que lo guardaste en "${nota.area}" (por ejemplo "Lo dejé en ${nota.area}."), y después respóndele corto y con empatía si corresponde. Si es algo que YA hizo o ya pasó (verbo en pasado: saqué, fui, comí, hice), NO crees recordatorios ni tareas: ya quedó anotado. Solo agenda algo si pide que le recuerdes o avises algo en el futuro.`);
         return { ...r, text: r.text, undo: nota.undo };
       }
     }
