@@ -20,6 +20,7 @@ import { Calendario } from "./screens/Calendario";
 import { Tiempo } from "./screens/Tiempo";
 import { Recordatorios } from "./screens/Recordatorios";
 import { Compras } from "./screens/Compras";
+import { Areas } from "./screens/Areas";
 import { cerrarAviso, getSonando, iniciarAvisos, onSonando, posponer } from "../jarvis/avisosApp";
 import { go, kv, toast, useApp, useRoute } from "./state";
 
@@ -115,6 +116,8 @@ export function App() {
         return <Recordatorios />;
       case "/mas/compras":
         return <Compras />;
+      case "/areas":
+        return <Areas />;
       default:
         return <Inicio onAdd={() => setAdd(true)} />;
     }

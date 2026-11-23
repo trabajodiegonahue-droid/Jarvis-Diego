@@ -6,10 +6,11 @@ import { PUERTO_VARAS, type Ciudad } from "../weather/clima";
 
 export const kv = localKV;
 
-export type CardId = "recordatorios" | "resumen" | "tiempo" | "habitos" | "dinero" | "metas" | "entreno" | "futbol" | "pendientes" | "equilibrio" | "jarvis";
+export type CardId = "areas" | "recordatorios" | "resumen" | "tiempo" | "habitos" | "dinero" | "metas" | "entreno" | "futbol" | "pendientes" | "equilibrio" | "jarvis";
 // "fase": en qué fase llega la tarjeta. Las que todavía no existen no se muestran en el inicio.
 export const CARDS: { id: CardId; nombre: string; fase: number }[] = [
   { id: "recordatorios", nombre: "Recordatorios y lo que viene", fase: 6 },
+  { id: "areas", nombre: "Mi vida por áreas", fase: 6 },
   { id: "resumen", nombre: "Resumen de la semana y del mes", fase: 5 },
   { id: "tiempo", nombre: "Mi tiempo hoy", fase: 5 },
   { id: "habitos", nombre: "Hábitos de hoy", fase: 5 },

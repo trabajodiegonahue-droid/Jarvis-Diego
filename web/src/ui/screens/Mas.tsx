@@ -17,6 +17,7 @@ const GRUPOS: { titulo: string; items: { path: string; nombre: string; detalle: 
   {
     titulo: "Tu día",
     items: [
+      { path: "/areas", nombre: "Mi vida por áreas", detalle: "Salud, ánimo, dinero, amor y más, por bloques", icon: "corazon", color: "#D46BA3" },
       { path: "/mas/recordatorios", nombre: "Recordatorios", detalle: "Avisos, cumpleaños y lo que JARVIS recuerda", icon: "campana", color: "#E0A23B" },
       { path: "/mas/calendario", nombre: "Calendario", detalle: "Tu semana y lo que se cruza", icon: "calendario", color: "#E15A5A" },
       { path: "/mas/tiempo", nombre: "Mi tiempo", detalle: "Tu día al minuto, el mes y el año", icon: "reloj", color: "#4C8DF6" },
@@ -470,7 +471,17 @@ function JarvisAjustes() {
             <li>Obtener contenido de URL: {(settings.workerUrl || "https://tu-intermediario.workers.dev").replace(/\/+$/, "")}/siri, método POST, encabezado Authorization con el valor "Bearer " más tu código de acceso, y cuerpo JSON con la clave texto = Texto dictado.</li>
             <li>Leer texto en voz alta: Contenido de URL.</li>
           </ol>
-          <span>Lo que es para anotar ("gasté 5 mil en almuerzo", "hice gym") queda en un buzón y se anota acá apenas abres Vida. Las preguntas generales las responde Gemini al tiro. Lo que vive en el teléfono (tus gastos, tu rutina) Siri no lo puede leer: eso pregúntalo dentro de la app.</span>
+          <span>
+            <b>Qué hace:</b> todo lo que le cuentas ("me duele la rodilla", "gasté 5 lukas en completos", "salí con la polola") queda guardado y Siri te dice en qué área va. Se anota en Vida apenas la abres. "¿Qué tengo mañana?" te lo responde al tiro con tu agenda. Las preguntas generales las responde Gemini. Tus montos de plata no salen del teléfono: eso pregúntalo dentro de la app.
+          </span>
+          <b>Para no tener que abrir nada:</b>
+          <ul style={{ margin: 0, paddingLeft: "18px", display: "grid", gap: "4px" }}>
+            <li>Con la voz: "Oye Siri, Jarvis", incluso con el teléfono bloqueado o desde AirPods.</li>
+            <li>Tocando la espalda del iPhone: Ajustes → Accesibilidad → Tocar → Tocar atrás → Doble toque → Jarvis.</li>
+            <li>Con el botón de acción (iPhone 15 Pro o más nuevo): Ajustes → Botón de acción → Atajo → Jarvis.</li>
+            <li>Desde el centro de control o la pantalla bloqueada: agrega el control "Atajo" y elige Jarvis.</li>
+            <li>En el Apple Watch: el mismo atajo aparece en la app Atajos del reloj.</li>
+          </ul>
         </div>
       </details>
     </section>

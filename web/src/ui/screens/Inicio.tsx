@@ -1,3 +1,4 @@
+import { AreasCard } from "./Areas";
 import { hhmm, MESES } from "../../core/texto";
 import { chileNow, DAY_NAMES } from "../../core/time";
 import { store } from "../../data/store";
@@ -60,6 +61,7 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
   const cards: Record<CardId, () => preact.JSX.Element | null> = {
     resumen: () => <ResumenAuto />,
     recordatorios: () => <LoQueViene />,
+    areas: () => <AreasCard />,
     tiempo: () => {
       const m = minutosDia(bloquesDia(data, n.date, iso(n.date, hhmm(n.minutes))), n.minutes);
       const filas = (Object.entries(m) as [CatTiempo, number][]).sort((a, b) => b[1] - a[1]).slice(0, 3);
