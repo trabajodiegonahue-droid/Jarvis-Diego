@@ -264,7 +264,8 @@ function Conexion({ onResponder }: { onResponder: (ps: string[]) => void }) {
         onSubmit={async (e) => {
           e.preventDefault();
           const k = clave.trim();
-          if (!/^AIza[\w-]{20,}$/.test(k)) return setEstado("Esa no parece una clave de Gemini (empieza con AIza).");
+          // Google entrega claves con dos formatos: las clásicas (AIza…) y las nuevas (AQ.…). La prueba real la hace Gemini.
+          if (!/^(AIza[\w-]{20,}|AQ\.[\w.-]{20,})$/.test(k)) return setEstado("Esa no parece una clave de Gemini (empiezan con AIza o AQ.). Cópiala completa desde AI Studio.");
           setEstado("Probando…");
           const antes = { ...settings };
           updateSettings({ mode: "key", apiKey: k });
@@ -280,7 +281,7 @@ function Conexion({ onResponder }: { onResponder: (ps: string[]) => void }) {
           }
         }}
       >
-        <input type="password" autocomplete="off" autoCapitalize="off" spellcheck={false} aria-label="Clave de Gemini" placeholder="AIza…" value={clave} onInput={(e) => setClave((e.target as HTMLInputElement).value)} style={{ flex: 1, minWidth: 0, minHeight: "48px", borderRadius: "14px", border: "1px solid var(--line)", background: "var(--card2)", padding: "0 14px" }} />
+        <input type="password" autocomplete="off" autoCapitalize="off" spellcheck={false} aria-label="Clave de Gemini" placeholder="AIza… o AQ.…" value={clave} onInput={(e) => setClave((e.target as HTMLInputElement).value)} style={{ flex: 1, minWidth: 0, minHeight: "48px", borderRadius: "14px", border: "1px solid var(--line)", background: "var(--card2)", padding: "0 14px" }} />
         <button class="btn main">Conectar</button>
       </form>
       {estado && <span class="small" style={{ color: "var(--amber)" }}>{estado}</span>}

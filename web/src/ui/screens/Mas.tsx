@@ -394,7 +394,7 @@ function JarvisAjustes() {
           <label class="lbl" for="g-key">
             Clave de Google AI Studio
           </label>
-          <input id="g-key" type="password" autocomplete="off" autoCapitalize="off" spellcheck={false} value={s.apiKey || ""} onInput={(e) => setS({ ...s, apiKey: (e.target as HTMLInputElement).value.trim() })} placeholder="AIza…" />
+          <input id="g-key" type="password" autocomplete="off" autoCapitalize="off" spellcheck={false} value={s.apiKey || ""} onInput={(e) => setS({ ...s, apiKey: (e.target as HTMLInputElement).value.trim() })} placeholder="AIza… o AQ.…" />
         </div>
       ) : (
         <>
