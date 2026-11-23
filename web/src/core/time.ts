@@ -67,3 +67,20 @@ export function parseHour(text: string): string | null {
   if (h > 23 || min > 59) return null;
   return `${pad(h)}:${pad(min)}`;
 }
+
+// "AAAA-MM-DDTHH:MM" en hora de Chile → instante (milisegundos UTC). Sirve para programar avisos
+// aunque el teléfono esté en otro huso horario o cambie el horario de verano.
+export function chileAUtc(iso: string): number {
+  const [f, h] = iso.split("T");
+  const [y, mo, d] = f.split("-").map(Number);
+  const [hh, mi] = (h || "00:00").split(":").map(Number);
+  const comoUtc = Date.UTC(y, mo - 1, d, hh, mi);
+  // Diferencia entre la hora de Chile y UTC en ese momento (se calcula dos veces por el cambio de horario).
+  let t = comoUtc;
+  for (let i = 0; i < 2; i++) {
+    const n = chileNow(new Date(t));
+    const local = Date.UTC(Number(n.date.slice(0, 4)), Number(n.date.slice(5, 7)) - 1, Number(n.date.slice(8, 10)), Math.floor(n.minutes / 60), n.minutes % 60);
+    t = comoUtc - (local - t);
+  }
+  return t;
+}

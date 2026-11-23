@@ -1,10 +1,12 @@
 import type { Connection } from "../brain/gemini";
 import type { KV } from "./storage";
+import { DEFAULT_ABOUT } from "../brain/persona";
 
 export interface Settings extends Connection {
   voiceURI: string;
   rate: number;
   speak: boolean;
+  about: string; // lo que JARVIS sabe de Diego (se manda a Gemini)
 }
 
 const DEFAULTS: Settings = {
@@ -15,6 +17,7 @@ const DEFAULTS: Settings = {
   voiceURI: "",
   rate: 1.05,
   speak: true,
+  about: DEFAULT_ABOUT,
 };
 
 export function loadSettings(kv: KV): Settings {
