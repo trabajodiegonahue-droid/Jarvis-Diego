@@ -65,3 +65,28 @@ describe("cliente Gemini", () => {
     await expect(streamGemini({ mode: "key" }, { system: "", contents: [] }, () => {})).rejects.toMatchObject({ kind: "config" });
   });
 });
+
+describe("si la respuesta en vivo se cuelga (algunos iPhone)", () => {
+  it("la pide entera y responde igual, en vez de quedarse en '…'", async () => {
+    const { streamGemini } = await import("../src/brain/gemini");
+    vi.useFakeTimers();
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init: any) => {
+      urls.push(url);
+      if (url.includes("streamGenerateContent")) {
+        // Nunca manda nada: solo termina si la cancelan.
+        return new Response(new ReadableStream({ start(c) { init.signal?.addEventListener("abort", () => c.error(new DOMException("abort", "AbortError"))); } }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "Hola Diego, aquí estoy." }] } }] }), { status: 200 });
+    }));
+    let dicho = "";
+    const p = streamGemini({ mode: "key", apiKey: "AQ.abc" }, { system: "x", contents: [{ role: "user", parts: [{ text: "hola" }] }] }, (d) => (dicho += d));
+    await vi.advanceTimersByTimeAsync(15_100);
+    const r = await p;
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    expect(r.text).toBe("Hola Diego, aquí estoy.");
+    expect(dicho).toBe("Hola Diego, aquí estoy.");
+    expect(urls.map((u) => u.split(":").pop())).toEqual(["streamGenerateContent?alt=sse", "generateContent"]);
+  });
+});

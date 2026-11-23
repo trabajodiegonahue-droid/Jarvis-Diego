@@ -98,13 +98,9 @@ async function post(c: Connection, method: "streamGenerateContent" | "generateCo
   return res;
 }
 
-export async function streamGemini(c: Connection, r: Request, onText: (delta: string) => void, signal?: AbortSignal): Promise<StreamResult> {
-  const res = await post(c, "streamGenerateContent", r, signal);
-  const out: StreamResult = { text: "", calls: [], parts: [] };
-  const reader = res.body!.getReader();
-  const dec = new TextDecoder();
-  let buf = "";
-  const handle = (json: any) => {
+// Lee las partes de una respuesta de Gemini (texto, llamadas a herramientas) y las acumula.
+function lector(out: StreamResult, onText: (delta: string) => void) {
+  return (json: any) => {
     const cand = json?.candidates?.[0];
     if (cand?.finishReason === "SAFETY" || json?.promptFeedback?.blockReason) throw new GeminiError("blocked", "Respuesta bloqueada.");
     for (const p of cand?.content?.parts || []) {
@@ -116,27 +112,90 @@ export async function streamGemini(c: Connection, r: Request, onText: (delta: st
       mergePart(out.parts, p);
     }
   };
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (value) buf += dec.decode(value, { stream: true });
-    let i: number;
-    while ((i = buf.indexOf("\n")) >= 0) {
-      const line = buf.slice(0, i).trim();
-      buf = buf.slice(i + 1);
-      if (line.startsWith("data:")) {
-        const data = line.slice(5).trim();
-        if (data && data !== "[DONE]") {
-          try {
-            handle(JSON.parse(data));
-          } catch (e) {
-            if (e instanceof GeminiError) throw e;
+}
+
+// Tiempos máximos: si la respuesta "en vivo" no empieza a llegar, se pide entera (algunos iPhone
+// dejan colgada la lectura por partes); y nunca se espera para siempre.
+export const ESPERA_PRIMER_TROZO = 15_000;
+export const ESPERA_TOTAL = 45_000;
+
+class SinRespuesta extends Error {}
+
+async function enVivo(c: Connection, r: Request, onText: (delta: string) => void, signal?: AbortSignal): Promise<StreamResult> {
+  const ctl = new AbortController();
+  const corta = () => ctl.abort();
+  signal?.addEventListener("abort", corta);
+  let llego = false;
+  const t1 = setTimeout(() => !llego && ctl.abort(), ESPERA_PRIMER_TROZO);
+  const t2 = setTimeout(() => ctl.abort(), ESPERA_TOTAL);
+  const out: StreamResult = { text: "", calls: [], parts: [] };
+  const handle = lector(out, onText);
+  try {
+    const res = await post(c, "streamGenerateContent", r, ctl.signal);
+    const reader = res.body!.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (value) {
+        llego = true;
+        buf += dec.decode(value, { stream: true });
+      }
+      let i: number;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i).trim();
+        buf = buf.slice(i + 1);
+        if (line.startsWith("data:")) {
+          const data = line.slice(5).trim();
+          if (data && data !== "[DONE]") {
+            try {
+              handle(JSON.parse(data));
+            } catch (e) {
+              if (e instanceof GeminiError) throw e;
+            }
           }
         }
       }
+      if (done) break;
     }
-    if (done) break;
+    return out;
+  } catch (e) {
+    if (e instanceof GeminiError) throw e;
+    if (signal?.aborted) throw e;
+    // Se cortó por tiempo: si todavía no se había mostrado nada, se puede pedir entera.
+    if (!out.text && !out.calls.length) throw new SinRespuesta();
+    throw new GeminiError("down", "La respuesta se cortó.");
+  } finally {
+    clearTimeout(t1);
+    clearTimeout(t2);
+    signal?.removeEventListener("abort", corta);
   }
-  return out;
+}
+
+// La misma respuesta, pero entera de una vez (sin leer por partes).
+async function entera(c: Connection, r: Request, onText: (delta: string) => void): Promise<StreamResult> {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ESPERA_TOTAL);
+  try {
+    const res = await post(c, "generateContent", r, ctl.signal);
+    const out: StreamResult = { text: "", calls: [], parts: [] };
+    lector(out, onText)(await res.json());
+    return out;
+  } catch (e) {
+    if (e instanceof GeminiError) throw e;
+    throw new GeminiError("down", "Gemini se demoró demasiado.");
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+export async function streamGemini(c: Connection, r: Request, onText: (delta: string) => void, signal?: AbortSignal): Promise<StreamResult> {
+  try {
+    return await enVivo(c, r, onText, signal);
+  } catch (e) {
+    if (e instanceof SinRespuesta) return entera(c, r, onText);
+    throw e;
+  }
 }
 
 // Junta los trozos de texto seguidos en una sola parte; el resto se guarda tal cual.
