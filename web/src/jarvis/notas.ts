@@ -16,7 +16,10 @@ export function crearNotar(store: AppStore, clock: () => ChileNow) {
     if (ya.includes(id)) return null; // una nota por área en cada frase
     // Si dijo "hace 10 minutos", la nota queda a esa hora.
     const hace = typeof args?.hora === "string" && /^\d{2}:\d{2}$/.test(args.hora) ? null : haceCuanto(texto);
-    const min = hace ? Math.max(0, n.minutes - hace.minutos) : n.minutes;
+    // "saqué al perro a las 15:24": algo que ya pasó, a una hora dicha (si no es futura).
+    const dicha = !hace && !tool ? texto.match(/\ba las? (\d{1,2})[:.](\d{2})\b/) : null;
+    const minDicha = dicha ? Number(dicha[1]) * 60 + Number(dicha[2]) : -1;
+    const min = hace ? Math.max(0, n.minutes - hace.minutos) : minDicha >= 0 && minDicha <= n.minutes ? minDicha : n.minutes;
     const hora = typeof args?.hora === "string" && /^\d{2}:\d{2}$/.test(args.hora) && args.hora <= hhmm(n.minutes) ? args.hora : hhmm(min);
     const nota: Nota = { id: uid(), fecha: `${n.date}T${hora}`, area: id, texto: texto.trim(), origen, ...(tool ? { registro: tool } : {}) };
     await store.put("notas", nota);

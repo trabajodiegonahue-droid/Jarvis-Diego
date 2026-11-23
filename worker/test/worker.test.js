@@ -253,3 +253,40 @@ describe("Siri pregunta la hora si falta", () => {
     expect(await (await worker.fetch(siri("a las 10"), e)).text()).toMatch(/^Listo, te aviso .* a las 10:00: pagar la luz\.$/);
   });
 });
+
+describe("dictado y horas que ya pasaron", () => {
+  it("'a las 15 16' es 15:16, y 'hoy' a una hora pasada avisa al tiro", async () => {
+    const { recordatorioSiri } = await import("../src/index.js");
+    const T = Date.parse("2026-11-23T18:16:03Z"); // 15:16 en Chile
+    expect(recordatorioSiri("recuerdame sacar al perro a las 15 20", T)).toMatchObject({ t: Date.parse("2026-11-23T18:20:00Z"), texto: "Sacar al perro" });
+    expect(recordatorioSiri("recuerdame sacar al perro hoy a las 15 16", T)).toMatchObject({ t: T + 60000, texto: "Sacar al perro" });
+  });
+});
+
+describe("Siri razona con Gemini cuando las reglas no alcanzan", () => {
+  const gem = (obj) => vi.fn().mockResolvedValue(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(obj) }] } }] })));
+  it("'quiero que me envíes un recordatorio a las cuatro para ver el seminario' → aviso", async () => {
+    const { fechaChile } = await import("../src/index.js");
+    const manana = new Date(Date.now() + 864e5);
+    const f = fechaChile(manana.getTime());
+    vi.stubGlobal("fetch", gem({ tipo: "recordatorio", texto: "ver el seminario Fénix", fecha: f, hora: "16:00" }));
+    const BUZON = kvFalso();
+    await BUZON.put("dev:abcdefghijklmnop", JSON.stringify({ k: "x", sub: { endpoint: "https://web.push.apple.com/z" }, avisos: [], enviados: [], cola: [] }));
+    const r = await worker.fetch(siri("Quiero que me envíes un recordatorio a las cuatro para ver el seminario Fénix"), { ...env, BUZON });
+    expect(await r.text()).toBe("Listo, te aviso mañana a las 16:00: ver el seminario fénix.");
+    expect(JSON.parse(BUZON.m.get("dev:abcdefghijklmnop")).avisos[0].cuerpo).toBe("Ver el seminario Fénix");
+  });
+  it("'saqué al Apolo a las 15:24' es algo que ya hizo: se anota, no se agenda", async () => {
+    vi.stubGlobal("fetch", gem({ tipo: "registro", texto: "sacar al Apolo", fecha: "", hora: "15:24" }));
+    const BUZON = kvFalso();
+    const r = await worker.fetch(siri("saqué al Apolo ahora a las 15:24"), { ...env, BUZON });
+    expect(await r.text()).toMatch(/^Anotado a las 15:24: sacar al apolo\./);
+    const item = [...BUZON.m.entries()].find(([k]) => k.startsWith("m:"));
+    expect(JSON.parse(item[1]).hora).toBe("15:24");
+  });
+  it("si Gemini falla, sigue funcionando con las reglas", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("sin red")));
+    const r = await worker.fetch(siri("hoy salí con la polola"), { ...env, BUZON: kvFalso() });
+    expect(await r.text()).toMatch(/^Listo, lo guardo en Amor/);
+  });
+});

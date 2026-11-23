@@ -287,21 +287,32 @@ async function siri(request, env) {
   // ¿Es la respuesta a "¿cuándo te lo recuerdo?" (lo que preguntó la vez anterior, hace menos de 5 minutos)?
   let rec = null;
   const pend = env.BUZON ? JSON.parse((await env.BUZON.get("pend:siri")) || "null") : null;
-  if (pend && /\d|\b(hoy|manana|pasado|lunes|martes|miercoles|jueves|viernes|sabado|domingo|ahora|altiro|al tiro|tarde|noche|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|media|cuarto)\b/.test(t) && !PARA_ANOTAR.test(t)) {
-    await env.BUZON.delete("pend:siri");
-    const ans = /^(\d{1,2}(?:[:.]\d{2})?|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)$/.test(t) ? `a las ${t}` : t;
-    const r = recordatorioSiri(norm(`recuerdame ${pend.texto} ${pend.dia || ""} ${ans}`), Date.now());
-    if (r && !r.falta) rec = r;
-    else return texto("No te entendí la hora. Dime de nuevo el recordatorio completo, por ejemplo: recuérdame sacar al perro mañana a las 7.");
-  } else if (pend && /^(no|nada|olvidalo|dejalo|cancela)\b/.test(t)) {
+  if (pend && /^(no|nada|olvidalo|dejalo|cancela)\b/.test(t)) {
     await env.BUZON.delete("pend:siri");
     return texto("Ya, no lo agendo.");
   }
+  if (pend && /\d|\b(hoy|manana|pasado|lunes|martes|miercoles|jueves|viernes|sabado|domingo|ahora|altiro|al tiro|tarde|noche|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|media|cuarto)\b/.test(t) && !PARA_ANOTAR.test(t)) {
+    const ans = /^(\d{1,2}(?:[:.]\d{2})?|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)$/.test(t) ? `a las ${t}` : t;
+    const r = recordatorioSiri(norm(`recuerdame ${pend.texto} ${pend.dia || ""} ${ans}`), Date.now());
+    if (r && !r.falta) rec = { ...r, completado: true };
+  }
+  // Reglas rápidas ("recuérdame X en 10 minutos"); si no alcanzan, Gemini razona la frase.
   if (!rec) rec = recordatorioSiri(t, Date.now());
+  let intento = null;
+  // Gemini solo cuando puede ser un aviso o algo con hora (lo demás se resuelve sin gastar cuota).
+  const quizasAviso = /\b(recuerd|record|avis|agend|alarma|notific)/.test(t) || /\b(a las?|ahora|ahorita|altiro|en \d+|dentro de|manana|esta (?:tarde|noche)|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/.test(t);
+  if ((!rec || rec.falta) && (pend || quizasAviso) && !DE_LA_APP.test(t)) {
+    intento = await entenderSiri(env, dicho, pend).catch(() => null);
+    if (intento?.tipo === "recordatorio") {
+      if (intento.fecha && intento.hora) rec = { ...instanteDe(intento.fecha, intento.hora, Date.now()), texto: intento.texto, completado: !!pend };
+      else rec = { falta: intento.fecha ? "hora" : "cuando", dia: intento.fecha ? diaTxt(intento.fecha, fechaChile()) : "", fecha: intento.fecha || "", texto: intento.texto };
+    } else if (intento) rec = null;
+  }
+  if (pend && rec && !rec.falta) await env.BUZON.delete("pend:siri");
   if (rec?.falta && env.BUZON) {
-    await env.BUZON.put("pend:siri", JSON.stringify({ texto: rec.texto, dia: rec.dia }), { expirationTtl: 300 });
-    const q = rec.falta === "hora" ? `¿A qué hora ${rec.dia.replace("manana", "mañana")} te recuerdo ${rec.texto.toLowerCase()}?` : `¿Cuándo te recuerdo ${rec.texto.toLowerCase()}?`;
-    return texto(`${q} Dime "Oye Siri, Jarvis" y la hora, por ejemplo: mañana a las 7.`);
+    await env.BUZON.put("pend:siri", JSON.stringify({ texto: rec.texto, dia: rec.dia || "" }), { expirationTtl: 300 });
+    const q = rec.falta === "hora" ? `¿A qué hora ${String(rec.dia || "").replace("manana", "mañana")} te recuerdo ${rec.texto.toLowerCase()}?` : `¿Cuándo te recuerdo ${rec.texto.toLowerCase()}?`;
+    return texto(q.replace(/\s+/g, " "));
   }
   if (rec && !rec.falta && env.BUZON) {
     let n = 0;
@@ -313,9 +324,17 @@ async function siri(request, env) {
       n++;
     }
     const id = `m:${Date.now().toString().padStart(15, "0")}:${Math.random().toString(36).slice(2, 6)}`;
-    await env.BUZON.put(id, JSON.stringify({ texto: pend ? `recuérdame ${rec.texto.toLowerCase()} ${rec.cuando}` : dicho, fecha: new Date().toISOString() }), { expirationTtl: BUZON_TTL });
+    // A la app le llega en forma clara, para que también quede en Recordatorios.
+    await env.BUZON.put(id, JSON.stringify({ texto: `recuérdame ${rec.texto.toLowerCase()} ${rec.cuandoApp || rec.cuando}`, fecha: new Date().toISOString() }), { expirationTtl: BUZON_TTL });
     return texto(n ? `Listo, te aviso ${rec.cuando}: ${rec.texto.toLowerCase()}.` : `Lo anoté para ${rec.cuando}, pero tu iPhone no tiene los avisos activados: en Vida ve a Más, Recordatorios, Avisos.`);
   }
+  // Algo que ya hizo ("saqué al Apolo a las 15:24"): queda anotado (a esa hora) y se guarda en su área al abrir la app.
+  if (intento?.tipo === "registro" && env.BUZON) {
+    const id = `m:${Date.now().toString().padStart(15, "0")}:${Math.random().toString(36).slice(2, 6)}`;
+    await env.BUZON.put(id, JSON.stringify({ texto: dicho, fecha: new Date().toISOString(), ...(intento.hora ? { hora: intento.hora } : {}) }), { expirationTtl: BUZON_TTL });
+    return texto(`Anotado${intento.hora ? ` a las ${intento.hora}` : ""}: ${intento.texto.toLowerCase()}. Queda en ${areaDe(t)}.`);
+  }
+  if (intento && (intento.tipo === "pregunta" || intento.tipo === "conversacion") && intento.respuesta && !DE_LA_APP.test(t) && !PARA_ANOTAR.test(t)) return texto(intento.respuesta);
   // Algo que cuenta o pide anotar: queda en el buzón y se guarda en su área al abrir la app.
   if (PARA_ANOTAR.test(t) || !PREGUNTA.test(t)) {
     if (!env.BUZON) return texto("Para anotar desde Siri falta crear el buzón en Cloudflare. Mientras, ábreme en la app y dímelo ahí.");
@@ -492,7 +511,11 @@ export function recordatorioSiri(t, ahora = Date.now()) {
     resto = m[1];
     altiro = true;
   }
-  resto = resto.replace(/\bdentro de\b/g, "en").replace(/\b(?:una |1 )?hora y media\b/g, "90 minutos").replace(/\bmedia hora\b/g, "30 minutos").replace(/\b(?:un )?cuarto de hora\b/g, "15 minutos");
+  resto = resto
+    .replace(/\b(a las?|para las?|tipo|como a las?) (\d{1,2}) (\d{2})\b(?! ?(?:minutos?|min|horas?))/g, "$1 $2:$3") // el dictado escribe "15 16" por "15:16"
+    .replace(/\b(a las?|para las?|tipo|como a las?) (\d{1,2}) y media\b/g, "$1 $2:30")
+    .replace(/\b(a las?|para las?|tipo|como a las?) (\d{1,2}) y cuarto\b/g, "$1 $2:15")
+    .replace(/\bdentro de\b/g, "en").replace(/\b(?:una |1 )?hora y media\b/g, "90 minutos").replace(/\bmedia hora\b/g, "30 minutos").replace(/\b(?:un )?cuarto de hora\b/g, "15 minutos");
   const hoy = fechaChile(ahora);
   const ahoraMin = minutosChile(ahora);
   let cuandoMs = null;
@@ -528,10 +551,15 @@ export function recordatorioSiri(t, ahora = Date.now()) {
     let fecha = otroDia || hoy;
     let total = h * 60 + mi;
     if (!otroDia && !m[3] && h < 12 && total <= ahoraMin && (h + 12) * 60 + mi > ahoraMin) total += 720;
-    if (!otroDia && total <= ahoraMin) fecha = sumarDias(hoy, 1);
-    cuandoMs = chileAUtcMs(fecha, total);
+    // Una hora que acaba de pasar (o "hoy" a una hora ya pasada): se avisa al tiro en vez de mañana.
+    let yaPaso = false;
+    if (!otroDia && total <= ahoraMin) {
+      if (ahoraMin - total <= 2 || /\bhoy\b/.test(sinDeLa)) yaPaso = true;
+      else fecha = sumarDias(hoy, 1);
+    }
+    cuandoMs = yaPaso ? ahora + 60000 : chileAUtcMs(fecha, total);
     const dif = Math.round((Date.parse(fecha) - Date.parse(hoy)) / 864e5);
-    cuando = `${dif === 0 ? "hoy" : dif === 1 ? "mañana" : dif === 2 ? "pasado mañana" : `el ${["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(fecha + "T12:00:00Z").getUTCDay()]}`} a las ${hhmmTxt(total)}`;
+    cuando = yaPaso ? `en un minuto (las ${hhmmTxt(total)} ya pasaron)` : `${dif === 0 ? "hoy" : dif === 1 ? "mañana" : dif === 2 ? "pasado mañana" : `el ${["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(fecha + "T12:00:00Z").getUTCDay()]}`} a las ${hhmmTxt(total)}`;
     quitar = m[0];
   } else {
     // Es un recordatorio pero sin hora: se pregunta (y la próxima vez que hables con Siri se completa).
@@ -550,4 +578,65 @@ export function recordatorioSiri(t, ahora = Date.now()) {
     .trim();
   if (!texto || texto.length > 200) return null;
   return { t: cuandoMs, cuando, texto: texto.charAt(0).toUpperCase() + texto.slice(1) };
+}
+
+// ---------- Gemini entiende lo que le dices a Siri ----------
+function diaTxt(fecha, hoy) {
+  const dif = Math.round((Date.parse(fecha) - Date.parse(hoy)) / 864e5);
+  return dif === 0 ? "hoy" : dif === 1 ? "mañana" : dif === 2 ? "pasado mañana" : `el ${DIAS_TXT[new Date(fecha + "T12:00:00Z").getUTCDay()]}`;
+}
+// Fecha y hora de Chile → instante, con el texto para decirlo. Si ya pasó (hoy), avisa en un minuto.
+export function instanteDe(fecha, hora, ahora = Date.now()) {
+  const hoy = fechaChile(ahora);
+  const [h, m] = hora.split(":").map(Number);
+  const total = h * 60 + m;
+  let t = chileAUtcMs(fecha, total);
+  if (t <= ahora) return { t: ahora + 60000, cuando: `en un minuto (las ${hora} ya pasaron)`, cuandoApp: "en 1 minuto" };
+  return { t, cuando: `${diaTxt(fecha, hoy)} a las ${hora}`, cuandoApp: `${fecha === hoy ? "hoy" : fecha === sumarDias(hoy, 1) ? "mañana" : `el ${Number(fecha.slice(8))} de ${["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"][Number(fecha.slice(5, 7)) - 1]}`} a las ${hora}` };
+}
+
+export async function entenderSiri(env, dicho, pend, ahora = Date.now(), fetcher = fetch) {
+  if (!env.GEMINI_API_KEY) return null;
+  const hoy = fechaChile(ahora);
+  const ahoraTxt = `${DIAS_TXT[new Date(hoy + "T12:00:00Z").getUTCDay()]} ${hoy}, ${hhmmTxt(minutosChile(ahora))}`;
+  const model = encodeURIComponent(env.GEMINI_MODEL || "gemini-flash-lite-latest");
+  const sistema = `Eres JARVIS, el asistente de Diego (Chile, habla chileno). Clasifica lo que Diego dijo por voz (puede venir mal dictado) y devuelve SOLO el JSON pedido.
+Ahora en Chile es ${ahoraTxt}.
+- "recordatorio": quiere que le avises algo en el FUTURO (recuérdame, avísame, agenda, ponme un recordatorio, tengo X a las..., quiero que me envíes un recordatorio...). texto = qué hacer, corto, en infinitivo y sin la hora ("ver el seminario Fénix"). fecha = AAAA-MM-DD y hora = HH:MM en 24 horas. Calcula tú: "en 10 minutos" = ahora + 10; "a las cuatro" sin decir mañana/noche = la próxima vez que sean las 4 (si ahora es de día y las 4 ya pasaron en la mañana, son las 16:00); "mañana" sin hora = fecha de mañana y hora vacía. Si no dijo cuándo, deja fecha y hora vacías.
+- "registro": cuenta algo que YA hizo o le pasó (saqué al perro, gasté, fui, comí, me duele). texto = lo que hizo, corto. hora = HH:MM si dijo a qué hora pasó ("ahora" = ${hhmmTxt(minutosChile(ahora))}), si no vacía. fecha vacía.
+- "pregunta": pregunta algo. respuesta = la respuesta para escuchar, máximo 2 frases cortas, en chileno relajado, sin emojis ni listas. Nunca inventes datos.
+- "conversacion": saludo o charla. respuesta = respuesta corta.${pend ? `
+OJO: hace un rato le preguntaste a Diego cuándo recordarle "${pend.texto}"${pend.dia ? ` (${pend.dia})` : ""}. Si ahora dice un día u hora, es tipo "recordatorio" con ese texto.` : ""}`;
+  const res = await fetcher(`${GEMINI}/v1beta/models/${model}:generateContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: sistema }] },
+      contents: [{ role: "user", parts: [{ text: dicho }] }],
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 300,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            tipo: { type: "STRING", enum: ["recordatorio", "registro", "pregunta", "conversacion"] },
+            texto: { type: "STRING" },
+            fecha: { type: "STRING" },
+            hora: { type: "STRING" },
+            respuesta: { type: "STRING" },
+          },
+          required: ["tipo", "texto"],
+        },
+      },
+    }),
+  });
+  if (!res?.ok) return null;
+  const data = await res.json();
+  const j = JSON.parse((data?.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("") || "null");
+  if (!j || !["recordatorio", "registro", "pregunta", "conversacion"].includes(j.tipo)) return null;
+  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(j.fecha || "") ? j.fecha : "";
+  const hora = /^\d{1,2}:\d{2}$/.test(j.hora || "") ? j.hora.padStart(5, "0") : "";
+  const tx = String(j.texto || "").replace(/[*_#`]/g, "").trim().slice(0, 200);
+  return { tipo: j.tipo, texto: tx ? tx.charAt(0).toUpperCase() + tx.slice(1) : "", fecha, hora: j.tipo === "recordatorio" && !fecha && hora ? "" : hora, ...(j.tipo === "recordatorio" && !fecha && hora ? { fecha: hoy, hora } : {}), respuesta: String(j.respuesta || "").replace(/[*_#`]/g, "").trim() };
 }

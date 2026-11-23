@@ -32,12 +32,17 @@ function diaMes(t: string): { dia: string; anio?: number } | null {
 
 export function parseExtras(text: string, ctx: CtxExtras = {}): LocalCommand | null {
   const raw = text.replace(/^\s*((oye|oe|hola|wena)[,!\s]+)*(jarvis[,!\s]*)?/i, "").trim();
-  const t = suave(raw);
+  let t = suave(raw);
   if (!t) return null;
   let m: RegExpMatchArray | null;
 
   // ---------- Recordatorios ----------
-  if ((m = t.match(/^(?:ya )?(?:recuerdame|recordarme|recuerdeme|avisame|avisarme|no me dejes olvidar|ponme un recordatorio|pon un recordatorio|crea un recordatorio|haz un recordatorio|recordatorio)\s+(?:de |para |que |a )?(.+)$/))) {
+  // Otras formas de pedir un aviso: "quiero que me envíes un recordatorio…", "ponme una alarma…", "agenda X a las 4".
+  {
+    const alt = t.match(/^(?:quiero que me |necesito que me |puedes |podrias |me puedes )?(?:envies|mandes|pongas|hagas|crees|enviar|mandar|poner|hacer|crear|envia|manda|pon|haz|crea|ponme|hazme|creame|mandame|enviame) (?:un |una )?(?:recordatorio|aviso|alarma|notificacion)\s+(?:de |para |que |a (?!las?\b))?(.+)$/) || t.match(/^(?:agenda|agendame|anota en la agenda|pon en la agenda)\s+(?:que |para )?(.+)$/);
+    if (alt && /\b(a las?|en \d+|manana|hoy|lunes|martes|miercoles|jueves|viernes|sabado|domingo|ahora|altiro)\b/.test(alt[1])) t = `recuerdame ${alt[1]}`;
+  }
+  if ((m = t.match(/^(?:ya )?(?:recuerdame|recordarme|recuerdeme|avisame|avisarme|no me dejes olvidar|ponme un recordatorio|pon un recordatorio|crea un recordatorio|haz un recordatorio|recordatorio)\s+(?:de |para |que |a (?!las?\b))?(.+)$/))) {
     const resto = m[1];
     const texto = resto
       .replace(/\b(?:pasado manana|manana|hoy|esta (?:tarde|noche)|en \S+ (?:minutos?|min|horas?)(?: y media)?|(?:el |este |para el )?(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)(?: que viene)?|(?:todos los|cada) \S+|todas las \S+|(?:el )?\d{1,2} de \w+(?: de \d{4})?|(?:a las?|tipo|como a las?|para las?) \d{1,2}(?:[:.]\d{2})?(?: ?(?:hrs?|horas|h))?(?: de la (?:manana|tarde|noche)| am| pm)?|(?:en|por) la (?:manana|tarde|noche)|al mediodia|la proxima semana)\b/g, " ")
