@@ -1,6 +1,7 @@
 // Estado de la pantalla: preferencias, navegación y avisos con "deshacer".
 import { useEffect, useState } from "preact/hooks";
 import { localKV } from "../core/storage";
+import { setNombreMascota } from "../areas/calc";
 import { store } from "../data/store";
 import { PUERTO_VARAS, type Ciudad } from "../weather/clima";
 
@@ -54,6 +55,7 @@ export interface Prefs {
   avisos: { activos: boolean; manana: string; noche: string; agua: boolean; rutina: boolean }; // avisos en el teléfono
   vistaEquilibrio: "barras" | "rueda";
   dificilSugerido: string; // fecha en que dijiste "no, gracias" a la semana difícil
+  mascota: string; // nombre de la mascota (su área en Mi vida)
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -76,6 +78,7 @@ const DEFAULT_PREFS: Prefs = {
   avisos: { activos: false, manana: "08:00", noche: "21:30", agua: false, rutina: true },
   vistaEquilibrio: "rueda",
   dificilSugerido: "",
+  mascota: "",
 };
 
 let prefs: Prefs = loadPrefs();
@@ -91,12 +94,14 @@ function loadPrefs(): Prefs {
   const nuevas = AREAS.map((a) => a.id).filter((id) => !(p.areasConocidas || []).includes(id));
   if (nuevas.length && kv.get("prefs", null)) p.areas = [...new Set([...p.areas, ...nuevas])];
   p.areasConocidas = AREAS.map((a) => a.id);
+  setNombreMascota(p.mascota);
   return p;
 }
 
 export const getPrefs = () => prefs;
 export function setPrefs(patch: Partial<Prefs>) {
   prefs = { ...prefs, ...patch };
+  setNombreMascota(prefs.mascota);
   kv.set("prefs", prefs);
   applyTheme();
   emit();

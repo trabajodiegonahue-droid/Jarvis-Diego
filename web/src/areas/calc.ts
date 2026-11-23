@@ -14,6 +14,13 @@ export interface InfoArea {
 }
 
 // Colores: los 8 tonos validados para gráficos y gris para lo secundario.
+// La mascota tiene su propia área, con su nombre (Ajustes: "¿Cómo se llama tu mascota?").
+let nombreMascota = "";
+export function setNombreMascota(n: string) {
+  nombreMascota = String(n || "").trim().slice(0, 30);
+}
+export const getNombreMascota = () => nombreMascota;
+
 export const AREAS_VIDA: InfoArea[] = [
   { id: "salud", nombre: "Salud", color: "var(--t8)", icono: "salud" },
   { id: "animo", nombre: "Ánimo", color: "var(--t7)", icono: "animo" },
@@ -24,6 +31,14 @@ export const AREAS_VIDA: InfoArea[] = [
   { id: "futbol", nombre: "Fútbol", color: "var(--t3)", icono: "futbol" },
   { id: "estudios", nombre: "Estudios", color: "var(--t1)", icono: "libro" },
   { id: "trabajo", nombre: "Trabajo", color: "var(--t2)", icono: "trabajo" },
+  {
+    id: "mascota",
+    get nombre() {
+      return nombreMascota || "Mascota";
+    },
+    color: "var(--t2)",
+    icono: "pata",
+  },
   { id: "casa", nombre: "Casa y trámites", color: "var(--t-gris2)", icono: "casa" },
   { id: "metas", nombre: "Metas y proyectos", color: "var(--gold)", icono: "metas" },
   { id: "ocio", nombre: "Ocio y hobbies", color: "var(--t7)", icono: "estrella" },
@@ -35,6 +50,7 @@ const sinTilde = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ
 
 // Palabras de cada área, de la más específica a la más general (gana la primera que calce).
 const PISTAS: [AreaVida, RegExp][] = [
+  ["mascota", /\b(perro|perrito|perrita|perrin|gato|gatito|gata|mascota|veterinari|vacuna del|pasear al|pasear a la|sacar a pasear|sacar al|sacar a la|saque al|saque a la|caca|croquetas|comida del perro|comida del gato|arena del|correa|collar|pulgas|desparasit|bano al perro|banar al)/],
   ["amor", /\b(polola|pololo|pololear|pololeo|novia|novio|pareja|mi amor|cita|citas|aniversario|beso|besos|me gusta una|me gusta un|crush|mi ex\b|terminamos|terminé con|enamorad|tinder|romantic|san valentin|celos|peleamos|pelea con la (polola|novia)|regalo para la (polola|novia))/],
   ["salud", /\b(duele|dolor|me lesion|lesion|esguince|tobillo|rodilla|espalda|cabeza|resfri|gripe|fiebre|tos|enferm|medico|doctor|dentista|kine|kinesiolog|remedio|pastilla|vacuna|examen de sangre|alergia|dormi|sueno|insomnio|me desperte|peso\b|kilos|presion|hidrat|agua|nutricion|dieta|comi mal|comi bien)/],
   ["animo", /\b(triste|feliz|contento|bajoneado|bajon|ansios|ansiedad|estres|estresado|angustia|me siento|motivad|desmotivad|agradecido|orgullos|frustrad|enojad|rabia|soledad|me siento solo|me siento sola|medit|respir|psicolog|terapia|animo|mental)/],
@@ -44,13 +60,14 @@ const PISTAS: [AreaVida, RegExp][] = [
   ["estudios", /\b(estudi|ingles|clase|clases|prueba|examen|ensayo|nota|curso|universidad|preu|paes|tarea|certificado de alumno|profe|profesor|apuntes|efset|toefl|ielts)/],
   ["trabajo", /\b(trabaj|turno|pega|jefe|jefa|cliente|clientes|restaurant|sueldo|contrato|entrevista de trabajo|postule a un trabajo|horas extra|colega)/],
   ["social", /\b(mama|papa|abuel|herman|tia|tio|prim|familia|amigo|amiga|amigos|amigas|carrete|junta|juntarme|cumpleanos|cumple|asado|visita|sobrin|suegr)/],
-  ["casa", /\b(perro|perrito|perrita|gato|gatito|gata|mascota|veterinari|pasear al|pasear a la|sacar a pasear|caca|comida del|arena del|casa|pieza|depto|departamento|arriendo|aseo|limpi|ordenar|lavar|ropa|supermercado|super|compras|tramite|tramites|banco|municipalidad|registro civil|carnet|pasaporte|visa|auto|mecanico|cuentas|luz|agua potable|gas|internet)/],
+  ["casa", /\b(casa|pieza|depto|departamento|arriendo|aseo|limpi|ordenar|lavar|ropa|supermercado|super|compras|tramite|tramites|banco|municipalidad|registro civil|carnet|pasaporte|visa|auto|mecanico|cuentas|luz|agua potable|gas|internet)/],
   ["ocio", /\b(pelicula|peli|serie|netflix|anime|cine|concierto|musica|cancion|guitarra|tocar|jugar play|videojuego|play|leer|lei|libro|dibuj|foto|hobby|pasatiempo|paseo|playa|lago|volcan|pesca|camping)/],
   ["metas", /\b(meta|metas|proyecto|sueno es|quiero lograr|plan|planes|objetivo|working holiday|australia|viaje|viajar|emprend|negocio|algun dia)/],
 ];
 
 export function clasificarArea(texto: string): AreaVida {
   const t = ` ${sinTilde(texto).replace(/[¿?¡!.,]/g, " ")} `;
+  if (nombreMascota && new RegExp(`\\b${sinTilde(nombreMascota).replace(/[^a-z0-9 ]/g, "")}\\b`).test(t)) return "mascota";
   for (const [a, re] of PISTAS) if (re.test(t)) return a;
   return "otro";
 }
@@ -110,6 +127,12 @@ export function esPregunta(texto: string): boolean {
   return /\?|^¿/.test(texto) || /^(que|como|cuando|cuanto|cuanta|cuantos|cuantas|donde|por que|porque|cual|cuales|quien|puedes|podrias|me puedes|dime|explicame|ayudame|recomiendame|sabes|crees|opinas|deberia|conviene|hay|es verdad|busca|traduce|escribe|dame|necesito que|ensename)\b/.test(t);
 }
 
+// Notas antiguas que quedaron en "Otros" o "Casa" pero son de la mascota, se muestran en su área.
+export function areaEfectiva(n: Nota): AreaVida {
+  if ((n.area === "otro" || n.area === "casa") && clasificarArea(n.texto) === "mascota") return "mascota";
+  return n.area;
+}
+
 export interface EstadoArea {
   dato: string | null; // el dato al día del bloque ("7,2 h de sueño promedio")
   notas: Nota[]; // lo último contado
@@ -121,7 +144,7 @@ const clp = (n: number) => `$${Math.round(n).toString().replace(/\B(?=(\d{3})+(?
 
 // El estado al día de cada área, calculado con los datos de la app (no hace falta anotar dos veces).
 export function estadoArea(id: AreaVida, d: Datos, hoy: string): EstadoArea {
-  const notas = d.notas.filter((n) => n.area === id).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const notas = d.notas.filter((n) => areaEfectiva(n) === id).sort((a, b) => b.fecha.localeCompare(a.fecha));
   const sem = (f: string) => f >= addDays(hoy, -6) && f <= hoy;
   let dato: string | null = null;
   if (id === "salud") {
@@ -163,6 +186,9 @@ export function estadoArea(id: AreaVida, d: Datos, hoy: string): EstadoArea {
   } else if (id === "trabajo") {
     const prox = d.turnos.filter((t) => t.fecha >= hoy && !t.falte).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.inicio.localeCompare(b.inicio))[0];
     dato = prox ? `próximo turno ${prox.fecha === hoy ? "hoy" : prox.fecha.slice(8) + "/" + prox.fecha.slice(5, 7)} a las ${prox.inicio}` : null;
+  } else if (id === "mascota") {
+    const hoyN = notas.filter((n) => n.fecha.startsWith(hoy));
+    dato = hoyN.length ? `hoy: ${hoyN.length === 1 ? `1 cosa (${hoyN[0].fecha.slice(11)})` : `${hoyN.length} cosas, la última a las ${hoyN[0].fecha.slice(11)}`}` : notas[0] ? "nada anotado hoy" : null;
   } else if (id === "casa") {
     const c = d.compras.filter((x) => !x.hecho).length;
     dato = c ? `${c} ${c === 1 ? "cosa" : "cosas"} en la lista de compras` : null;

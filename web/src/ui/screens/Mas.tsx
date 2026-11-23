@@ -70,6 +70,28 @@ export function Mas() {
   );
 }
 
+function MascotaNombre() {
+  const { prefs } = useApp();
+  const [n, setN] = useState(prefs.mascota);
+  return (
+    <section class="card" aria-labelledby="a-mascota">
+      <h2 id="a-mascota">Tu mascota</h2>
+      <span class="small">Todo lo de tu mascota (paseos, comida, veterinario) queda en su propia área de Mi vida, con su nombre.</span>
+      <form
+        class="row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setPrefs({ mascota: n.trim() });
+          toast(n.trim() ? `Listo: ${n.trim()} tiene su área en Mi vida.` : "Guardado.");
+        }}
+      >
+        <input aria-label="Nombre de tu mascota" placeholder="Nombre (por ejemplo: Apolo)" value={n} onInput={(e) => setN((e.target as HTMLInputElement).value)} style={{ flex: 1, minWidth: 0, minHeight: "44px", borderRadius: "12px", border: "1px solid var(--line)", background: "var(--card2)", color: "var(--text)", padding: "0 12px" }} />
+        <button class="btn sm main">Guardar</button>
+      </form>
+    </section>
+  );
+}
+
 function CiudadYAgua() {
   const { prefs } = useApp();
   const [q, setQ] = useState("");
@@ -278,6 +300,7 @@ export function Ajustes() {
       </section>
 
       <CiudadYAgua />
+      <MascotaNombre />
 
       <section class="card" aria-labelledby="a-pin">
         <h2 id="a-pin">Bloqueo con PIN</h2>
@@ -525,7 +548,7 @@ function JarvisAjustes() {
         <div class="small stack" style={{ gap: "6px", marginTop: "4px" }}>
           <span>Necesita el intermediario de Cloudflare (modo "intermediario" arriba). En la app Atajos crea un atajo llamado Jarvis con estas acciones:</span>
           <ol style={{ margin: 0, paddingLeft: "18px", display: "grid", gap: "4px" }}>
-            <li>Dictar texto (Dictate Text), idioma Español (Chile), dejar de escuchar después de una pausa.</li>
+            <li>Dictar texto (Dictate Text), idioma Español (Chile), y en «Dejar de escuchar» (Stop Listening) elige «Al tocar» (On Tap): así hablas tranquilo, con pausas, y tocas cuando terminas.</li>
             <li>Obtener contenido de URL (Get Contents of URL): {(settings.workerUrl || "https://tu-intermediario.workers.dev").replace(/\/+$/, "")}/siri, método POST, sin encabezados, y cuerpo JSON con dos campos de texto: texto = Texto dictado, y codigo = tu código de acceso.</li>
             <li>Leer texto en voz alta (Speak Text): Contenido de URL, idioma Español y una voz en español.</li>
           </ol>

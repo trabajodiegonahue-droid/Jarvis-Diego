@@ -329,3 +329,47 @@ nav.tabs a.on::before { content: ""; position: absolute; top: -7px; width: 28px;
 /* Lo que JARVIS guardó y dónde quedó */
 .guardado { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--card2); display: grid; gap: 8px; }
 .pill-link { display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; border-radius: 16px; border: 1px solid var(--line); color: var(--blue); font-size: 13px; font-weight: 600; text-decoration: none; }
+
+/* ---------- JARVIS como chat ---------- */
+.sheet.full { height: 92dvh; overflow: hidden; gap: 10px; padding-bottom: calc(env(safe-area-inset-bottom) + 12px); }
+.sheet.full > .jv-chat { flex: 1; }
+.jv-estado { display: flex; align-items: center; gap: 12px; min-height: 40px; }
+.jv-orb { width: 30px; height: 30px; flex: none; border-radius: 50%; background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--green) 55%, #fff), var(--green) 55%, color-mix(in srgb, var(--green) 50%, #000)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 14%, transparent); }
+.jv-orb.listening { animation: latido 1s ease-in-out infinite; }
+.jv-orb.thinking { animation: girar 1.2s linear infinite; background: conic-gradient(var(--green), var(--blue), var(--green)); }
+.jv-orb.speaking { animation: latido 0.6s ease-in-out infinite; }
+.jv-orb.error { background: var(--red); box-shadow: 0 0 0 4px color-mix(in srgb, var(--red) 18%, transparent); }
+@keyframes latido { 50% { transform: scale(1.12); box-shadow: 0 0 0 9px color-mix(in srgb, var(--green) 10%, transparent); } }
+@keyframes girar { to { transform: rotate(360deg); } }
+.jv-detalle { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.jv-chat { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px 8px; overscroll-behavior: contain; scroll-behavior: smooth; }
+.jv-msg { max-width: 86%; padding: 10px 14px; border-radius: 18px; font-size: 15.5px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.jv-msg.el { align-self: flex-start; background: var(--card2); border-bottom-left-radius: 6px; }
+.jv-msg.yo { align-self: flex-end; background: var(--green); color: var(--on-accent); border-bottom-right-radius: 6px; font-weight: 500; }
+.jv-puntos { display: inline-flex; gap: 4px; padding: 4px 0; }
+.jv-puntos i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: punto 1s infinite; }
+.jv-puntos i:nth-child(2) { animation-delay: 0.15s; }
+.jv-puntos i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes punto { 50% { opacity: 0.25; transform: translateY(-3px); } }
+.jv-sugerencias { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; flex: none; }
+.jv-sugerencias button { white-space: nowrap; flex: none; min-height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid var(--line); background: var(--card2); color: var(--ink); font-size: 14px; }
+.jv-barra { display: flex; align-items: center; gap: 8px; flex: none; padding: 6px; border-radius: 28px; background: var(--card2); border: 1px solid var(--line); }
+.jv-barra input { flex: 1; min-width: 0; min-height: 44px; border: 0; background: transparent; color: var(--ink); font-size: 16px; padding: 0 4px; outline: none; }
+.jv-mic { width: 48px; height: 48px; flex: none; border-radius: 50%; border: 0; display: grid; place-items: center; background: var(--green); color: var(--on-accent); transition: transform 0.15s; }
+.jv-mic.listening { background: var(--red); color: #fff; animation: latido 1s ease-in-out infinite; }
+.jv-mic:active { transform: scale(0.94); }
+.jv-enviar { width: 44px; height: 44px; flex: none; border-radius: 50%; border: 0; display: grid; place-items: center; background: transparent; color: var(--green); }
+.jv-guia { flex: none; }
+.jv-guia summary { cursor: pointer; min-height: 32px; font-size: 14px; color: var(--muted); font-weight: 600; }
+.jv-guia[open] { max-height: 40dvh; overflow-y: auto; }
+@media (prefers-reduced-motion: reduce) { .jv-orb, .jv-mic, .jv-puntos i { animation: none !important; } }
+
+/* Inicio: hablarle a JARVIS al tiro */
+.cuentale { display: flex; flex-direction: column; gap: 10px; }
+.cuentale-barra { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 16px 6px 6px; border-radius: 28px; border: 1px solid color-mix(in srgb, var(--green) 35%, var(--line)); background: linear-gradient(180deg, var(--card-hi), transparent), var(--card); color: var(--muted); font-size: 16px; text-align: left; box-shadow: var(--shadow); }
+.cuentale-orb { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--green); color: var(--on-accent); flex: none; }
+.cuentale-rapido { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -20px; padding: 0 20px; }
+.cuentale-rapido button { flex: none; min-height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 14px; font-weight: 600; }
+.area-card strong { overflow-wrap: anywhere; hyphens: auto; line-height: 1.2; }
+.area-card { transition: transform 0.12s; }
+.area-card:active { transform: scale(0.98); }

@@ -10,6 +10,7 @@ import { Progress, Rueda } from "../charts";
 import { eventosDia } from "../../calendar/calc";
 import { Empty } from "../components";
 import { Icon } from "../icons";
+import { abrirJarvis } from "./Jarvis";
 import { AREAS, cardReady, go, useApp, type CardId, getPrefs } from "../state";
 import { diffDays, fechaCorta } from "../../core/dates";
 import { equilibrioMetas, metasPrincipales } from "../../goals/calc";
@@ -288,6 +289,21 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
           )}
         </div>
       </header>
+      <div class="cuentale">
+        <button class="cuentale-barra" onClick={() => abrirJarvis()}>
+          <span class="cuentale-orb" aria-hidden="true">
+            <Icon name="mic" size={18} />
+          </span>
+          <span>Cuéntale algo a JARVIS…</span>
+        </button>
+        <div class="cuentale-rapido">
+          <button onClick={() => abrirJarvis({ borrador: "¿Qué me toca hoy?", enviar: true })}>Mi día</button>
+          <button onClick={() => abrirJarvis({ borrador: "recuérdame " })}>Recordatorio</button>
+          <button onClick={() => abrirJarvis({ borrador: "gasté " })}>Gasto</button>
+          <button onClick={() => abrirJarvis({ borrador: "empecé a " })}>Empecé…</button>
+          <button onClick={() => abrirJarvis({ borrador: "¿Qué se viene los próximos días?", enviar: true })}>Lo que viene</button>
+        </div>
+      </div>
       {store.hasDemo() && <DemoBanner />}
       <SemanaDificil />
       <LogroNuevo />

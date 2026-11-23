@@ -77,6 +77,15 @@ const P: Record<string, JSX.Element> = {
     </>
   ),
   pesa: <path d="M3 10v4M6 7v10M18 7v10M21 10v4M6 12h12" />,
+  pata: (
+    <>
+      <circle cx="6.5" cy="10" r="1.8" />
+      <circle cx="10" cy="6" r="1.8" />
+      <circle cx="14" cy="6" r="1.8" />
+      <circle cx="17.5" cy="10" r="1.8" />
+      <path d="M12 11.5c-2.6 0-5 2.8-5 5.2 0 1.6 1.2 2.3 2.5 2.3 1 0 1.6-.5 2.5-.5s1.5.5 2.5.5c1.3 0 2.5-.7 2.5-2.3 0-2.4-2.4-5.2-5-5.2z" />
+    </>
+  ),
   casa: <path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5H9v5H5a1 1 0 0 1-1-1z" />,
   campana: <path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0" />,
   carro: (

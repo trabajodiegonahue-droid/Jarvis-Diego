@@ -343,21 +343,19 @@ function parseVidaBase(text: string, hoy: string, ctx: CtxVida): LocalCommand | 
   if (!preg) {
     const e =
       resto.match(new RegExp(`^(?:ya )?(?:hice|fui al?|termine|complete|entrene|tuve)\\s+(?:el |la |mi )?(?:rutina de |sesion de |entrenamiento de )?(${ENTRENO})\\b(.*)$`)) ||
-      resto.match(/^(?:ya )?(?:entrene|sali a correr|fui a correr|corri|sali a trotar|trote|nade|fui a nadar)\b(.*)$/);
+      resto.match(/^(?:ya )?(?:entrene|sali a correr|fui a correr|corri|sali a trotar|fui a trotar|trote|nade|fui a nadar|sali en bici|anduve en bici|pedalee|camine)\b(.*)$/);
     // "ya hice el gym y el inglés": son varias tareas de la rutina, eso lo resuelve el intérprete de la rutina.
     if (e && /^\s*(y|e|,|tambien)\s/.test((e.length > 2 ? e[2] : e[1]) || "")) return null;
     if (e) {
-      const que = e.length > 2 ? e[1] : /corr|trot/.test(resto) ? "correr" : /nad/.test(resto) ? "natación" : "entrenamiento";
+      const que = e.length > 2 ? e[1] : /trot/.test(resto) ? "trote" : /corr/.test(resto) ? "correr" : /nad/.test(resto) ? "natación" : /bici|pedal/.test(resto) ? "bici" : /camin/.test(resto) ? "caminata" : "entrenamiento";
       const extra = (e.length > 2 ? e[2] : e[1]) || "";
-      const minutos = extra.match(/\b(\d+) (?:minutos|min)\b/) || extra.match(/\b(una|1) hora\b/);
-      const km = extra.match(/\b(\d+(?:[.,]\d+)?) ?(?:km|kilometros|kilómetros)\b/);
+      const c = cardio(extra);
       const rpe = extra.match(/\b(?:esfuerzo|rpe|intensidad) (?:de )?(\d{1,2})\b/);
       return {
         tool: "registrar_entreno",
         args: conFecha({
           tipo: que,
-          ...(minutos ? { minutos: /hora/.test(minutos[0]) ? 60 : Number(minutos[1]) } : {}),
-          ...(km ? { km: Number(km[1].replace(",", ".")) } : {}),
+          ...c,
           ...(rpe && Number(rpe[1]) <= 10 ? { esfuerzo: Number(rpe[1]) } : {}),
         }),
       };
@@ -442,4 +440,37 @@ export function haceCuanto(text: string): { minutos: number; resto: string } | n
   const minutos = /^h/i.test(m[2]) ? n * 60 + (m[3] ? 30 : 0) : n;
   const resto = text.replace(re, " ").replace(/\s+/g, " ").trim();
   return minutos > 0 && minutos < 24 * 60 && resto ? { minutos, resto } : null;
+}
+
+// "2 kilómetros, 89" / "2,89 km" / "2 coma 89 km"; "19 minutos 35 segundos" / "19:35"; "234 calorías".
+export function cardio(x: string): { km?: number; minutos?: number; segundos?: number; calorias?: number } {
+  const out: { km?: number; minutos?: number; segundos?: number; calorias?: number } = {};
+  const km =
+    x.match(/\b(\d+)(?:[.,]| coma )(\d+) ?(?:km|kms|kilometros?|k)\b/) ||
+    x.match(/\b(\d+) ?(?:km|kms|kilometros?|k)(?:,| con| coma)? (\d{1,3})\b(?! ?(?:minutos?|min|segundos?|seg|calorias|kcal|horas?))/) ||
+    x.match(/\b(\d+) ?(?:km|kms|kilometros?)\b/) ||
+    x.match(/\b(\d+) ?(?:mil )?metros\b/);
+  if (km) {
+    if (/metros/.test(km[0]) && !/kilo/.test(km[0])) out.km = Number(km[1]) / (/mil/.test(km[0]) ? 1 : 1000);
+    else out.km = km[2] ? Number(`${km[1]}.${km[2]}`) : Number(km[1]);
+  }
+  const reloj = x.match(/\b(?:en|tarde|demore|me demore|tiempo(?: de)?)?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\b/);
+  const ms = x.match(/\b(\d+) ?(?:minutos?|mins?)(?:,| y| con)? ?(?:(\d+) ?(?:segundos?|seg|s)\b)?/);
+  const hs = x.match(/\b(una|1|\d+) ?horas?( y media)?\b/);
+  if (reloj && !/\ba las?\b/.test(x.slice(Math.max(0, (reloj.index || 0) - 6), (reloj.index || 0) + 1))) {
+    if (reloj[3]) {
+      out.minutos = Number(reloj[1]) * 60 + Number(reloj[2]);
+      out.segundos = Number(reloj[3]);
+    } else {
+      out.minutos = Number(reloj[1]);
+      out.segundos = Number(reloj[2]);
+    }
+  } else if (ms) {
+    out.minutos = Number(ms[1]);
+    if (ms[2]) out.segundos = Number(ms[2]);
+  }
+  if (hs && !reloj) out.minutos = (out.minutos || 0) + (hs[1] === "una" ? 1 : Number(hs[1])) * 60 + (hs[2] ? 30 : 0);
+  const kcal = x.match(/\b(\d{2,4}) ?(?:calorias|kcal|cal)\b/);
+  if (kcal) out.calorias = Number(kcal[1]);
+  return out;
 }

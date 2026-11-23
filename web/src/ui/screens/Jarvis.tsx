@@ -71,20 +71,30 @@ async function saludo(): Promise<string> {
   return n.minutes < 13 * 60 ? r.say : `Hola Diego. ${r.say}`;
 }
 
-export function JarvisSheet({ onClose, borrador }: { onClose: () => void; borrador?: string }) {
+export const abrirJarvis = (detail: { borrador?: string; enviar?: boolean } = {}) => dispatchEvent(new CustomEvent("abrir-jarvis", { detail }));
+
+export function JarvisSheet({ onClose, borrador, enviar }: { onClose: () => void; borrador?: string; enviar?: boolean }) {
   const [, redraw] = useState(0);
   const [estado, setEstado] = useState<Estado>("idle");
   const [detalle, setDetalle] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const stop = useRef<null | (() => void)>(null);
+  const lista = useRef<HTMLDivElement>(null);
+  // La conversación siempre muestra lo último (abajo), como un chat.
+  useEffect(() => {
+    const el = lista.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  });
 
   useEffect(() => {
     speaker.onStart = () => setEstado("speaking");
     speaker.onEnd = () => setEstado((e) => (e === "speaking" ? "idle" : e));
     speaker.unlock();
-    if (borrador && input.current) {
+    if (borrador && enviar) void send(borrador);
+    else if (borrador && input.current) {
       input.current.value = borrador;
-      setDetalle("Llegó este texto desde un enlace o un atajo. Revísalo y toca enviar.");
+      input.current.focus();
+      if (!/ $/.test(borrador)) setDetalle("Llegó este texto desde un enlace o un atajo. Revísalo y toca enviar.");
     }
     else if (!chat.length || kv.get<string>("saludo", "") !== chileNow().date) {
       void saludo().then((t) => {
@@ -162,68 +172,26 @@ export function JarvisSheet({ onClose, borrador }: { onClose: () => void; borrad
 
   const pocos = chat.filter((m) => m.who === "u").length < 2;
 
+  const conectado = isConnected(settings);
   return (
-    <Sheet title="JARVIS" onClose={onClose}>
-      <Conexion onResponder={(ps) => ps.forEach((q, i) => setTimeout(() => {
-        assistant.quitarPendiente(q);
-        void send(q);
-      }, i * 2500))} />
-      <div class="stack" style={{ alignItems: "center", gap: "8px" }}>
-        <button
-          onClick={escuchar}
-          aria-label="Hablar con JARVIS"
-          style={{ width: "96px", height: "96px", borderRadius: "48px", border: 0, background: estado === "error" ? "var(--red)" : "var(--green)", color: "var(--on-accent)", display: "grid", placeItems: "center", transform: estado === "listening" ? "scale(1.08)" : "none", transition: "transform .2s" }}
-        >
-          <Icon name="mic" size={34} />
-        </button>
-        <strong aria-live="polite">{TXT[estado]}</strong>
-        {detalle && <span class="small" style={{ textAlign: "center" }}>{detalle}</span>}
-      </div>
-      <form
-        class="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const v = input.current!.value;
-          input.current!.value = "";
-          send(v);
-        }}
-      >
-        <input ref={input} aria-label="Mensaje para JARVIS" placeholder="Escribe o dicta con el teclado" enterKeyHint="send" style={{ flex: 1, minHeight: "48px", borderRadius: "14px", border: "1px solid var(--line)", background: "var(--card2)", padding: "0 14px" }} />
-        <button class="btn main" aria-label="Enviar">
-          <Icon name="send" size={18} />
-        </button>
-      </form>
-      <details>
-        <summary style={{ cursor: "pointer", minHeight: "40px", fontWeight: 600 }}>¿Qué le puedo decir?</summary>
-        <div class="stack" style={{ gap: "10px", marginTop: "6px" }}>
-          <span class="small">Escríbele o háblale como hablas tú: entiende q, xq, nms, mns, toy, mñn, lukas, gambas, po, wn, cansao… Toca una frase para probarla.</span>
-          {GUIA.map(([titulo, frases]) => (
-            <div key={titulo} class="stack" style={{ gap: "6px" }}>
-              <span class="lbl">{titulo}</span>
-              <div class="chips">
-                {frases.map((f) => (
-                  <button key={f} style={{ minHeight: "36px", fontSize: "14px" }} onClick={() => send(f)}>
-                    {f}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </details>
-      {pocos && (
-        <div class="chips" style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "2px" }}>
-          {SUGERENCIAS.map((s) => (
-            <button key={s} class="chip" style={{ whiteSpace: "nowrap", flex: "none", minHeight: "36px", padding: "0 12px", borderRadius: "18px", border: "1px solid var(--line)", background: "var(--card2)", color: "var(--text)", fontSize: "14px" }} onClick={() => send(s)}>
-              {s}
-            </button>
-          ))}
-        </div>
+    <Sheet title="JARVIS" onClose={onClose} full>
+      {!conectado && (
+        <Conexion onResponder={(ps) => ps.forEach((q, i) => setTimeout(() => {
+          assistant.quitarPendiente(q);
+          void send(q);
+        }, i * 2500))} />
       )}
-      <div class="stack" aria-live="polite">
-        {[...chat].reverse().slice(0, 12).map((m, i) => (
-          <div key={chat.length - i} style={{ alignSelf: m.who === "u" ? "flex-end" : "flex-start", maxWidth: "88%", padding: "10px 13px", borderRadius: "14px", border: "1px solid var(--line)", background: m.who === "u" ? "var(--card2)" : "var(--card)", fontSize: "15px" }}>
-            {m.text || "…"}
+      <div class="jv-estado" aria-live="polite">
+        <span class={`jv-orb ${estado}`} aria-hidden="true" />
+        <div class="stack" style={{ gap: "2px", minWidth: 0 }}>
+          <strong>{TXT[estado]}</strong>
+          {detalle && <span class="small jv-detalle">{detalle}</span>}
+        </div>
+      </div>
+      <div class="jv-chat" ref={lista} aria-live="polite">
+        {chat.slice(-30).map((m, i) => (
+          <div key={i} class={`jv-msg ${m.who === "u" ? "yo" : "el"}`}>
+            {m.text || <span class="jv-puntos" aria-label="Pensando"><i /><i /><i /></span>}
             {m.guardado?.length ? <Guardados gs={m.guardado} /> : null}
             {m.undo && (
               <div style={{ marginTop: "6px" }}>
@@ -239,11 +207,56 @@ export function JarvisSheet({ onClose, borrador }: { onClose: () => void; borrad
           </div>
         ))}
       </div>
-      <p class="small" style={{ margin: 0 }}>
-        {getPrefs().privacy
-          ? "Modo privado: tus cifras de dinero no salen del teléfono. Lo que anotas y consultas de plata lo resuelvo aquí mismo."
-          : "Lo que anotas (gastos, entrenos, goles, metas) y los números los calculo en el teléfono. A Gemini solo va la frase cuando no la entiendo yo."}
-      </p>
+      {pocos && (
+        <div class="jv-sugerencias">
+          {SUGERENCIAS.map((s) => (
+            <button key={s} onClick={() => send(s)}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+      <form
+        class="jv-barra"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const v = input.current!.value;
+          input.current!.value = "";
+          send(v);
+        }}
+      >
+        <button type="button" class={`jv-mic ${estado}`} onClick={escuchar} aria-label={estado === "listening" ? "Enviar lo que dije" : "Hablar con JARVIS"}>
+          <Icon name={estado === "speaking" ? "stop" : "mic"} size={24} />
+        </button>
+        <input ref={input} aria-label="Mensaje para JARVIS" placeholder="Escríbele o toca el micrófono" enterKeyHint="send" />
+        <button class="jv-enviar" aria-label="Enviar">
+          <Icon name="send" size={18} />
+        </button>
+      </form>
+      <details class="jv-guia">
+        <summary>¿Qué le puedo decir?</summary>
+        <div class="stack" style={{ gap: "10px", marginTop: "6px" }}>
+          <span class="small">Háblale como hablas tú: entiende q, xq, nms, toy, mñn, lukas, po, cansao… Puedes decirle varias cosas de una vez. Toca una frase para probarla.</span>
+          {GUIA.map(([titulo, frases]) => (
+            <div key={titulo} class="stack" style={{ gap: "6px" }}>
+              <span class="lbl">{titulo}</span>
+              <div class="chips">
+                {frases.map((f) => (
+                  <button key={f} style={{ minHeight: "36px", fontSize: "14px" }} onClick={() => send(f)}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          <span class="small">
+            {getPrefs().privacy
+              ? "Modo privado: tus cifras de dinero no salen del teléfono."
+              : "Lo que anotas y los números se calculan en el teléfono. A Gemini solo va la frase cuando hace falta razonarla."}
+          </span>
+          {conectado && <Conexion onResponder={(ps) => ps.forEach((q, i) => setTimeout(() => { assistant.quitarPendiente(q); void send(q); }, i * 2500))} />}
+        </div>
+      </details>
     </Sheet>
   );
 }

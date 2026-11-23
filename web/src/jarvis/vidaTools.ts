@@ -25,7 +25,7 @@ const cuando = (fecha: string, hoy: string) => (fecha === hoy ? "hoy" : fecha ==
 const fechaOk = (f: unknown, hoy: string) => (typeof f === "string" && /^\d{4}-\d{2}-\d{2}$/.test(f) && f <= hoy ? f : hoy);
 const entero = (v: unknown) => (typeof v === "number" ? Math.round(v) : typeof v === "string" && /^\d+$/.test(v) ? Number(v) : undefined);
 const TILDES: Record<string, string> = { ingles: "Inglés", matematicas: "Matemáticas", matematica: "Matemática", fisica: "Física", quimica: "Química", biologia: "Biología", programacion: "Programación", musica: "Música", frances: "Francés", aleman: "Alemán", portugues: "Portugués", calculo: "Cálculo" };
-const NOMBRE_ENTRENO: Record<string, string> = { gym: "Gimnasio", gim: "Gimnasio", gimnasio: "Gimnasio", pesas: "Gimnasio", pierna: "Pierna", piernas: "Pierna", correr: "Correr", trote: "Correr", core: "Core", cardio: "Cardio" };
+const NOMBRE_ENTRENO: Record<string, string> = { gym: "Gimnasio", gim: "Gimnasio", gimnasio: "Gimnasio", pesas: "Gimnasio", pierna: "Pierna", piernas: "Pierna", correr: "Correr", trote: "Trote", bici: "Bici", caminata: "Caminata", natación: "Natación", core: "Core", cardio: "Cardio" };
 
 export function vidaTools({ store, routine, clock, clima }: VidaDeps): Tool[] {
   const d = () => store.data;
@@ -82,7 +82,7 @@ export function vidaTools({ store, routine, clock, clima }: VidaDeps): Tool[] {
     {
       name: "registrar_entreno",
       description: "Anota que Diego entrenó (gimnasio, correr, pierna, core…). También tacha la tarea de la rutina que calce.",
-      parameters: { type: "object", properties: { tipo: { type: "string" }, minutos: { type: "integer" }, km: { type: "number" }, esfuerzo: { type: "integer", description: "1 a 10" }, fecha: fechaParam }, required: ["tipo"] },
+      parameters: { type: "object", properties: { tipo: { type: "string" }, minutos: { type: "integer" }, segundos: { type: "integer", description: "segundos además de los minutos (19 min 35 s → minutos 19, segundos 35)" }, km: { type: "number", description: "distancia en km, con decimales (2,89)" }, calorias: { type: "integer" }, esfuerzo: { type: "integer", description: "1 a 10" }, fecha: fechaParam }, required: ["tipo"] },
       run: (a) => {
         const fecha = fechaOk(a.fecha, hoy());
         const tipo = norm(String(a.tipo || "entrenamiento"));
@@ -90,11 +90,18 @@ export function vidaTools({ store, routine, clock, clima }: VidaDeps): Tool[] {
         const ses = plan?.sesiones.find((s) => s.dia === dow(fecha));
         const generico = /^(gym|gim|gimnasio|pesas|entrenamiento|entreno|fisico|rutina)$/.test(tipo);
         const nombre = generico && ses ? ses.nombre : NOMBRE_ENTRENO[tipo] || cap(tipo);
-        const ya = d().entrenos.find((e) => e.fecha === fecha && norm(e.nombre) === norm(nombre));
+        // Cardio con datos (km, tiempo) puede repetirse en el día; un gym sin datos no se duplica.
+        const ya = a.km || a.minutos ? null : d().entrenos.find((e) => e.fecha === fecha && norm(e.nombre) === norm(nombre));
         if (ya) return { ok: true, say: `Ya tenías anotado ${nombre.toLowerCase()} ${cuando(fecha, hoy())}. No lo dupliqué.` };
-        const extra = [a.minutos ? `${entero(a.minutos)} min` : "", a.km ? `${a.km} km` : ""].filter(Boolean).join(" · ");
+        // Cardio: distancia, tiempo exacto (con segundos), ritmo por km y calorías.
+        const km = Number(a.km) > 0 && Number(a.km) < 500 ? Math.round(Number(a.km) * 100) / 100 : 0;
+        const seg = Math.round((Number(a.minutos) || 0) * 60 + (Number(a.segundos) || 0));
+        const kcal = entero(a.calorias);
+        const mmss = (x: number) => (x >= 3600 ? `${Math.floor(x / 3600)}:${String(Math.floor((x % 3600) / 60)).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}` : `${Math.floor(x / 60)}:${String(x % 60).padStart(2, "0")}`);
+        const ritmo = km && seg ? `${mmss(Math.round(seg / km))} /km` : "";
+        const extra = [km ? `${String(km).replace(".", ",")} km` : "", seg ? (seg % 60 ? mmss(seg) : `${seg / 60} min`) : "", ritmo ? `ritmo ${ritmo}` : "", kcal ? `${kcal} kcal` : ""].filter(Boolean).join(" · ");
         const esf = entero(a.esfuerzo);
-        const e: Entreno = { id: uid(), fecha, nombre, items: [], ...(generico && ses ? { sesionId: ses.id } : {}), ...(esf && esf <= 10 ? { rpe: esf } : {}), ...(extra ? { nota: extra } : {}) };
+        const e: Entreno = { id: uid(), fecha, nombre, items: [], ...(generico && ses ? { sesionId: ses.id } : {}), ...(esf && esf <= 10 ? { rpe: esf } : {}), ...(extra ? { nota: extra } : {}), ...(km ? { km } : {}), ...(seg ? { seg } : {}), ...(kcal ? { kcal } : {}) };
         void store.put("entrenos", e);
         // Si en la rutina hay algo que calce (gym, entrenar), se tacha también.
         const task = fecha === hoy() ? routine.find(tipo, dow(fecha)) || (generico ? routine.find("entrenar", dow(fecha)) : null) : null;

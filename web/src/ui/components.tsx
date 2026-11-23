@@ -38,7 +38,7 @@ export function Seguro({ children, onVolver, pagina }: { children: ComponentChil
   return pagina ? <main class="page">{aviso}</main> : aviso;
 }
 
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ComponentChildren }) {
+export function Sheet({ title, onClose, children, full }: { title: string; onClose: () => void; children: ComponentChildren; full?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // Accesibilidad: el foco entra a la hoja, Tab no se escapa hacia atrás y al cerrar vuelve a donde estaba.
@@ -67,7 +67,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   }, []);
   return (
     <div class="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div class="sheet" role="dialog" aria-modal="true" aria-label={title} ref={ref} tabIndex={-1} style={{ outline: "none" }}>
+      <div class={full ? "sheet full" : "sheet"} role="dialog" aria-modal="true" aria-label={title} ref={ref} tabIndex={-1} style={{ outline: "none" }}>
         <div class="grab" />
         <div class="between">
           <h2 style={{ margin: 0, fontSize: "20px" }}>{title}</h2>

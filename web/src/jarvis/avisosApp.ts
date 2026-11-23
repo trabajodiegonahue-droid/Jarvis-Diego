@@ -184,7 +184,7 @@ export async function sincronizarAgenda(): Promise<boolean> {
   try {
     const n = chileNow();
     const agenda = Object.fromEntries(Array.from({ length: 8 }, (_, i) => addDays(n.date, i)).map((f) => [f, agendaDia(store.data, routine.tasks, f, true)]));
-    const cuerpo = JSON.stringify({ ...aparato(), agenda });
+    const cuerpo = JSON.stringify({ ...aparato(), agenda, mascota: getPrefs().mascota || "" });
     if (cuerpo === ultimaAgenda) return true;
     const r = await fetch(`${base()}/agenda`, { method: "POST", headers: headers(), body: cuerpo });
     if (r.ok) ultimaAgenda = cuerpo;
@@ -207,7 +207,7 @@ export async function sincronizarPush(forzar = false): Promise<boolean> {
     const avisos = planAvisos(store.data, routine.tasks, p, ahoraIso(n.date, n.minutes)).map((a) => ({ id: a.id, t: chileAUtc(a.cuando), titulo: a.titulo, cuerpo: a.cuerpo }));
     // Agenda de los próximos 7 días (sin plata) para que Siri responda "¿qué tengo mañana?" sin abrir la app.
     const agenda = Object.fromEntries(Array.from({ length: 8 }, (_, i) => addDays(n.date, i)).map((f) => [f, agendaDia(store.data, routine.tasks, f, true)]));
-    const cuerpo = JSON.stringify({ ...aparato(), suscripcion: sub.toJSON(), avisos, agenda });
+    const cuerpo = JSON.stringify({ ...aparato(), suscripcion: sub.toJSON(), avisos, agenda, mascota: getPrefs().mascota || "" });
     if (!forzar && cuerpo === ultimo) return true;
     const r = await fetch(`${base()}/avisos`, { method: "POST", headers: headers(), body: cuerpo });
     ultimoStatus = r.status;

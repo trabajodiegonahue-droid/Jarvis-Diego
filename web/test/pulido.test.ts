@@ -101,7 +101,7 @@ describe("voz de JARVIS", () => {
 });
 
 describe("pendientes: 'tengo que sacar la caca del perro ahora'", () => {
-  it("queda como aviso (no solo como nota) y en Casa", async () => {
+  it("queda como aviso (no solo como nota) y en Mascota", async () => {
     resetDB();
     await new Promise<void>((res) => { const r = indexedDB.deleteDatabase("vida"); r.onsuccess = r.onerror = () => res(); });
     const { kv, routine, store, reloj, reg } = registro();
@@ -114,7 +114,7 @@ describe("pendientes: 'tengo que sacar la caca del perro ahora'", () => {
     const r = await a.handle("tengo que sacar la caca del perro ahora", () => {}, "siri");
     expect(r.text).toBe("Anotado: sacar la caca del perro. Te lo recuerdo en 10 minutos, por si se te pasa.");
     expect(store.data.recordatorios[0]).toMatchObject({ texto: "Sacar la caca del perro", cuando: `${reloj().date}T12:10` });
-    expect(r.guardado?.[0]).toMatchObject({ id: "casa", seccion: { nombre: "Recordatorios" } });
+    expect(r.guardado?.[0]).toMatchObject({ id: "mascota", area: "Mascota", seccion: { nombre: "Recordatorios" } });
     expect(parseVida("tengo que estudiar mas", "2026-11-23", {})).toBeNull();
   });
 });
@@ -173,9 +173,9 @@ describe("recordatorio sin hora: JARVIS pregunta", () => {
       notar: crearNotar(store, reloj),
       esPregunta,
     });
-    expect((await a.handle("recuérdame sacar a la Polo a trotar")).text).toBe("¿Cuándo te recuerdo sacar a la polo a trotar? Dime por ejemplo: hoy a las 6, mañana a las 8 o en 2 horas.");
-    expect((await a.handle("mañana")).text).toBe("¿A qué hora mañana te recuerdo sacar a la polo a trotar?");
-    expect((await a.handle("a las 7")).text).toBe("Listo, te recuerdo sacar a la polo a trotar mañana a las 07:00.");
+    expect((await a.handle("recuérdame sacar a la Polo a trotar")).text).toBe("¿Cuándo te recuerdo sacar a la Polo a trotar? Dime por ejemplo: hoy a las 6, mañana a las 8 o en 2 horas.");
+    expect((await a.handle("mañana")).text).toBe("¿A qué hora mañana te recuerdo sacar a la Polo a trotar?");
+    expect((await a.handle("a las 7")).text).toBe("Listo, te recuerdo sacar a la Polo a trotar mañana a las 07:00.");
     expect(store.data.recordatorios).toHaveLength(1);
     // Con todo de una vez, no pregunta.
     expect((await a.handle("recuérdame llamar a la abuela hoy a las 6")).text).toMatch(/^Listo, te recuerdo llamar a la abuela hoy a las 18:00\./);
@@ -212,5 +212,29 @@ describe("más formas de pedir un aviso", () => {
     await a.handle("saqué al perro ahora a las 11:24");
     expect(store.data.recordatorios).toHaveLength(0);
     expect(store.data.notas[0].fecha.slice(11)).toBe("11:24");
+  });
+});
+
+describe("Apolo y el trote", () => {
+  it("la mascota tiene su área con su nombre, y lo de antes que quedó en Otros se ve ahí", async () => {
+    const { setNombreMascota, clasificarArea, areaEfectiva, area } = await import("../src/areas/calc");
+    setNombreMascota("Apolo");
+    expect(area("mascota").nombre).toBe("Apolo");
+    expect(clasificarArea("saqué al Apolo")).toBe("mascota");
+    expect(clasificarArea("le di comida al apolo")).toBe("mascota");
+    expect(areaEfectiva({ id: "x", fecha: "2026-11-23T10:00", area: "otro", texto: "tengo que sacar la caca del Apolo", origen: "siri" } as any)).toBe("mascota");
+    setNombreMascota("");
+    expect(parseVida("mi perro se llama apolo", "2026-11-23", {})).toEqual({ tool: "nombre_mascota", args: { nombre: "apolo" } });
+  });
+  it("el trote queda como entreno con km, tiempo, ritmo y calorías", async () => {
+    resetDB();
+    await new Promise<void>((res) => { const r = indexedDB.deleteDatabase("vida"); r.onsuccess = r.onerror = () => res(); });
+    const { kv, routine, store, reloj, reg } = registro();
+    await store.load();
+    const a = new Assistant(reg, routine, () => ({ mode: "key", apiKey: "" }) as any, kv, reloj, { stream: vi.fn(), ask: vi.fn() } as any, { parse: (t, n) => parseVida(t, n.date, { minutos: n.minutes }), notar: crearNotar(store, reloj), esPregunta });
+    const r = await a.handle("Troté 2 kilómetros, 89 y tardé 19 minutos 35 segundos y quemé 234 calorías");
+    expect(r.text).toMatch(/^Anotado: trote hoy \(2,89 km · 19:35 · ritmo 6:47 \/km · 234 kcal\)\./);
+    expect(store.data.entrenos[0]).toMatchObject({ nombre: "Trote", km: 2.89, seg: 1175, kcal: 234 });
+    expect(r.guardado?.[0]).toMatchObject({ id: "entreno" });
   });
 });

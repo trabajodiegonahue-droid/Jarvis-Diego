@@ -40,7 +40,13 @@ export function App() {
   const route = useRoute();
   const [locked, setLocked] = useState(hasPin(kv));
   const [add, setAdd] = useState(false);
-  const [jarvis, setJarvis] = useState<false | { borrador?: string }>(false);
+  const [jarvis, setJarvis] = useState<false | { borrador?: string; enviar?: boolean }>(false);
+  // Botones de la app (por ejemplo en el Inicio) abren JARVIS con una frase lista o ya enviada.
+  useEffect(() => {
+    const f = (e: Event) => setJarvis({ ...((e as CustomEvent).detail || {}) });
+    addEventListener("abrir-jarvis", f);
+    return () => removeEventListener("abrir-jarvis", f);
+  }, []);
   const listo = store.ready && !locked && prefs.onboarded;
 
   // "Oye Siri, Jarvis": el atajo puede abrir la app con lo dictado (#/jarvis?q=...),
@@ -149,7 +155,7 @@ export function App() {
           <Registrar onDone={() => setAdd(false)} />
         </Sheet>
       )}
-      {jarvis && <JarvisSheet borrador={jarvis.borrador} onClose={() => setJarvis(false)} />}
+      {jarvis && <JarvisSheet borrador={jarvis.borrador} enviar={jarvis.enviar} onClose={() => setJarvis(false)} />}
       <AvisoEnPantalla />
       <Toast />
     </>

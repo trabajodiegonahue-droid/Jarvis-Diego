@@ -36,6 +36,10 @@ export function parseExtras(text: string, ctx: CtxExtras = {}): LocalCommand | n
   if (!t) return null;
   let m: RegExpMatchArray | null;
 
+  // ---------- Mascota ----------
+  if ((m = t.match(/^(?:mi|el|la) (?:perro|perrito|perrita|gato|gatito|gata|mascota|perrin) (?:se llama|es) ([a-z]+)$|^(?:se llama|el nombre de mi (?:perro|perrita|gato|gata|mascota) es) ([a-z]+)$/)))
+    return { tool: "nombre_mascota", args: { nombre: original(raw, m[1] || m[2]) } };
+
   // ---------- Recordatorios ----------
   // Otras formas de pedir un aviso: "quiero que me envíes un recordatorio…", "ponme una alarma…", "agenda X a las 4".
   {

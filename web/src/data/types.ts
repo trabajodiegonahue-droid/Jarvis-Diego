@@ -226,6 +226,10 @@ export interface Entreno {
   items: { ejId: string; series: SerieHecha[] }[];
   rpe?: number; // esfuerzo percibido 1 a 10
   nota?: string;
+  // Cardio (trote, bici, natación): distancia, duración y calorías.
+  km?: number;
+  seg?: number;
+  kcal?: number;
   demo?: boolean;
 }
 
@@ -320,7 +324,7 @@ export interface Compra {
 export interface Nota {
   id: string;
   fecha: string; // AAAA-MM-DDTHH:MM (hora de Chile)
-  area: "salud" | "animo" | "dinero" | "amor" | "social" | "entreno" | "futbol" | "estudios" | "trabajo" | "casa" | "metas" | "ocio" | "otro";
+  area: "salud" | "animo" | "dinero" | "amor" | "social" | "entreno" | "futbol" | "estudios" | "trabajo" | "casa" | "mascota" | "metas" | "ocio" | "otro";
   texto: string; // lo que dijo, tal cual
   origen: "jarvis" | "siri" | "app";
   registro?: string; // si JARVIS además anotó algo (qué herramienta)
