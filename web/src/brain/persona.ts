@@ -97,6 +97,8 @@ export const FRIENDLY: Record<string, string> = {
         : "Estoy sin internet. Lo de la rutina lo puedo hacer igual; para conversar necesito conexión.",
   down: "Gemini no me responde ahora. Prueba en un ratito.",
   config: "Para conversar libremente me falta conectarme a Gemini (Ajustes).",
+  model: "El modelo de Gemini que uso no está disponible con tu clave. Revisa en Google AI Studio que la clave sea de la API de Gemini.",
+  bad: "Gemini rechazó el pedido. Toca \"Probar conexión\" en Ajustes para ver el detalle.",
   blocked: "Eso no te lo puedo responder. Pregúntame de otra forma.",
   generic: "Algo falló, pero no es grave. Prueba de nuevo.",
 };

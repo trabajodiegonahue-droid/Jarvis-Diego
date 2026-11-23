@@ -310,7 +310,7 @@ function Conexion({ onResponder }: { onResponder: (ps: string[]) => void }) {
             redraw((n) => n + 1);
           } catch (err: any) {
             updateSettings({ mode: antes.mode, apiKey: antes.apiKey });
-            setEstado(FRIENDLY[err?.kind] || "No pude conectarme con esa clave. Revísala e intenta de nuevo.");
+            setEstado(`${FRIENDLY[err?.kind] || "No pude conectarme con esa clave. Revísala e intenta de nuevo."}${err?.message ? ` (${err.message})` : ""}`);
           }
         }}
       >

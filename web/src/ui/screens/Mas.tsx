@@ -1,10 +1,11 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { chileNow } from "../../core/time";
 import { applyExtra, exportCSV, exportJSON, readJSON } from "../../data/backup";
 import { clearPin, hasPin, setPin } from "../../core/pin";
 import { store } from "../../data/store";
 import { emptyDatos } from "../../data/types";
-import { reloadJarvis, settings, updateSettings } from "../../jarvis/instance";
+import { reloadJarvis, settings, speaker, tools, updateSettings } from "../../jarvis/instance";
+import { calidadVoz, pickVoice, vocesEnEspanol } from "../../voice/speech";
 import { GEMINI_MODEL } from "../../config";
 import { askGemini, limpiarClave } from "../../brain/gemini";
 import { FRIENDLY } from "../../brain/persona";
@@ -375,6 +376,61 @@ function PinSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
+// Elegir la voz de JARVIS y probarla. Las mejores ("Premium" o "Mejorada") se bajan gratis en el iPhone.
+function VozJarvis({ voz, rate, onChange }: { voz: string; rate: number; onChange: (voiceURI: string, rate: number) => void }) {
+  const [voces, setVoces] = useState<SpeechSynthesisVoice[]>([]);
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+    const cargar = () => setVoces(vocesEnEspanol(speechSynthesis.getVoices()));
+    cargar();
+    speechSynthesis.addEventListener?.("voiceschanged", cargar);
+    return () => speechSynthesis.removeEventListener?.("voiceschanged", cargar);
+  }, []);
+  const actual = pickVoice(voces, voz);
+  const buena = voces.some((v) => calidadVoz(v) >= 30);
+  const probar = (uri: string, r: number) => {
+    speaker.stop();
+    const antes = { v: speaker.voiceURI, r: speaker.rate, e: speaker.enabled };
+    speaker.voiceURI = uri;
+    speaker.rate = r;
+    speaker.enabled = true;
+    speaker.unlock();
+    speaker.feed("Hola Diego, soy JARVIS. Hoy tienes fútbol a las 15:30 y gimnasio a las 17:00. ");
+    speaker.flush();
+    Object.assign(speaker, { voiceURI: antes.v, rate: antes.r, enabled: antes.e });
+  };
+  if (!voces.length) return <span class="small">Este navegador no tiene voces en español para leer en voz alta.</span>;
+  return (
+    <div class="stack" style={{ gap: "8px" }}>
+      <label class="lbl" for="g-voz">
+        Voz de JARVIS
+      </label>
+      <div class="row">
+        <select id="g-voz" value={actual?.voiceURI || ""} onChange={(e) => onChange((e.target as HTMLSelectElement).value, rate)} style={{ flex: 1, minWidth: 0, minHeight: "44px", borderRadius: "12px", border: "1px solid var(--line)", background: "var(--card2)", color: "var(--text)", padding: "0 10px" }}>
+          {voces.map((v) => (
+            <option key={v.voiceURI} value={v.voiceURI}>
+              {v.name} ({v.lang.replace("_", "-")}){calidadVoz(v) >= 30 ? " ★" : ""}
+            </option>
+          ))}
+        </select>
+        <button class="btn sm" onClick={() => probar(actual?.voiceURI || "", rate)}>
+          Probar
+        </button>
+      </div>
+      <label class="lbl" for="g-rate">
+        Velocidad: {rate.toFixed(2).replace(".", ",")}
+      </label>
+      <input id="g-rate" type="range" min="0.8" max="1.3" step="0.05" value={rate} onInput={(e) => onChange(actual?.voiceURI || "", Number((e.target as HTMLInputElement).value))} />
+      {!buena && (
+        <span class="small">
+          Tu teléfono solo tiene voces básicas (suenan a robot). Para una mucho mejor: en el iPhone ve a <strong>Ajustes › Accesibilidad › Contenido leído › Voces › Español</strong>, baja una voz <strong>Mejorada</strong> o <strong>Premium</strong> (por ejemplo Paulina, Mónica o Jorge), vuelve aquí, elígela y toca Guardar.
+        </span>
+      )}
+      {buena && <span class="small">Las marcadas con ★ son las de mejor calidad. Después de elegir, toca Guardar.</span>}
+    </div>
+  );
+}
+
 function JarvisAjustes() {
   const [s, setS] = useState({ ...settings });
   const prefs = getPrefs();
@@ -422,6 +478,7 @@ function JarvisAjustes() {
         <input type="checkbox" checked={s.speak} onChange={(e) => setS({ ...s, speak: (e.target as HTMLInputElement).checked })} style={{ width: "22px", height: "22px" }} />
         Responder hablando
       </label>
+      {s.speak && <VozJarvis voz={s.voiceURI} rate={s.rate} onChange={(voiceURI, rate) => setS({ ...s, voiceURI, rate })} />}
       <label class="row" style={{ minHeight: "44px" }}>
         <input type="checkbox" checked={prefs.privacy} onChange={(e) => setPrefs({ privacy: (e.target as HTMLInputElement).checked })} style={{ width: "22px", height: "22px" }} />
         Modo privado: no enviar datos de dinero a Gemini
@@ -441,9 +498,10 @@ function JarvisAjustes() {
           onClick={() => {
             updateSettings(s);
             toast("Probando…");
-            askGemini(settings, { system: "Responde solo: Conectado.", contents: [{ role: "user", parts: [{ text: "Hola" }] }], maxTokens: 20, think: false })
+            // Se prueba igual que una conversación de verdad (con las herramientas), para pillar cualquier error.
+            askGemini(settings, { system: "Responde solo: Conectado.", contents: [{ role: "user", parts: [{ text: "Hola" }] }], tools: tools.declarations(), maxTokens: 20, think: false })
               .then(() => toast("Conectado con Gemini. Bien ahí."))
-              .catch((e) => toast(FRIENDLY[e?.kind] || FRIENDLY.generic));
+              .catch((e) => toast(`${FRIENDLY[e?.kind] || FRIENDLY.generic}${e?.message ? ` (${e.message})` : ""}`));
           }}
         >
           Probar conexión

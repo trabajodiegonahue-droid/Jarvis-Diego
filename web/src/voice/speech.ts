@@ -122,13 +122,33 @@ export function splitSentences(buf: string): { done: string[]; rest: string } {
   return { done, rest: buf.slice(start).replace(/^\s+/, "") };
 }
 
+// Qué tan buena suena una voz: las "Premium" y "Mejorada" del iPhone suenan mucho más naturales
+// que las básicas. Entre iguales, primero español latino (Chile, México) y después España.
+export function calidadVoz(v: SpeechSynthesisVoice): number {
+  const n = `${v.name} ${v.voiceURI}`;
+  let p = 0;
+  if (/premium/i.test(n)) p += 40;
+  else if (/enhanced|mejorad|neural|natural/i.test(n)) p += 30;
+  if (/compact|eloquence|espeak/i.test(n)) p -= 20;
+  // Voces de efectos de macOS/iOS que suenan raro.
+  if (/\b(grandma|grandpa|abuela|abuelo|rocko|shelley|flo|reed|sandy|eddy|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|albert|fred|junior|kathy|ralph)\b/i.test(n)) p -= 50;
+  if (/es[-_]CL/i.test(v.lang)) p += 8;
+  else if (/es[-_](MX|419|US|AR|CO)/i.test(v.lang)) p += 6;
+  else if (/es[-_]ES/i.test(v.lang)) p += 3;
+  if (v.localService) p += 1;
+  return p;
+}
+
+export function vocesEnEspanol(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice[] {
+  return voices.filter((v) => /^es/i.test(v.lang)).sort((a, b) => calidadVoz(b) - calidadVoz(a) || a.name.localeCompare(b.name));
+}
+
 export function pickVoice(voices: SpeechSynthesisVoice[], preferred?: string): SpeechSynthesisVoice | null {
   if (preferred) {
     const v = voices.find((x) => x.voiceURI === preferred);
     if (v) return v;
   }
-  const es = voices.filter((v) => /^es/i.test(v.lang));
-  return es.find((v) => /es[-_]CL/i.test(v.lang)) || es.find((v) => /es[-_](419|MX|US)/i.test(v.lang)) || es.find((v) => /es[-_]ES/i.test(v.lang)) || es[0] || null;
+  return vocesEnEspanol(voices)[0] || null;
 }
 
 // Para leer en voz alta: horas "18:00" → "18 horas", plata "$5.000" → "5000 pesos", sin símbolos raros.
@@ -146,7 +166,7 @@ export class Speaker {
   onStart: () => void = () => {};
   onEnd: () => void = () => {};
   voiceURI?: string;
-  rate = 1.05;
+  rate = 1;
   enabled = true;
 
   get supported() {
