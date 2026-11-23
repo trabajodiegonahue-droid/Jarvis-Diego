@@ -38,7 +38,7 @@ const AREAS = [
   ["Estudios", /\b(estudie|estudiar|ingles|clase|prueba|examen|ensayo|curso|universidad|preu|tarea)/],
   ["Trabajo", /\b(trabaje|trabajo|turno|pega|jefe|jefa|cliente)/],
   ["Familia y amigos", /\b(mama|papa|abuel|herman|familia|amigo|amiga|amigos|carrete|junta|cumpleanos|cumple|asado)/],
-  ["Casa y trámites", /\b(casa|pieza|arriendo|aseo|ordenar|lavar|supermercado|compras|lista|tramite|pasaporte|visa|cuentas)/],
+  ["Casa y trámites", /\b(perro|perrit|gato|gatit|mascota|veterinari|pasear|caca|casa|pieza|arriendo|aseo|ordenar|lavar|supermercado|compras|lista|tramite|pasaporte|visa|cuentas)/],
   ["Ocio y hobbies", /\b(pelicula|peli|serie|netflix|cine|concierto|musica|guitarra|videojuego|play|libro|paseo|playa|lago|volcan|pesca|camping)/],
   ["Metas y proyectos", /\b(meta|proyecto|working holiday|australia|viaje|negocio)/],
 ];

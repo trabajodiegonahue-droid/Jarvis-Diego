@@ -99,3 +99,65 @@ describe("voz de JARVIS", () => {
     expect(pickVoice(voces, "Francisca")?.name).toBe("Francisca");
   });
 });
+
+describe("pendientes: 'tengo que sacar la caca del perro ahora'", () => {
+  it("queda como aviso (no solo como nota) y en Casa", async () => {
+    resetDB();
+    await new Promise<void>((res) => { const r = indexedDB.deleteDatabase("vida"); r.onsuccess = r.onerror = () => res(); });
+    const { kv, routine, store, reloj, reg } = registro();
+    await store.load();
+    const a = new Assistant(reg, routine, () => ({ mode: "key", apiKey: "" }) as any, kv, reloj, { stream: vi.fn(), ask: vi.fn() } as any, {
+      parse: (t, n) => parseVida(t, n.date, {}),
+      notar: crearNotar(store, reloj),
+      esPregunta,
+    });
+    const r = await a.handle("tengo que sacar la caca del perro ahora", () => {}, "siri");
+    expect(r.text).toBe("Anotado: sacar la caca del perro. Te lo recuerdo en 10 minutos, por si se te pasa.");
+    expect(store.data.recordatorios[0]).toMatchObject({ texto: "Sacar la caca del perro", cuando: `${reloj().date}T12:10` });
+    expect(r.guardado?.[0]).toMatchObject({ id: "casa", seccion: { nombre: "Recordatorios" } });
+    expect(parseVida("tengo que estudiar mas", "2026-11-23", {})).toBeNull();
+  });
+});
+
+describe("JARVIS calcula la hora: ahora, en 10 minutos, hace 5 minutos", () => {
+  const p = (s: string, ctx = {}) => parseVida(normalizarChileno(s), "2026-11-23", { minutos: 14 * 60, ...ctx });
+  it("hacia adelante", () => {
+    expect(p("recuérdame sacar al perro dentro de 10 minutos")).toMatchObject({ tool: "crear_recordatorio", args: { texto: "sacar al perro", cuando: "sacar al perro en 10 minutos" } });
+    expect(p("recuérdame tomar agua en media hora")).toMatchObject({ tool: "crear_recordatorio", args: { texto: "tomar agua" } });
+    expect(p("en 20 minutos tengo clase de ingles")).toMatchObject({ tool: "crear_recordatorio", args: { texto: "clase de inglés", cuando: "en 20 minutos" } });
+    expect(p("dentro de una hora tengo dentista")).toMatchObject({ tool: "crear_recordatorio", args: { texto: "dentista", cuando: "en una hora" } });
+  });
+  it("hacia atrás", () => {
+    expect(p("hace 20 minutos empecé a estudiar")).toEqual({ tool: "iniciar_actividad", args: { texto: "estudiar", inicio: "13:40" } });
+    expect(p("llegué al gym hace media hora")).toEqual({ tool: "iniciar_actividad", args: { texto: "gym", inicio: "13:30" } });
+    expect(p("terminé hace 10 minutos", { corriendo: "estudio" })).toEqual({ tool: "terminar_actividad", args: { fin: "13:50" } });
+    expect(p("estuve 2 horas en el celular, terminé hace 1 hora")?.tool).toBeDefined();
+    expect(p("hace 1 hora estuve 30 minutos en el celular")).toEqual({ tool: "registrar_bloque", args: { texto: "en el celular", inicio: "12:30", fin: "13:00" } });
+  });
+  it("el cronómetro parte a la hora calculada", async () => {
+    resetDB();
+    await new Promise<void>((res) => { const r = indexedDB.deleteDatabase("vida"); r.onsuccess = r.onerror = () => res(); });
+    const { kv, routine, store, reloj, reg } = registro();
+    await store.load();
+    const a = new Assistant(reg, routine, () => ({ mode: "key", apiKey: "" }) as any, kv, reloj, { stream: vi.fn(), ask: vi.fn() } as any, {
+      parse: (t, n) => parseVida(t, n.date, { minutos: n.minutes, corriendo: store.data.actividades.find((x) => !x.fin)?.cat ?? null }),
+      notar: crearNotar(store, reloj),
+      esPregunta,
+    });
+    expect((await a.handle("hace 20 minutos empecé a estudiar")).text).toMatch(/desde las 11:40/);
+    expect((await a.handle("terminé hace 5 minutos")).text).toMatch(/15 min/);
+    // Algo que cuentas con "hace": la nota queda a esa hora.
+    await a.handle("hace 10 minutos saqué la caca del perro");
+    expect(store.data.notas.find((n) => /perro/.test(n.texto))?.fecha.slice(11)).toBe("11:50");
+  });
+});
+
+describe("Siri: el tiempo cuenta desde que lo dijiste", () => {
+  it("ajusta 'hace' y 'en' con lo que demoraste en abrir la app", async () => {
+    const { ajustarRelativo } = await import("../src/jarvis/buzon");
+    expect(ajustarRelativo("hace 10 minutos empecé a estudiar", 30)).toBe("hace 40 minutos empecé a estudiar");
+    expect(ajustarRelativo("recuérdame sacar al perro dentro de media hora", 20)).toBe("recuérdame sacar al perro en 10 minutos");
+    expect(ajustarRelativo("me duele la rodilla", 30)).toBe("me duele la rodilla");
+    expect(ajustarRelativo("hace 10 minutos comí", 0)).toBe("hace 10 minutos comí");
+  });
+});

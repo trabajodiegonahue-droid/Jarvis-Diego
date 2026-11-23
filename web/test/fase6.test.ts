@@ -79,7 +79,7 @@ describe("JARVIS con los datos de ejemplo (modo práctica)", () => {
     let dif: any[] = [];
     reg.register(...routineTools(routine, reloj), ...vidaTools({ store, routine, clock: reloj }), ...diaTools({ store, routine, clock: reloj }), ...extrasTools({ store, routine, clock: reloj, dificil: { get: () => dif, set: (p) => (dif = p) } }));
     const a = new Assistant(reg, routine, () => ({ mode: "key", apiKey: "" }) as any, kv, reloj, { stream: vi.fn(), ask: vi.fn() } as any, {
-      parse: (t, n) => parseVida(t, n.date, { habitos: store.data.habitos.map((h) => h.nombre), rutina: routine.tasks.map((x) => x.title), corriendo: store.data.actividades.find((x) => !x.fin)?.cat ?? null, compras: store.data.compras.filter((c) => !c.hecho).map((c) => c.texto), dificil: dif.length > 0 }),
+      parse: (t, n) => parseVida(t, n.date, { habitos: store.data.habitos.map((h) => h.nombre), rutina: routine.tasks.map((x) => x.title), corriendo: store.data.actividades.find((x) => !x.fin)?.cat ?? null, compras: store.data.compras.filter((c) => !c.hecho).map((c) => c.texto), dificil: dif.length > 0, minutos: n.minutes }),
       notar: crearNotar(store, reloj),
       esPregunta,
     });

@@ -46,6 +46,11 @@ export function normalizarChileno(texto: string): string {
     .replace(/\bya po\b/gi, "ya")
     // "cansao", "gastao", "reventao" → "cansado", "gastado", "reventado"
     .replace(/\b([a-zñ]{3,})ao\b/gi, (w, r) => (/^(bacal|cac|call|sar)$/i.test(r) ? w : `${r}ado`))
+    // Tiempos relativos a una forma que JARVIS calcula: "dentro de media hora" → "en 30 minutos".
+    .replace(/\bdentro de\b/gi, "en")
+    .replace(/\b(?:una |1 )?hora y media\b/gi, "90 minutos")
+    .replace(/\bmedia hora\b/gi, "30 minutos")
+    .replace(/\b(?:un )?cuarto de hora\b/gi, "15 minutos")
     .replace(/\s+([.,;:!?])/g, "$1")
     .replace(/\s{2,}/g, " ")
     .replace(/^[\s,.;:]+|[\s,;:]+$/g, "")

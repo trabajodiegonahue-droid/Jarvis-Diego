@@ -44,7 +44,7 @@ const PISTAS: [AreaVida, RegExp][] = [
   ["estudios", /\b(estudi|ingles|clase|clases|prueba|examen|ensayo|nota|curso|universidad|preu|paes|tarea|certificado de alumno|profe|profesor|apuntes|efset|toefl|ielts)/],
   ["trabajo", /\b(trabaj|turno|pega|jefe|jefa|cliente|clientes|restaurant|sueldo|contrato|entrevista de trabajo|postule a un trabajo|horas extra|colega)/],
   ["social", /\b(mama|papa|abuel|herman|tia|tio|prim|familia|amigo|amiga|amigos|amigas|carrete|junta|juntarme|cumpleanos|cumple|asado|visita|sobrin|suegr)/],
-  ["casa", /\b(casa|pieza|depto|departamento|arriendo|aseo|limpi|ordenar|lavar|ropa|supermercado|super|compras|tramite|tramites|banco|municipalidad|registro civil|carnet|pasaporte|visa|auto|mecanico|cuentas|luz|agua potable|gas|internet)/],
+  ["casa", /\b(perro|perrito|perrita|gato|gatito|gata|mascota|veterinari|pasear al|pasear a la|sacar a pasear|caca|comida del|arena del|casa|pieza|depto|departamento|arriendo|aseo|limpi|ordenar|lavar|ropa|supermercado|super|compras|tramite|tramites|banco|municipalidad|registro civil|carnet|pasaporte|visa|auto|mecanico|cuentas|luz|agua potable|gas|internet)/],
   ["ocio", /\b(pelicula|peli|serie|netflix|anime|cine|concierto|musica|cancion|guitarra|tocar|jugar play|videojuego|play|leer|lei|libro|dibuj|foto|hobby|pasatiempo|paseo|playa|lago|volcan|pesca|camping)/],
   ["metas", /\b(meta|metas|proyecto|sueno es|quiero lograr|plan|planes|objetivo|working holiday|australia|viaje|viajar|emprend|negocio|algun dia)/],
 ];

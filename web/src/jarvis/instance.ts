@@ -41,6 +41,7 @@ export const assistant = new Assistant(tools, routine, () => settings, localKV, 
       corriendo: corriendo(store.data.actividades)?.cat ?? null,
       compras: store.data.compras.filter((c) => !c.hecho).map((c) => c.texto),
       dificil: enDificil(getPrefs().dificil, n.date),
+      minutos: n.minutes,
     }),
   // Mi vida por áreas: lo que dices (y lo que JARVIS anota) queda en su bloque.
   notar: crearNotar(store, chileNow),
