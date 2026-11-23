@@ -15,7 +15,7 @@ const DEFAULTS: Settings = {
   workerUrl: import.meta.env.VITE_WORKER_URL || "",
   workerToken: "",
   voiceURI: "",
-  rate: 1.05,
+  rate: 1,
   speak: true,
   about: DEFAULT_ABOUT,
 };

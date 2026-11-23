@@ -42,7 +42,7 @@ export interface AssistantOptions {
   contexto?: (texto: string, n: ChileNow) => string;
   // Guarda lo que Diego dijo en su área de la vida. tool = lo que JARVIS anotó (si anotó algo).
   // Devuelve el nombre del área y cómo deshacer la nota.
-  notar?: (n: { texto: string; tool?: string; args?: any; origen: "jarvis" | "siri" }) => Promise<(Guardado & { undo: () => Promise<void> }) | null>;
+  notar?: (n: { texto: string; tool?: string; args?: any; origen: "jarvis" | "siri"; ya?: string[] }) => Promise<(Guardado & { undo: () => Promise<void> }) | null>;
   // ¿Es una pregunta (va a Gemini) o algo que cuenta (se guarda en su área)?
   esPregunta?: (texto: string) => boolean;
 }
@@ -110,7 +110,7 @@ export class Assistant {
     if (r.ok && r.undo) {
       let undo = r.undo;
       // Lo anotado también queda en su área, con la frase tal como la dijiste.
-      const nota = this.dicho && this.opts.notar ? await this.opts.notar({ texto: this.dicho, tool: name, args, origen: this.origen }).catch(() => null) : null;
+      const nota = this.dicho && this.opts.notar ? await this.opts.notar({ texto: this.dicho, tool: name, args, origen: this.origen, ya: this.guardados.map((g) => g.id) }).catch(() => null) : null;
       if (nota) {
         this.guardados.push(sinUndo(nota));
         const u0 = undo;
@@ -118,7 +118,6 @@ export class Assistant {
           await u0();
           await nota.undo();
         };
-        this.dicho = ""; // una nota por frase, aunque JARVIS haga varias cosas
       }
       this.lastUndo = { undo };
       this.turnUndo = undo;

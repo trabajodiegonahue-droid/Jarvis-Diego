@@ -51,6 +51,11 @@ export function parseExtras(text: string, ctx: CtxExtras = {}): LocalCommand | n
   if (/^(?:que |cuales )?(?:recordatorios tengo|son mis recordatorios)$|^(mis|ver|los) recordatorios$|^que me (tienes que|vas a) recordar$/.test(t)) return { tool: "ver_recordatorios", args: {} };
   if ((m = t.match(/^(?:borra|quita|elimina|cancela)(?: el)? recordatorio (?:de |del |para )?(.+)$/))) return { tool: "borrar_recordatorio", args: { texto: m[1] } };
 
+  // ---------- Agenda: "tengo fútbol a las 3:30 y a las 5 gimnasio" ----------
+  // Cada cosa con su hora queda como un aviso aparte (y cada una en su área).
+  const agenda = parseAgenda(raw, t);
+  if (agenda) return agenda;
+
   // ---------- Lo que viene ----------
   if (/\b(que (se )?viene|que tengo|que hay)( para)? (los )?(proximos|siguientes) (dias|\d+ dias)\b|\bque se (me )?viene\b|\blo que viene\b/.test(t)) {
     const n = t.match(/\b(\d+) dias\b/);
@@ -128,3 +133,43 @@ export function parseExtras(text: string, ctx: CtxExtras = {}): LocalCommand | n
   if (/^(?:mis |que |ver )?logros(?: tengo)?$|^que he logrado$/.test(t)) return { tool: "ver_logros", args: {} };
   return null;
 }
+
+const HORA_RE = /(?:a las?|tipo|como a las?|para las?|desde las?) (\d{1,2}(?:[:.]\d{2})?|una)(?: y media)?(?: ?(?:hrs?|horas|h)\b)?(?: de la (?:manana|tarde|noche)| am\b| pm\b)?/;
+const DIA_RE = /\b(pasado manana|manana|hoy|esta (?:tarde|noche)|(?:el |este )?(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)(?: que viene)?|(?:el )?\d{1,2} de (?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre))\b/;
+
+export function parseAgenda(raw: string, t: string): LocalCommand | null {
+  if (!/\b(tengo|me toca|voy a|voy al|hay|nos juntamos|juego|entreno)\b/.test(t) || /\?|^(que|a que|cuando|donde|cuanto)\b/.test(t)) return null;
+  if (!HORA_RE.test(t)) return null;
+  const dia = (t.match(DIA_RE) || [])[1] || "";
+  // Trozos separados por "y", "," o "después"; un trozo sin hora se junta con el siguiente.
+  const trozos = t.split(/\s*(?:,|\by despues\b|\bdespues\b|\by luego\b|\bluego\b|\by\b(?= (?:a las?|tipo|como|para las?|el |la |los |las |tengo|me toca|voy|al |un |una |[a-z]+ a las?)))\s*/).filter(Boolean);
+  const partes: { titulo: string; hora: string }[] = [];
+  let pend = "";
+  for (const tr of trozos) {
+    const x = (pend ? `${pend} y ${tr}` : tr).trim();
+    const h = x.match(HORA_RE);
+    if (!h) {
+      pend = x;
+      continue;
+    }
+    pend = "";
+    const titulo = x
+      .replace(HORA_RE, " ")
+      .replace(DIA_RE, " ")
+      .replace(/\b(tengo que ir a|tengo que ir al|tengo|me toca|voy a ir a|voy al|voy a|hay|ir a)\b/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/^(?:(?:de|que|el|la|a|al|un|una|y)\s+)+/, "")
+      .replace(/\s+(?:de|que|a|y|el|la)$/, "")
+      .trim();
+    partes.push({ titulo, hora: h[0] });
+  }
+  // Una hora suelta sin nada antes ("a las 5 tengo de gimnasio" ya quedó bien; esto es por si el nombre quedó en el trozo anterior).
+  const ok = partes.filter((p) => p.titulo.length >= 2);
+  if (!ok.length || ok.length !== partes.length) return null;
+  const cmds = ok.map((p) => ({ tool: "crear_recordatorio", args: { texto: conTildes(original(raw, p.titulo)), cuando: `${dia ? dia + " " : ""}${p.hora}`, agenda: true } }));
+  return cmds.length === 1 ? cmds[0] : { tool: "__varios", args: { cmds } };
+}
+
+const TILDES: Record<string, string> = { futbol: "fútbol", ingles: "inglés", mama: "mamá", papa: "papá", reunion: "reunión", medico: "médico", dentista: "dentista", kinesiologo: "kinesiólogo", clase: "clase", examen: "examen", musica: "música", nataci: "natación" };
+const conTildes = (s: string) => s.replace(/\b[a-z]+\b/g, (w) => TILDES[w] || w);

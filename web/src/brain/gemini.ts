@@ -17,7 +17,7 @@ export interface Connection {
   workerToken?: string;
 }
 
-export type GeminiErrorKind = "quota" | "auth" | "network" | "down" | "config" | "blocked";
+export type GeminiErrorKind = "quota" | "auth" | "network" | "down" | "config" | "blocked" | "model" | "bad";
 export class GeminiError extends Error {
   constructor(public kind: GeminiErrorKind, message: string) {
     super(message);
@@ -41,8 +41,12 @@ export interface StreamResult {
 // Deja solo los caracteres que puede tener una clave (letras, números y . _ -).
 export const limpiarClave = (k: string) => k.replace(/[^A-Za-z0-9._-]/g, "");
 
-function endpoint(c: Connection, method: "streamGenerateContent" | "generateContent"): { url: string; headers: Record<string, string> } {
-  const path = `/models/${encodeURIComponent(GEMINI_MODEL)}:${method}${method === "streamGenerateContent" ? "?alt=sse" : ""}`;
+// Si Google retira el modelo configurado (error 404), se prueban estos en orden.
+export const MODELOS = [GEMINI_MODEL, "gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-2.5-flash"].filter((m, i, a) => a.indexOf(m) === i);
+let modelo = 0; // el que funcionó la última vez
+
+function endpoint(c: Connection, method: "streamGenerateContent" | "generateContent", m = MODELOS[modelo]): { url: string; headers: Record<string, string> } {
+  const path = `/models/${encodeURIComponent(m)}:${method}${method === "streamGenerateContent" ? "?alt=sse" : ""}`;
   if (c.mode === "worker") {
     if (!c.workerUrl) throw new GeminiError("config", "Falta la dirección del intermediario.");
     return { url: c.workerUrl.replace(/\/+$/, "") + "/v1beta" + path, headers: { Authorization: `Bearer ${c.workerToken || ""}` } };
@@ -67,8 +71,22 @@ function body(r: Request, think: boolean) {
   });
 }
 
-async function post(c: Connection, method: "streamGenerateContent" | "generateContent", r: Request, signal?: AbortSignal) {
-  const { url, headers } = endpoint(c, method);
+async function post(c: Connection, method: "streamGenerateContent" | "generateContent", r: Request, signal?: AbortSignal): Promise<Response> {
+  for (;;) {
+    try {
+      return await postModelo(c, method, r, MODELOS[modelo], signal);
+    } catch (e) {
+      if (e instanceof GeminiError && e.kind === "model" && modelo < MODELOS.length - 1) {
+        modelo++;
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
+async function postModelo(c: Connection, method: "streamGenerateContent" | "generateContent", r: Request, m: string, signal?: AbortSignal) {
+  const { url, headers } = endpoint(c, method, m);
   const send = async (think: boolean) => {
     try {
       return await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: body(r, think), signal });
@@ -93,9 +111,20 @@ async function post(c: Connection, method: "streamGenerateContent" | "generateCo
     if (res.status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(txt)) throw new GeminiError("quota", "Se acabó la cuota gratis por ahora.");
     if (res.status === 401 || res.status === 403 || /API_KEY_INVALID|API key not valid/i.test(txt)) throw new GeminiError("auth", "La clave no sirve.");
     if (res.status >= 500) throw new GeminiError("down", "Gemini no responde.");
-    throw new GeminiError("down", `Error ${res.status}`);
+    if (res.status === 404) throw new GeminiError("model", `Modelo no disponible: ${detalle(txt)}`);
+    if (res.status === 400) throw new GeminiError("bad", `Gemini rechazó el pedido: ${detalle(txt)}`);
+    throw new GeminiError("down", `Error ${res.status}: ${detalle(txt)}`);
   }
   return res;
+}
+
+// El mensaje de error de Google, corto (para mostrarlo y poder arreglarlo).
+function detalle(txt: string): string {
+  try {
+    return String(JSON.parse(txt)?.error?.message || txt).slice(0, 160);
+  } catch {
+    return txt.slice(0, 160);
+  }
 }
 
 // Lee las partes de una respuesta de Gemini (texto, llamadas a herramientas) y las acumula.
@@ -194,6 +223,11 @@ export async function streamGemini(c: Connection, r: Request, onText: (delta: st
     return await enVivo(c, r, onText, signal);
   } catch (e) {
     if (e instanceof SinRespuesta) return entera(c, r, onText);
+    // Si Google rechaza las herramientas, que al menos converse (sin poder anotar).
+    if (e instanceof GeminiError && e.kind === "bad" && r.tools?.length) {
+      console.warn("Gemini rechazó las herramientas:", e.message);
+      return streamGemini(c, { ...r, tools: undefined }, onText, signal);
+    }
     throw e;
   }
 }

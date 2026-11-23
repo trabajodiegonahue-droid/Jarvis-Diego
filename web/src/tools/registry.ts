@@ -32,9 +32,18 @@ export class ToolRegistry {
   list() {
     return [...this.tools.values()];
   }
-  // Formato que espera la API de Gemini en "tools".
+  // Formato que espera la API de Gemini en "tools". Ojo: Gemini rechaza TODA la petición (error 400)
+  // si una herramienta trae un objeto sin propiedades; a esas se les quita "parameters".
   declarations() {
-    return [{ functionDeclarations: this.list().map(({ name, description, parameters }) => ({ name, description, parameters })) }];
+    return [
+      {
+        functionDeclarations: this.list().map(({ name, description, parameters }) => {
+          const p = parameters as any;
+          const vacio = !p || (p.type === "object" && (!p.properties || !Object.keys(p.properties).length));
+          return vacio ? { name, description } : { name, description, parameters };
+        }),
+      },
+    ];
   }
   async call(name: string, args: any): Promise<ToolResult> {
     const t = this.tools.get(name);
