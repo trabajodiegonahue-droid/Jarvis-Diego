@@ -2,12 +2,15 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { GREETING } from "../../brain/persona";
 import { chileNow } from "../../core/time";
-import { assistant, speaker, tools } from "../../jarvis/instance";
+import { assistant, settings, speaker, tools, updateSettings } from "../../jarvis/instance";
+import { isConnected } from "../../core/settings";
+import { askGemini } from "../../brain/gemini";
+import { FRIENDLY } from "../../brain/persona";
 import { canListen, listenOnce, type ListenError } from "../../voice/speech";
 import { Sheet } from "../components";
 import { Icon } from "../icons";
 import { GUIA } from "../../jarvis/guia";
-import { getPrefs, kv } from "../state";
+import { getPrefs, kv, toast } from "../state";
 
 type Estado = "idle" | "listening" | "thinking" | "speaking" | "error";
 const TXT: Record<Estado, string> = { idle: "Toca para hablar", listening: "Escuchando…", thinking: "Pensando…", speaking: "Hablando…", error: "Algo pasó" };
@@ -129,6 +132,10 @@ export function JarvisSheet({ onClose, borrador }: { onClose: () => void; borrad
 
   return (
     <Sheet title="JARVIS" onClose={onClose}>
+      <Conexion onResponder={(ps) => ps.forEach((q, i) => setTimeout(() => {
+        assistant.quitarPendiente(q);
+        void send(q);
+      }, i * 2500))} />
       <div class="stack" style={{ alignItems: "center", gap: "8px" }}>
         <button
           onClick={escuchar}
@@ -205,5 +212,82 @@ export function JarvisSheet({ onClose, borrador }: { onClose: () => void; borrad
           : "Lo que anotas (gastos, entrenos, goles, metas) y los números los calculo en el teléfono. A Gemini solo va la frase cuando no la entiendo yo."}
       </p>
     </Sheet>
+  );
+}
+
+// Si JARVIS no está conectado a Gemini, solo entiende las frases del teléfono. Aquí se conecta en 2 minutos
+// (clave gratis de Google AI Studio, que queda solo en este teléfono) y se responden las preguntas guardadas.
+function Conexion({ onResponder }: { onResponder: (ps: string[]) => void }) {
+  const [, redraw] = useState(0);
+  const [clave, setClave] = useState("");
+  const [estado, setEstado] = useState("");
+  const conectado = isConnected(settings);
+  const pend = assistant.pendientes();
+  if (conectado && !pend.length) return null;
+  if (conectado)
+    return (
+      <div class="card" style={{ gap: "8px", borderColor: "var(--green)" }}>
+        <strong>Tenías {pend.length === 1 ? "una pregunta guardada" : `${pend.length} preguntas guardadas`}</strong>
+        <span class="small">{pend.slice(0, 3).join(" · ")}</span>
+        <button
+          class="btn sm main"
+          style={{ alignSelf: "flex-start" }}
+          onClick={() => {
+            onResponder(pend);
+            redraw((n) => n + 1);
+          }}
+        >
+          Responder ahora
+        </button>
+      </div>
+    );
+  return (
+    <div class="card" style={{ borderColor: "var(--amber)", padding: "14px 16px" }}>
+    <details open={pend.length > 0}>
+      <summary style={{ cursor: "pointer", fontWeight: 650, minHeight: "32px" }}>Conecta a JARVIS para que responda todo</summary>
+      <div class="stack" style={{ gap: "8px", marginTop: "6px", minWidth: 0 }}>
+      <span class="small">
+        Ahora solo entiendo lo que anotas (gastos, entrenos, recordatorios…) y lo que cuentas. Para responder cualquier pregunta necesito Gemini, que es gratis:
+      </span>
+      <ol class="small" style={{ margin: 0, paddingLeft: "18px", display: "grid", gap: "4px", color: "var(--ink)" }}>
+        <li>
+          Abre{" "}
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">
+            aistudio.google.com/apikey
+          </a>{" "}
+          con tu cuenta de Google y toca "Create API key".
+        </li>
+        <li>Copia la clave y pégala aquí.</li>
+      </ol>
+      <form
+        class="row"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const k = clave.trim();
+          if (!/^AIza[\w-]{20,}$/.test(k)) return setEstado("Esa no parece una clave de Gemini (empieza con AIza).");
+          setEstado("Probando…");
+          const antes = { ...settings };
+          updateSettings({ mode: "key", apiKey: k });
+          try {
+            await askGemini(settings, { system: "Responde solo: Conectado.", contents: [{ role: "user", parts: [{ text: "Hola" }] }], maxTokens: 20, think: false });
+            setClave("");
+            setEstado("");
+            toast("JARVIS quedó conectado. Ahora te respondo todo.");
+            redraw((n) => n + 1);
+          } catch (err: any) {
+            updateSettings({ mode: antes.mode, apiKey: antes.apiKey });
+            setEstado(FRIENDLY[err?.kind] || "No pude conectarme con esa clave. Revísala e intenta de nuevo.");
+          }
+        }}
+      >
+        <input type="password" autocomplete="off" autoCapitalize="off" spellcheck={false} aria-label="Clave de Gemini" placeholder="AIza…" value={clave} onInput={(e) => setClave((e.target as HTMLInputElement).value)} style={{ flex: 1, minWidth: 0, minHeight: "48px", borderRadius: "14px", border: "1px solid var(--line)", background: "var(--card2)", padding: "0 14px" }} />
+        <button class="btn main">Conectar</button>
+      </form>
+      {estado && <span class="small" style={{ color: "var(--amber)" }}>{estado}</span>}
+      <span class="small">La clave queda solo en este teléfono (nunca en GitHub ni en los respaldos). Más adelante puedes usar el intermediario de Cloudflare, que la guarda fuera del teléfono (README).</span>
+      {pend.length > 0 && <span class="small">Tienes {pend.length === 1 ? "una pregunta guardada: te la respondo" : `${pend.length} preguntas guardadas: te las respondo`} apenas te conectes.</span>}
+      </div>
+    </details>
+    </div>
   );
 }

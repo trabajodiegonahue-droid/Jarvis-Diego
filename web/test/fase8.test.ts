@@ -109,3 +109,46 @@ describe("JARVIS guarda todo por áreas", () => {
     expect(store.data.notas).toEqual([]);
   });
 });
+
+describe("que responda todo", () => {
+  beforeEach(async () => {
+    resetDB();
+    await new Promise<void>((res) => {
+      const r = indexedDB.deleteDatabase("vida");
+      r.onsuccess = r.onerror = () => res();
+    });
+  });
+  async function setup(conn: any = { mode: "key", apiKey: "" }, stream: any = vi.fn()) {
+    const kv = memoryKV();
+    const routine = new Routine(kv);
+    const store = new AppStore();
+    await store.load();
+    const clock = at("15:00");
+    const reg = new ToolRegistry();
+    reg.register(...routineTools(routine, clock), ...vidaTools({ store, routine, clock }), ...diaTools({ store, routine, clock }), ...extrasTools({ store, routine, clock }));
+    const a = new Assistant(reg, routine, () => conn, kv, clock, { stream, ask: vi.fn() } as any, { parse: (t, n) => parseVida(t, n.date), notar: crearNotar(store, clock), esPregunta });
+    return { a, store, kv };
+  }
+  it("sin Gemini, una pregunta general queda guardada para responderla después (nunca 'no entiendo')", async () => {
+    const { a } = await setup();
+    const r = await a.handle("¿qué es el VO2 máx?");
+    expect(r.text).toMatch(/Guardé tu pregunta y te la respondo apenas lo conectes/);
+    expect(a.pendientes()).toEqual(["¿qué es el VO2 máx?"]);
+    a.quitarPendiente("¿qué es el VO2 máx?");
+    expect(a.pendientes()).toEqual([]);
+  });
+  it("con Gemini, si el teléfono no encuentra algo, se lo pasa a Gemini en vez de rendirse", async () => {
+    const stream = vi.fn(async (_c: any, _r: any, on: any) => (on("Tu meta de plata es la del Working Holiday."), { text: "x", calls: [], parts: [] }));
+    const { a } = await setup({ mode: "key", apiKey: "k" }, stream);
+    const r = await a.handle("aporté 20 mil a la meta del auto");
+    expect(stream).toHaveBeenCalled();
+    expect(r.text).toBe("Tu meta de plata es la del Working Holiday.");
+  });
+  it("busca en todo lo que le contaste", async () => {
+    const { a } = await setup();
+    await a.handle("me duele la rodilla derecha");
+    await a.handle("fui al dentista por una muela");
+    expect((await a.handle("qué te dije de la rodilla")).text).toBe("Encontré esto: hoy, me duele la rodilla derecha.");
+    expect((await a.handle("cuándo fue la última vez que fui al dentista")).text).toMatch(/^Encontré esto: hoy, fui al dentista/);
+  });
+});

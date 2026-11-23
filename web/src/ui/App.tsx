@@ -27,7 +27,7 @@ import { go, kv, toast, useApp, useRoute } from "./state";
 const TABS = [
   { path: "/", nombre: "Inicio", icon: "inicio" },
   { path: "/dinero", nombre: "Dinero", icon: "dinero" },
-  { path: "/metas", nombre: "Metas", icon: "metas" },
+  { path: "/areas", nombre: "Mi vida", icon: "corazon" },
   { path: "/futbol", nombre: "Fútbol", icon: "futbol" },
   { path: "/mas", nombre: "Más", icon: "mas" },
 ];
