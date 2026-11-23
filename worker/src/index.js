@@ -284,9 +284,26 @@ async function siri(request, env) {
     const r = await agendaDe(env, t);
     if (r) return texto(r);
   }
-  // "Recuérdame X en 10 minutos": el aviso se programa al tiro (sin esperar a que abras la app).
-  const rec = recordatorioSiri(t, Date.now());
-  if (rec && env.BUZON) {
+  // ¿Es la respuesta a "¿cuándo te lo recuerdo?" (lo que preguntó la vez anterior, hace menos de 5 minutos)?
+  let rec = null;
+  const pend = env.BUZON ? JSON.parse((await env.BUZON.get("pend:siri")) || "null") : null;
+  if (pend && /\d|\b(hoy|manana|pasado|lunes|martes|miercoles|jueves|viernes|sabado|domingo|ahora|altiro|al tiro|tarde|noche|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|media|cuarto)\b/.test(t) && !PARA_ANOTAR.test(t)) {
+    await env.BUZON.delete("pend:siri");
+    const ans = /^(\d{1,2}(?:[:.]\d{2})?|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)$/.test(t) ? `a las ${t}` : t;
+    const r = recordatorioSiri(norm(`recuerdame ${pend.texto} ${pend.dia || ""} ${ans}`), Date.now());
+    if (r && !r.falta) rec = r;
+    else return texto("No te entendí la hora. Dime de nuevo el recordatorio completo, por ejemplo: recuérdame sacar al perro mañana a las 7.");
+  } else if (pend && /^(no|nada|olvidalo|dejalo|cancela)\b/.test(t)) {
+    await env.BUZON.delete("pend:siri");
+    return texto("Ya, no lo agendo.");
+  }
+  if (!rec) rec = recordatorioSiri(t, Date.now());
+  if (rec?.falta && env.BUZON) {
+    await env.BUZON.put("pend:siri", JSON.stringify({ texto: rec.texto, dia: rec.dia }), { expirationTtl: 300 });
+    const q = rec.falta === "hora" ? `¿A qué hora ${rec.dia.replace("manana", "mañana")} te recuerdo ${rec.texto.toLowerCase()}?` : `¿Cuándo te recuerdo ${rec.texto.toLowerCase()}?`;
+    return texto(`${q} Dime "Oye Siri, Jarvis" y la hora, por ejemplo: mañana a las 7.`);
+  }
+  if (rec && !rec.falta && env.BUZON) {
     let n = 0;
     for (const id of await idsAparatos(env)) {
       const dev = await leerAparato(env, id);
@@ -296,7 +313,7 @@ async function siri(request, env) {
       n++;
     }
     const id = `m:${Date.now().toString().padStart(15, "0")}:${Math.random().toString(36).slice(2, 6)}`;
-    await env.BUZON.put(id, JSON.stringify({ texto: dicho, fecha: new Date().toISOString() }), { expirationTtl: BUZON_TTL });
+    await env.BUZON.put(id, JSON.stringify({ texto: pend ? `recuérdame ${rec.texto.toLowerCase()} ${rec.cuando}` : dicho, fecha: new Date().toISOString() }), { expirationTtl: BUZON_TTL });
     return texto(n ? `Listo, te aviso ${rec.cuando}: ${rec.texto.toLowerCase()}.` : `Lo anoté para ${rec.cuando}, pero tu iPhone no tiene los avisos activados: en Vida ve a Más, Recordatorios, Avisos.`);
   }
   // Algo que cuenta o pide anotar: queda en el buzón y se guarda en su área al abrir la app.
@@ -494,20 +511,38 @@ export function recordatorioSiri(t, ahora = Date.now()) {
     let h = Number(m[1]);
     const mi = Number(m[2] || 0);
     if (h > 23 || mi > 59) return null;
-    const manana = /\bmanana\b/.test(resto.replace(/de la manana/, ""));
+    // Qué día: hoy (por defecto), mañana, pasado mañana o un día de la semana.
+    const sinDeLa = resto.replace(/de la manana/, "");
+    const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+    const ds = sinDeLa.match(/\b(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/);
+    let otroDia = null;
+    if (/\bpasado manana\b/.test(sinDeLa)) otroDia = sumarDias(hoy, 2);
+    else if (/\bmanana\b/.test(sinDeLa)) otroDia = sumarDias(hoy, 1);
+    else if (ds) {
+      const hoyDow = new Date(hoy + "T12:00:00Z").getUTCDay();
+      const dif = (DIAS.indexOf(ds[1]) - hoyDow + 7) % 7 || 7;
+      otroDia = sumarDias(hoy, dif);
+    }
     if (/tarde|noche|pm/.test(m[3] || "") && h < 12) h += 12;
-    else if (!m[3] && h >= 1 && h <= 7) h += 12; // "a las 3" casi siempre es en la tarde
-    let fecha = manana ? sumarDias(hoy, 1) : hoy;
+    else if (!m[3] && h >= 1 && h <= 7 && !otroDia) h += 12; // hoy, "a las 3" casi siempre es en la tarde
+    let fecha = otroDia || hoy;
     let total = h * 60 + mi;
-    if (!manana && !m[3] && h < 12 && total <= ahoraMin && (h + 12) * 60 + mi > ahoraMin) total += 720;
-    if (!manana && total <= ahoraMin) fecha = sumarDias(hoy, 1);
+    if (!otroDia && !m[3] && h < 12 && total <= ahoraMin && (h + 12) * 60 + mi > ahoraMin) total += 720;
+    if (!otroDia && total <= ahoraMin) fecha = sumarDias(hoy, 1);
     cuandoMs = chileAUtcMs(fecha, total);
-    cuando = `${fecha === hoy ? "hoy" : "mañana"} a las ${hhmmTxt(total)}`;
+    const dif = Math.round((Date.parse(fecha) - Date.parse(hoy)) / 864e5);
+    cuando = `${dif === 0 ? "hoy" : dif === 1 ? "mañana" : dif === 2 ? "pasado mañana" : `el ${["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(fecha + "T12:00:00Z").getUTCDay()]}`} a las ${hhmmTxt(total)}`;
     quitar = m[0];
-  } else return null;
+  } else {
+    // Es un recordatorio pero sin hora: se pregunta (y la próxima vez que hables con Siri se completa).
+    const dia = (resto.match(/\b(pasado manana|manana|hoy|esta (?:tarde|noche)|(?:el )?(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo))\b/) || [])[0] || "";
+    const tx = resto.replace(dia || "\u0000", " ").replace(/\s+/g, " ").trim().replace(/^(?:de |que |para |a )+/, "").replace(/\s+(?:de|que|para|a)$/, "").trim();
+    if (!tx || tx.length > 200) return null;
+    return { falta: dia ? "hora" : "cuando", dia, texto: tx.charAt(0).toUpperCase() + tx.slice(1) };
+  }
   const texto = resto
     .replace(quitar || "\u0000", " ")
-    .replace(/\b(hoy|pasado manana|manana)\b/g, " ")
+    .replace(/\b(hoy|pasado manana|manana|(?:el |este )?(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)(?: que viene)?)\b/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/^(?:de |que |para |a )+/, "")

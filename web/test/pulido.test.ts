@@ -161,3 +161,29 @@ describe("Siri: el tiempo cuenta desde que lo dijiste", () => {
     expect(ajustarRelativo("hace 10 minutos comí", 0)).toBe("hace 10 minutos comí");
   });
 });
+
+describe("recordatorio sin hora: JARVIS pregunta", () => {
+  it("pregunta cuándo y a qué hora, y con la respuesta lo agenda", async () => {
+    resetDB();
+    await new Promise<void>((res) => { const r = indexedDB.deleteDatabase("vida"); r.onsuccess = r.onerror = () => res(); });
+    const { kv, routine, store, reloj, reg } = registro();
+    await store.load();
+    const a = new Assistant(reg, routine, () => ({ mode: "key", apiKey: "" }) as any, kv, reloj, { stream: vi.fn(), ask: vi.fn() } as any, {
+      parse: (t, n) => parseVida(t, n.date, { minutos: n.minutes }),
+      notar: crearNotar(store, reloj),
+      esPregunta,
+    });
+    expect((await a.handle("recuérdame sacar a la Polo a trotar")).text).toBe("¿Cuándo te recuerdo sacar a la polo a trotar? Dime por ejemplo: hoy a las 6, mañana a las 8 o en 2 horas.");
+    expect((await a.handle("mañana")).text).toBe("¿A qué hora mañana te recuerdo sacar a la polo a trotar?");
+    expect((await a.handle("a las 7")).text).toBe("Listo, te recuerdo sacar a la polo a trotar mañana a las 07:00.");
+    expect(store.data.recordatorios).toHaveLength(1);
+    // Con todo de una vez, no pregunta.
+    expect((await a.handle("recuérdame llamar a la abuela hoy a las 6")).text).toMatch(/^Listo, te recuerdo llamar a la abuela hoy a las 18:00\./);
+    // Si respondes otra cosa, no se queda pegado.
+    await a.handle("recuérdame pagar la luz");
+    expect((await a.handle("gasté 5 lukas en completos")).text).toMatch(/\$5\.000/);
+    // "no" cancela.
+    await a.handle("recuérdame comprar pan");
+    expect((await a.handle("no")).text).toBe("Ya, no lo agendo.");
+  });
+});

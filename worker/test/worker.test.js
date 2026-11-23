@@ -237,3 +237,19 @@ describe("recordatorios por Siri, al tiro", () => {
     expect(dev.avisos[0].cuerpo).toBe("Sacar al perro");
   });
 });
+
+describe("Siri pregunta la hora si falta", () => {
+  it("recuérdame X → ¿cuándo? → mañana a las 7 → agendado", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const BUZON = kvFalso();
+    await BUZON.put("dev:abcdefghijklmnop", JSON.stringify({ k: "x", sub: { endpoint: "https://web.push.apple.com/z" }, avisos: [], enviados: [], cola: [] }));
+    const e = { ...env, BUZON };
+    expect(await (await worker.fetch(siri("recuérdame sacar a la Polo a trotar"), e)).text()).toMatch(/^¿Cuándo te recuerdo sacar a la polo a trotar\?/);
+    expect(await (await worker.fetch(siri("mañana a las 7"), e)).text()).toMatch(/^Listo, te aviso mañana a las 07:00: sacar a la polo a trotar\.$/);
+    expect(JSON.parse(BUZON.m.get("dev:abcdefghijklmnop")).avisos).toHaveLength(1);
+    expect(BUZON.m.has("pend:siri")).toBe(false);
+    // Solo el día: pregunta la hora.
+    expect(await (await worker.fetch(siri("recuérdame pagar la luz el viernes"), e)).text()).toMatch(/^¿A qué hora el viernes te recuerdo pagar la luz\?/);
+    expect(await (await worker.fetch(siri("a las 10"), e)).text()).toMatch(/^Listo, te aviso .* a las 10:00: pagar la luz\.$/);
+  });
+});
