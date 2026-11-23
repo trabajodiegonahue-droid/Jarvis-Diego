@@ -2,6 +2,9 @@
 // estudio, trabajo). Las usa el intérprete local y también Gemini con function calling.
 // Todo lo que anota devuelve "undo" para deshacerlo con un toque o diciendo "deshaz eso".
 import { cap } from "../core/texto";
+import { idDeNombre, nombreEjercicio } from "../training/ejerciciosVoz";
+import { ejercicio } from "../training/ejercicios";
+import { recordsNuevos } from "../training/calc";
 import { addDays, dow, fechaCorta } from "../core/dates";
 import type { ChileNow } from "../core/time";
 import type { AppStore } from "../data/store";
@@ -25,6 +28,11 @@ const cuando = (fecha: string, hoy: string) => (fecha === hoy ? "hoy" : fecha ==
 const fechaOk = (f: unknown, hoy: string) => (typeof f === "string" && /^\d{4}-\d{2}-\d{2}$/.test(f) && f <= hoy ? f : hoy);
 const entero = (v: unknown) => (typeof v === "number" ? Math.round(v) : typeof v === "string" && /^\d+$/.test(v) ? Number(v) : undefined);
 const TILDES: Record<string, string> = { ingles: "Inglés", matematicas: "Matemáticas", matematica: "Matemática", fisica: "Física", quimica: "Química", biologia: "Biología", programacion: "Programación", musica: "Música", frances: "Francés", aleman: "Alemán", portugues: "Portugués", calculo: "Cálculo" };
+const EJ_PARAM = {
+  type: "array",
+  description: "Ejercicios con series, repeticiones y peso",
+  items: { type: "object", properties: { nombre: { type: "string" }, series: { type: "integer" }, reps: { type: "integer" }, kg: { type: "number" } }, required: ["nombre"] },
+};
 const NOMBRE_ENTRENO: Record<string, string> = { gym: "Gimnasio", gim: "Gimnasio", gimnasio: "Gimnasio", pesas: "Gimnasio", pierna: "Pierna", piernas: "Pierna", correr: "Correr", trote: "Trote", bici: "Bici", caminata: "Caminata", natación: "Natación", core: "Core", cardio: "Cardio" };
 
 export function vidaTools({ store, routine, clock, clima }: VidaDeps): Tool[] {
@@ -64,6 +72,26 @@ export function vidaTools({ store, routine, clock, clima }: VidaDeps): Tool[] {
   const montoParam = { type: "integer", description: "Monto en pesos chilenos, entero. '5 lucas' = 5000, '1,5 palos' = 1500000." };
   const fechaParam = { type: "string", description: "AAAA-MM-DD. Omitir si es hoy." };
 
+  // Ejercicios que llegan del intérprete o de Gemini → ítems del entreno.
+  const itemsDe = (xs: unknown): Entreno["items"] =>
+    (Array.isArray(xs) ? xs : [])
+      .map((x: any) => {
+        const id = typeof x?.ejId === "string" ? x.ejId : idDeNombre(String(x?.nombre || ""));
+        const series = Array.isArray(x?.series)
+          ? x.series
+          : Array.from({ length: Math.min(Math.max(Number(x?.series) || 1, 1), 12) }, () => ({ reps: Math.max(0, Math.round(Number(x?.reps) || 0)), ...(Number(x?.kg) > 0 ? { kg: Number(x.kg) } : {}) }));
+        return { ejId: id, series };
+      })
+      .filter((i) => i.ejId && i.ejId !== "libre:" && i.series.length);
+  const resumenItems = (items: Entreno["items"]) =>
+    items
+      .map((i) => {
+        const s = i.series[0];
+        const nom = nombreEjercicio(i.ejId, ejercicio(i.ejId)?.nombre).toLowerCase();
+        return `${nom} ${i.series.length}×${s?.reps || "?"}${s?.kg ? ` con ${String(s.kg).replace(".", ",")} kg` : ""}`;
+      })
+      .join(", ");
+
   return [
     {
       name: "registrar_gasto",
@@ -80,9 +108,36 @@ export function vidaTools({ store, routine, clock, clima }: VidaDeps): Tool[] {
       run: (a) => movimiento("ingreso", a),
     },
     {
+      name: "agregar_ejercicios",
+      description: "Agrega ejercicios con sus series, repeticiones y peso al entreno de fuerza de hoy (o al que se indique). Ej: press banca 4 series de 8 con 50 kg.",
+      parameters: { type: "object", properties: { ejercicios: EJ_PARAM, entrenoId: { type: "string" } }, required: ["ejercicios"] },
+      run: async (a) => {
+        const items = itemsDe(a.ejercicios);
+        if (!items.length) return { ok: false, say: "No te entendí los ejercicios. Dime por ejemplo: press banca 4 de 8 con 50 kilos." };
+        const f = hoy();
+        let en = (a.entrenoId && d().entrenos.find((x) => x.id === a.entrenoId)) || [...d().entrenos].filter((x) => x.fecha === f && !x.km).sort((x, y) => y.id.localeCompare(x.id))[0];
+        const antes = en ? { ...en, items: [...en.items] } : null;
+        if (!en) en = { id: uid(), fecha: f, nombre: "Gimnasio", items: [] };
+        const nuevo: Entreno = { ...en, items: [...en.items, ...items] };
+        const anteriores = d().entrenos.filter((x) => x.id !== en!.id);
+        await store.put("entrenos", nuevo);
+        const recs = recordsNuevos(anteriores, { ...nuevo, items });
+        const series = nuevo.items.reduce((t, i) => t + i.series.length, 0);
+        return {
+          ok: true,
+          say: `Anoté en tu entreno: ${resumenItems(items)}. Llevas ${series} series hoy.${recs.length ? ` ¡Récord! ${recs.map((r) => r.replace(/^libre:/, "")).join(", ")}.` : ""}`,
+          data: { entrenoId: nuevo.id },
+          undo: async () => {
+            if (antes) await store.put("entrenos", antes);
+            else await store.remove("entrenos", nuevo.id);
+          },
+        };
+      },
+    },
+    {
       name: "registrar_entreno",
       description: "Anota que Diego entrenó (gimnasio, correr, pierna, core…). También tacha la tarea de la rutina que calce.",
-      parameters: { type: "object", properties: { tipo: { type: "string" }, minutos: { type: "integer" }, segundos: { type: "integer", description: "segundos además de los minutos (19 min 35 s → minutos 19, segundos 35)" }, km: { type: "number", description: "distancia en km, con decimales (2,89)" }, calorias: { type: "integer" }, esfuerzo: { type: "integer", description: "1 a 10" }, fecha: fechaParam }, required: ["tipo"] },
+      parameters: { type: "object", properties: { tipo: { type: "string" }, ejercicios: EJ_PARAM, minutos: { type: "integer" }, segundos: { type: "integer", description: "segundos además de los minutos (19 min 35 s → minutos 19, segundos 35)" }, km: { type: "number", description: "distancia en km, con decimales (2,89)" }, calorias: { type: "integer" }, esfuerzo: { type: "integer", description: "1 a 10" }, fecha: fechaParam }, required: ["tipo"] },
       run: (a) => {
         const fecha = fechaOk(a.fecha, hoy());
         const tipo = norm(String(a.tipo || "entrenamiento"));
@@ -101,17 +156,22 @@ export function vidaTools({ store, routine, clock, clima }: VidaDeps): Tool[] {
         const ritmo = km && seg ? `${mmss(Math.round(seg / km))} /km` : "";
         const extra = [km ? `${String(km).replace(".", ",")} km` : "", seg ? (seg % 60 ? mmss(seg) : `${seg / 60} min`) : "", ritmo ? `ritmo ${ritmo}` : "", kcal ? `${kcal} kcal` : ""].filter(Boolean).join(" · ");
         const esf = entero(a.esfuerzo);
-        const e: Entreno = { id: uid(), fecha, nombre, items: [], ...(generico && ses ? { sesionId: ses.id } : {}), ...(esf && esf <= 10 ? { rpe: esf } : {}), ...(extra ? { nota: extra } : {}), ...(km ? { km } : {}), ...(seg ? { seg } : {}), ...(kcal ? { kcal } : {}) };
+        const items = itemsDe(a.ejercicios);
+        const e: Entreno = { id: uid(), fecha, nombre, items, ...(generico && ses ? { sesionId: ses.id } : {}), ...(esf && esf <= 10 ? { rpe: esf } : {}), ...(extra ? { nota: extra } : {}), ...(km ? { km } : {}), ...(seg ? { seg } : {}), ...(kcal ? { kcal } : {}) };
         void store.put("entrenos", e);
         // Si en la rutina hay algo que calce (gym, entrenar), se tacha también.
         const task = fecha === hoy() ? routine.find(tipo, dow(fecha)) || (generico ? routine.find("entrenar", dow(fecha)) : null) : null;
         const yaHecha = task ? routine.dayStatus(fecha, dow(fecha)).done.includes(task) : true;
         if (task && !yaHecha) routine.check(task, fecha);
         const semana = d().entrenos.filter((x) => x.fecha >= addDays(fecha, -dow(fecha)) && x.fecha <= addDays(fecha, 6 - dow(fecha))).length;
-        const say = `Anotado: ${nombre.toLowerCase()} ${cuando(fecha, hoy())}${extra ? ` (${extra})` : ""}.${task && !yaHecha ? ` Taché ${task.title} en la rutina.` : ""} Llevas ${semana} ${semana === 1 ? "entreno" : "entrenos"} esta semana. Bien ahí.`;
+        // Un entreno de fuerza sin ejercicios: JARVIS pregunta qué hiciste (series, repeticiones y peso).
+        const fuerza = !km && !/^(trote|correr|bici|caminata|natacion|natación|cardio|futbol|fútbol|partido)$/.test(norm(nombre)) && !/trote|correr|bici|camin|nata/.test(tipo);
+        const preguntar = fuerza && !items.length;
+        const say = `Anotado: ${nombre.toLowerCase()} ${cuando(fecha, hoy())}${extra ? ` (${extra})` : ""}${items.length ? `: ${resumenItems(items)}` : ""}.${task && !yaHecha ? ` Taché ${task.title} en la rutina.` : ""} Llevas ${semana} ${semana === 1 ? "entreno" : "entrenos"} esta semana.${preguntar ? " ¿Qué ejercicios hiciste? Dime ejercicio, series, repeticiones y peso, por ejemplo: press banca 4 de 8 con 50 kilos y sentadilla 3 de 10 con 60." : " Bien ahí."}`;
         return {
           ok: true,
           say,
+          data: { entrenoId: e.id, preguntarEjercicios: preguntar },
           undo: async () => {
             await store.remove("entrenos", e.id);
             if (task && !yaHecha) routine.uncheck(task, fecha);

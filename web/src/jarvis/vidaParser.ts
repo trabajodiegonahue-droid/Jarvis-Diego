@@ -1,3 +1,4 @@
+import { parseEjercicios } from "../training/ejerciciosVoz";
 import { MESES } from "../core/texto";
 import { parseExtras } from "./extrasParser";
 // Intérprete local de lo que Diego registra o pregunta sobre su vida (plata, entrenos,
@@ -338,6 +339,12 @@ function parseVidaBase(text: string, hoy: string, ctx: CtxVida): LocalCommand | 
     if (Object.keys(args).length) return { tool: "registrar_partido", args: conFecha(args) };
   }
 
+  // ---------- Ejercicios sueltos: "hice press banca 4 de 8 con 50 kilos" ----------
+  if (!preg && /\b(\d+ ?(x|por) ?\d+|\d+ (series|serie|sets?)|\d+ de \d+ con|repeticiones|reps)\b/.test(resto) && !new RegExp(`^(?:ya )?(?:hice|fui al?|termine|complete|entrene|tuve)\\s+(?:el |la |mi )?(?:rutina de |sesion de |entrenamiento de )?(?:${ENTRENO})\\b`).test(resto)) {
+    const ejs = parseEjercicios(resto);
+    if (ejs.length && !/\b(km|kilometros|minutos)\b/.test(resto)) return { tool: "agregar_ejercicios", args: { ejercicios: ejs } };
+  }
+
   // ---------- Entreno ----------
   // "hice gym", "fui al gimnasio", "entrené pierna", "salí a correr 5 km", "corrí 30 minutos"
   if (!preg) {
@@ -349,13 +356,18 @@ function parseVidaBase(text: string, hoy: string, ctx: CtxVida): LocalCommand | 
     if (e) {
       const que = e.length > 2 ? e[1] : /trot/.test(resto) ? "trote" : /corr/.test(resto) ? "correr" : /nad/.test(resto) ? "natación" : /bici|pedal/.test(resto) ? "bici" : /camin/.test(resto) ? "caminata" : "entrenamiento";
       const extra = (e.length > 2 ? e[2] : e[1]) || "";
-      const c = cardio(extra);
+      // Cardio (km, minutos) o fuerza (ejercicios con series): lo que calce.
+      const c0 = cardio(extra);
+      const esCardioX = !!(c0.km || c0.minutos || c0.calorias) || /corr|trot|nad|bici|camin/.test(que);
+      const ejs = esCardioX ? [] : parseEjercicios(extra);
+      const c = ejs.length ? {} : c0;
       const rpe = extra.match(/\b(?:esfuerzo|rpe|intensidad) (?:de )?(\d{1,2})\b/);
       return {
         tool: "registrar_entreno",
         args: conFecha({
           tipo: que,
           ...c,
+          ...(ejs.length ? { ejercicios: ejs } : {}),
           ...(rpe && Number(rpe[1]) <= 10 ? { esfuerzo: Number(rpe[1]) } : {}),
         }),
       };

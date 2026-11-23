@@ -278,3 +278,22 @@ describe("cardio, mascota, aviso semanal y respaldo cifrado", () => {
     await expect(descifrar(p, "otra")).rejects.toThrow(/no es correcta/);
   });
 });
+
+describe("entreno de fuerza: JARVIS pregunta ejercicios, series, repeticiones y peso", () => {
+  it("pregunta, anota cada respuesta, pregunta si hay algo más y termina con 'listo'", async () => {
+    resetDB();
+    await new Promise<void>((res) => { const r = indexedDB.deleteDatabase("vida"); r.onsuccess = r.onerror = () => res(); });
+    const { kv, routine, store, reloj, reg } = registro();
+    await store.load();
+    const a = new Assistant(reg, routine, () => ({ mode: "key", apiKey: "" }) as any, kv, reloj, { stream: vi.fn(), ask: vi.fn() } as any, { parse: (t, n) => parseVida(t, n.date, { minutos: n.minutes }), notar: crearNotar(store, reloj), esPregunta });
+    expect((await a.handle("hice gym")).text).toMatch(/¿Qué ejercicios hiciste\? Dime ejercicio, series, repeticiones y peso/);
+    expect((await a.handle("press banca 4 de 8 con 50 kilos y sentadilla 3 series de 10 con 60")).text).toBe("Anoté en tu entreno: press de banca 4×8 con 50 kg, sentadilla con barra 3×10 con 60 kg. Llevas 7 series hoy. ¡Récord! Press de banca: 50 kg, Sentadilla con barra: 60 kg. ¿Algo más?");
+    expect((await a.handle("jalón al pecho 3 por 12 con 45 kg")).text).toMatch(/^Anoté en tu entreno: jalón al pecho 3×12 con 45 kg\. Llevas 10 series hoy\./);
+    expect((await a.handle("listo")).text).toBe("Listo, quedó guardado tu entreno. Bien ahí.");
+    const en = store.data.entrenos[0];
+    expect(en.items.map((i) => [i.ejId, i.series.length, i.series[0]])).toEqual([["press-banca", 4, { reps: 8, kg: 50 }], ["sentadilla-barra", 3, { reps: 10, kg: 60 }], ["libre:Jalón al pecho", 3, { reps: 12, kg: 45 }]]);
+    // El trote no pregunta ejercicios; y se puede decir todo de una.
+    expect((await a.handle("troté 3 km en 20 minutos")).text).not.toMatch(/¿Qué ejercicios/);
+    expect((await a.handle("hice pierna: sentadilla 4x10 con 70 kilos")).text).toMatch(/^Anotado: pierna hoy: sentadilla con barra 4×10 con 70 kg\./);
+  });
+});

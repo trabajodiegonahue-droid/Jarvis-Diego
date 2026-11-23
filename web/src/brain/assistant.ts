@@ -1,3 +1,4 @@
+import { parseEjercicios } from "../training/ejerciciosVoz";
 import { hhmm } from "../core/texto";
 import { HISTORY_KEEP, HISTORY_LIMIT } from "../config";
 import { chileNow, parseHour, toMinutes, type ChileNow } from "../core/time";
@@ -59,7 +60,8 @@ type Pending =
   | { kind: "hour"; title: string }
   | { kind: "monto"; tipo: "ingreso" | "egreso"; descripcion?: string }
   | { kind: "acoste" }
-  | { kind: "recordar"; falta: "cuando" | "hora"; texto: string; cuando?: string; extra?: any };
+  | { kind: "recordar"; falta: "cuando" | "hora"; texto: string; cuando?: string; extra?: any }
+  | { kind: "ejercicios"; entrenoId: string };
 
 const NUM_WORDS: Record<string, number> = { uno: 1, una: 1, primera: 1, primero: 1, dos: 2, segunda: 2, segundo: 2, tres: 3, tercera: 3, tercero: 3, cuatro: 4, cuarta: 4, cinco: 5, quinta: 5, seis: 6, sexta: 6, siete: 7, septima: 7 };
 
@@ -109,6 +111,9 @@ export class Assistant {
   private async call(name: string, args: any): Promise<ToolResult> {
     const r = await this.tools.call(name, args);
     // A un recordatorio le faltó cuándo o la hora: la próxima respuesta lo completa.
+    // Entreno de fuerza sin ejercicios: la próxima respuesta trae los ejercicios (series, repeticiones y peso).
+    const en = r.data as { entrenoId?: string; preguntarEjercicios?: boolean } | undefined;
+    if (r.ok && (name === "registrar_entreno" || name === "agregar_ejercicios") && en?.entrenoId && (en.preguntarEjercicios || this.pending?.kind === "ejercicios")) this.pending = { kind: "ejercicios", entrenoId: en.entrenoId };
     const f = r.data as { falta?: "cuando" | "hora"; texto?: string; cuando?: string; extra?: any } | undefined;
     if (!r.ok && name === "crear_recordatorio" && f?.texto && (f.falta === "cuando" || f.falta === "hora"))
       this.pending = { kind: "recordar", falta: f.falta, texto: f.texto, cuando: f.cuando, extra: f.extra };
@@ -163,6 +168,19 @@ export class Assistant {
         const cmd = parseCommand(`agrega ${p.title} ${phrase}`, this.clock());
         if (cmd?.tool === "agregar_tarea") return this.local(said, (await this.call(cmd.tool, cmd.args)).say, onText);
         if (isNo(frase)) return this.local(said, "Ya, no agrego nada.", onText);
+      } else if (p.kind === "ejercicios") {
+        if (isNo(frase) || /^(listo|eso|eso es todo|eso seria|eso sería|nada mas|nada más|termine|terminé|ya|nop|no mas|no más|solo eso|eso no mas|eso no más)\b/i.test(frase.trim()))
+          return this.local(said, "Listo, quedó guardado tu entreno. Bien ahí.", onText);
+        const ejs = parseEjercicios(frase);
+        if (ejs.length) {
+          this.pending = { kind: "ejercicios", entrenoId: p.entrenoId };
+          const r = await this.call("agregar_ejercicios", { entrenoId: p.entrenoId, ejercicios: ejs });
+          if (r.ok) {
+            this.pending = { kind: "ejercicios", entrenoId: p.entrenoId };
+            return this.local(said, `${r.say} ¿Algo más?`, onText);
+          }
+          this.pending = null;
+        }
       } else if (p.kind === "recordar") {
         if (isNo(frase) || /^(nada|olvidalo|olvídalo|déjalo|dejalo|cancela)\b/i.test(frase)) return this.local(said, "Ya, no lo agendo.", onText);
         // Solo si la respuesta parece un cuándo ("a las 7", "mañana", "en 20 minutos", "7:30"); si no, se atiende como frase nueva.
