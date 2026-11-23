@@ -8,7 +8,7 @@ import { haceCuanto } from "./vidaParser";
 
 export function crearNotar(store: AppStore, clock: () => ChileNow) {
   return async ({ texto, tool, args, origen, ya = [] }: { texto: string; tool?: string; args?: any; origen: "jarvis" | "siri"; ya?: string[] }) => {
-    if (tool === "anotar_en_area") return null; // esa herramienta ya guarda la nota
+    if (tool === "anotar_en_area" || tool === "nombre_mascota") return null; // esas no son algo que pasó
     const n = clock();
     // Lo específico de esta herramienta ("gimnasio") clasifica mejor que la frase entera ("fútbol a las 3 y gimnasio a las 5").
     const propio = typeof args?.texto === "string" ? args.texto : typeof args?.titulo === "string" ? args.titulo : "";

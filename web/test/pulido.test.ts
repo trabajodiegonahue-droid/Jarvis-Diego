@@ -101,7 +101,7 @@ describe("voz de JARVIS", () => {
 });
 
 describe("pendientes: 'tengo que sacar la caca del perro ahora'", () => {
-  it("queda como aviso (no solo como nota) y en Casa", async () => {
+  it("queda como aviso (no solo como nota) y en Mascota", async () => {
     resetDB();
     await new Promise<void>((res) => { const r = indexedDB.deleteDatabase("vida"); r.onsuccess = r.onerror = () => res(); });
     const { kv, routine, store, reloj, reg } = registro();
@@ -114,7 +114,7 @@ describe("pendientes: 'tengo que sacar la caca del perro ahora'", () => {
     const r = await a.handle("tengo que sacar la caca del perro ahora", () => {}, "siri");
     expect(r.text).toBe("Anotado: sacar la caca del perro. Te lo recuerdo en 10 minutos, por si se te pasa.");
     expect(store.data.recordatorios[0]).toMatchObject({ texto: "Sacar la caca del perro", cuando: `${reloj().date}T12:10` });
-    expect(r.guardado?.[0]).toMatchObject({ id: "casa", seccion: { nombre: "Recordatorios" } });
+    expect(r.guardado?.[0]).toMatchObject({ id: "mascota", area: "Mascota", seccion: { nombre: "Recordatorios" } });
     expect(parseVida("tengo que estudiar mas", "2026-11-23", {})).toBeNull();
   });
 });
@@ -173,9 +173,9 @@ describe("recordatorio sin hora: JARVIS pregunta", () => {
       notar: crearNotar(store, reloj),
       esPregunta,
     });
-    expect((await a.handle("recuérdame sacar a la Polo a trotar")).text).toBe("¿Cuándo te recuerdo sacar a la polo a trotar? Dime por ejemplo: hoy a las 6, mañana a las 8 o en 2 horas.");
-    expect((await a.handle("mañana")).text).toBe("¿A qué hora mañana te recuerdo sacar a la polo a trotar?");
-    expect((await a.handle("a las 7")).text).toBe("Listo, te recuerdo sacar a la polo a trotar mañana a las 07:00.");
+    expect((await a.handle("recuérdame sacar a la Polo a trotar")).text).toBe("¿Cuándo te recuerdo sacar a la Polo a trotar? Dime por ejemplo: hoy a las 6, mañana a las 8 o en 2 horas.");
+    expect((await a.handle("mañana")).text).toBe("¿A qué hora mañana te recuerdo sacar a la Polo a trotar?");
+    expect((await a.handle("a las 7")).text).toBe("Listo, te recuerdo sacar a la Polo a trotar mañana a las 07:00.");
     expect(store.data.recordatorios).toHaveLength(1);
     // Con todo de una vez, no pregunta.
     expect((await a.handle("recuérdame llamar a la abuela hoy a las 6")).text).toMatch(/^Listo, te recuerdo llamar a la abuela hoy a las 18:00\./);
@@ -212,5 +212,69 @@ describe("más formas de pedir un aviso", () => {
     await a.handle("saqué al perro ahora a las 11:24");
     expect(store.data.recordatorios).toHaveLength(0);
     expect(store.data.notas[0].fecha.slice(11)).toBe("11:24");
+  });
+});
+
+describe("Apolo y el trote", () => {
+  it("la mascota tiene su área con su nombre, y lo de antes que quedó en Otros se ve ahí", async () => {
+    const { setNombreMascota, clasificarArea, areaEfectiva, area } = await import("../src/areas/calc");
+    setNombreMascota("Apolo");
+    expect(area("mascota").nombre).toBe("Apolo");
+    expect(clasificarArea("saqué al Apolo")).toBe("mascota");
+    expect(clasificarArea("le di comida al apolo")).toBe("mascota");
+    expect(areaEfectiva({ id: "x", fecha: "2026-11-23T10:00", area: "otro", texto: "tengo que sacar la caca del Apolo", origen: "siri" } as any)).toBe("mascota");
+    setNombreMascota("");
+    expect(parseVida("mi perro se llama apolo", "2026-11-23", {})).toEqual({ tool: "nombre_mascota", args: { nombre: "apolo" } });
+  });
+  it("el trote queda como entreno con km, tiempo, ritmo y calorías", async () => {
+    resetDB();
+    await new Promise<void>((res) => { const r = indexedDB.deleteDatabase("vida"); r.onsuccess = r.onerror = () => res(); });
+    const { kv, routine, store, reloj, reg } = registro();
+    await store.load();
+    const a = new Assistant(reg, routine, () => ({ mode: "key", apiKey: "" }) as any, kv, reloj, { stream: vi.fn(), ask: vi.fn() } as any, { parse: (t, n) => parseVida(t, n.date, { minutos: n.minutes }), notar: crearNotar(store, reloj), esPregunta });
+    const r = await a.handle("Troté 2 kilómetros, 89 y tardé 19 minutos 35 segundos y quemé 234 calorías");
+    expect(r.text).toMatch(/^Anotado: trote hoy \(2,89 km · 19:35 · ritmo 6:47 \/km · 234 kcal\)\./);
+    expect(store.data.entrenos[0]).toMatchObject({ nombre: "Trote", km: 2.89, seg: 1175, kcal: 234 });
+    expect(r.guardado?.[0]).toMatchObject({ id: "entreno" });
+  });
+});
+
+describe("cardio, mascota, aviso semanal y respaldo cifrado", () => {
+  it("cardio: km por semana, récords y tendencia", async () => {
+    const { salidas, records, kmPorSemana, tendenciaRitmo } = await import("../src/cardio/calc");
+    const E = (fecha: string, km: number, seg: number) => ({ id: fecha + km, fecha, nombre: "Trote", items: [], km, seg });
+    const ss = salidas([E("2026-11-23", 2.89, 1175), E("2026-11-20", 5, 1800), E("2026-11-18", 3, 1200), E("2026-11-10", 4, 1800), { id: "g", fecha: "2026-11-22", nombre: "Gimnasio", items: [] }] as any);
+    expect(ss).toHaveLength(4);
+    const r = records(ss, "2026-11-23");
+    expect(r.masLarga?.km).toBe(5);
+    expect(r.mejorRitmo?.ritmo).toBe(360);
+    expect(r.kmMes).toBe(14.9);
+    expect(kmPorSemana(ss, "2026-11-23", 3).map((x) => x.valor)).toEqual([4, 8, 2.9]);
+    expect(tendenciaRitmo(ss)).toBeLessThan(0);
+  });
+  it("mascota: paseos, pendientes y horas sin salir", async () => {
+    const { eventosMascota, minutosSinSalir, porDia } = await import("../src/mascota/calc");
+    const n = (fecha: string, texto: string) => ({ id: fecha, fecha, area: "mascota", texto, origen: "app" }) as any;
+    const ev = eventosMascota([n("2026-11-23T08:00", "saqué al Apolo"), n("2026-11-23T09:00", "tengo que sacar al Apolo"), n("2026-11-23T10:00", "Apolo comió")]);
+    expect(ev.map((e) => [e.tipo, e.pendiente])).toEqual([["comida", false], ["paseo", true], ["paseo", false]]);
+    expect(minutosSinSalir(ev, "2026-11-23T12:00")).toBe(240);
+    expect(porDia(ev, "paseo", "2026-11-23", 2).map((x) => x.valor)).toEqual([0, 1]);
+  });
+  it("el domingo llega el resumen de la semana, sin plata", async () => {
+    const { planAvisos } = await import("../src/jarvis/avisos");
+    const { emptyDatos } = await import("../src/data/types");
+    const d = { ...emptyDatos(), entrenos: [{ id: "a", fecha: "2026-11-23", nombre: "Trote", items: [], km: 3 }] } as any;
+    const av = planAvisos(d, [], { manana: "08:00", noche: "21:30", agua: false, rutina: false } as any, "2026-11-23T10:00");
+    const s = av.find((a) => a.id.startsWith("s:"));
+    expect(s?.cuando).toBe("2026-11-29T20:00");
+    expect(s?.cuerpo).toMatch(/^Esta semana: 1 entreno \(3 km\)/);
+    expect(s?.cuerpo).not.toMatch(/\$/);
+  });
+  it("respaldo: cifrado y descifrado con la contraseña; con otra falla", async () => {
+    const { cifrar, descifrar } = await import("../src/data/nube");
+    const p = await cifrar('{"hola":"Apolo"}', "contraseña larga");
+    expect(p).not.toContain("Apolo");
+    expect(await descifrar(p, "contraseña larga")).toBe('{"hola":"Apolo"}');
+    await expect(descifrar(p, "otra")).rejects.toThrow(/no es correcta/);
   });
 });

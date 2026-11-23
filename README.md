@@ -214,7 +214,7 @@ npx wrangler deploy
 El buzón guarda solo la frase dictada, hasta que abres la app o por un máximo de 2 semanas. Si no lo creas, el atajo igual sirve para preguntas generales.
 
 **2. Crear el atajo** en la app **Atajos** → **+** → nombre «Jarvis»:
-1. **Dictar texto**, con el idioma en español (Chile) y «Dejar de escuchar» en «Después de una pausa».
+1. **Dictar texto**, con el idioma en español (Chile) y «Dejar de escuchar» en «Al tocar» (On Tap): hablas tranquilo, con pausas, y tocas al terminar. Puedes decir varias cosas de una vez: JARVIS las separa.
 2. **Obtener contenido de URL**:
    - URL: `https://jarvis.<tu-usuario>.workers.dev/siri`
    - Método: POST

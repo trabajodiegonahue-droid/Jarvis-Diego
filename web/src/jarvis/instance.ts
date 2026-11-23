@@ -31,7 +31,7 @@ tools.register(
   ...knowledgeTools(() => settings.about, () => settings),
   ...vidaTools({ store, routine, clock: chileNow, clima: climaAhora }),
   ...diaTools({ store, routine, clock: chileNow, clima: climaAhora, aguaMeta: () => getPrefs().aguaMeta }),
-  ...extrasTools({ store, routine, clock: chileNow, dificil: { get: () => getPrefs().dificil, set: (p) => setPrefs({ dificil: p }) } }),
+  ...extrasTools({ store, routine, clock: chileNow, dificil: { get: () => getPrefs().dificil, set: (p) => setPrefs({ dificil: p }) }, mascota: { get: () => getPrefs().mascota, set: (n) => setPrefs({ mascota: n }) } }),
 );
 export const assistant = new Assistant(tools, routine, () => settings, localKV, chileNow, undefined, {
   parse: (t, n) =>

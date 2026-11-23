@@ -7,8 +7,11 @@ import { Dinero } from "./screens/Dinero";
 import { Bienvenida, Bloqueo } from "./screens/Entrada";
 import { Inicio } from "./screens/Inicio";
 import { alChat, JarvisSheet } from "./screens/Jarvis";
+import { Cardio } from "./screens/Cardio";
+import { Mascota } from "./screens/Mascota";
 import { revisarBuzon } from "../jarvis/buzon";
 import { assistant, settings } from "../jarvis/instance";
+import { chileNow } from "../core/time";
 import { Ajustes, Mas } from "./screens/Mas";
 import { Metas } from "./screens/Metas";
 import { Trabajo } from "./screens/Trabajo";
@@ -40,7 +43,13 @@ export function App() {
   const route = useRoute();
   const [locked, setLocked] = useState(hasPin(kv));
   const [add, setAdd] = useState(false);
-  const [jarvis, setJarvis] = useState<false | { borrador?: string }>(false);
+  const [jarvis, setJarvis] = useState<false | { borrador?: string; enviar?: boolean }>(false);
+  // Botones de la app (por ejemplo en el Inicio) abren JARVIS con una frase lista o ya enviada.
+  useEffect(() => {
+    const f = (e: Event) => setJarvis({ ...((e as CustomEvent).detail || {}) });
+    addEventListener("abrir-jarvis", f);
+    return () => removeEventListener("abrir-jarvis", f);
+  }, []);
   const listo = store.ready && !locked && prefs.onboarded;
 
   // "Oye Siri, Jarvis": el atajo puede abrir la app con lo dictado (#/jarvis?q=...),
@@ -67,6 +76,10 @@ export function App() {
     abrirDesdeEnlace();
     void buzon();
     iniciarAvisos();
+    // Respaldo automático y cifrado (si lo activaste), una vez al día.
+    void import("../data/nube").then(({ respaldoDiario }) =>
+      respaldoDiario(settings.mode === "worker" && settings.workerUrl && settings.workerToken ? { url: settings.workerUrl, token: settings.workerToken } : null, store.data, kv, chileNow().date),
+    );
     const vis = () => !document.hidden && void buzon();
     addEventListener("hashchange", abrirDesdeEnlace);
     document.addEventListener("visibilitychange", vis);
@@ -117,6 +130,10 @@ export function App() {
         return <Recordatorios />;
       case "/mas/compras":
         return <Compras />;
+      case "/mas/cardio":
+        return <Cardio />;
+      case "/mas/mascota":
+        return <Mascota />;
       case "/areas":
         return <Areas />;
       default:
@@ -149,7 +166,7 @@ export function App() {
           <Registrar onDone={() => setAdd(false)} />
         </Sheet>
       )}
-      {jarvis && <JarvisSheet borrador={jarvis.borrador} onClose={() => setJarvis(false)} />}
+      {jarvis && <JarvisSheet borrador={jarvis.borrador} enviar={jarvis.enviar} onClose={() => setJarvis(false)} />}
       <AvisoEnPantalla />
       <Toast />
     </>

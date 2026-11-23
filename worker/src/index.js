@@ -19,7 +19,7 @@
 
 const GEMINI = "https://generativelanguage.googleapis.com";
 const ALLOWED_METHODS = new Set(["streamGenerateContent", "generateContent"]);
-const MAX_BODY = 64 * 1024;
+const MAX_BODY = 3 * 1024 * 1024; // fotos para Gemini (achicadas en el teléfono)
 const MAX_SIRI = 500; // caracteres de lo dictado
 const BUZON_TTL = 14 * 24 * 3600; // lo no leído se borra solo a las 2 semanas
 
@@ -29,6 +29,7 @@ const PREGUNTA = /^(que|como|cuando|cuanto|cuanta|cuantos|cuantas|donde|por que|
 const AGENDA = /\b(que (tengo|hay|me toca)|mi agenda|mis (turnos|recordatorios|pendientes))\b/;
 // En qué área de la vida queda lo que cuenta (la misma idea que web/src/areas/calc.ts, en corto).
 const AREAS = [
+  ["Mascota", /\b(perro|perrit|perrin|gato|gatit|mascota|veterinari|pasear al|pasear a la|sacar al|sacar a la|saque al|saque a la|caca|croquetas|correa|pulgas)/],
   ["Amor", /\b(polola|pololo|novia|novio|pareja|cita|aniversario|beso|mi ex\b|terminamos|enamorad)/],
   ["Salud", /\b(duele|dolor|lesion|tobillo|rodilla|espalda|resfri|gripe|fiebre|enferm|medico|doctor|dentista|kine|remedio|pastilla|dormi|sueno|insomnio|agua)/],
   ["Ánimo", /\b(triste|feliz|contento|bajoneado|bajon|ansios|estres|angustia|me siento|ando|motivad|frustrad|enojad|cansad|reventad)/],
@@ -38,11 +39,17 @@ const AREAS = [
   ["Estudios", /\b(estudie|estudiar|ingles|clase|prueba|examen|ensayo|curso|universidad|preu|tarea)/],
   ["Trabajo", /\b(trabaje|trabajo|turno|pega|jefe|jefa|cliente)/],
   ["Familia y amigos", /\b(mama|papa|abuel|herman|familia|amigo|amiga|amigos|carrete|junta|cumpleanos|cumple|asado)/],
-  ["Casa y trámites", /\b(perro|perrit|gato|gatit|mascota|veterinari|pasear|caca|casa|pieza|arriendo|aseo|ordenar|lavar|supermercado|compras|lista|tramite|pasaporte|visa|cuentas)/],
+  ["Casa y trámites", /\b(casa|pieza|arriendo|aseo|ordenar|lavar|supermercado|compras|lista|tramite|pasaporte|visa|cuentas)/],
   ["Ocio y hobbies", /\b(pelicula|peli|serie|netflix|cine|concierto|musica|guitarra|videojuego|play|libro|paseo|playa|lago|volcan|pesca|camping)/],
   ["Metas y proyectos", /\b(meta|proyecto|working holiday|australia|viaje|negocio)/],
 ];
-const areaDe = (t) => (AREAS.find(([, re]) => re.test(` ${t} `)) || ["tus notas"])[0];
+// La mascota se llama por su nombre (la app lo manda junto con la agenda).
+const areaDe = (t, mascota = "") => {
+  const m = norm(mascota);
+  if (m && new RegExp(`\\b${m.replace(/[^a-z0-9 ]/g, "")}\\b`).test(t)) return mascota;
+  const a = (AREAS.find(([, re]) => re.test(` ${t} `)) || ["tus notas"])[0];
+  return a === "Mascota" && mascota ? mascota : a;
+};
 
 // Frases que son para anotar en la app (no para conversar).
 const PARA_ANOTAR = /^(ya )?(gaste|me gaste|pague|compre|me pagaron|me dieron|me llego|gane|recibi|cobre|hice|fui|entrene|corri|sali a|meti|marque|di una|ganamos|perdimos|empatamos|jugue|estudie|repase|trabaje|tuve turno|aporte|guarde|ahorre|anota|anotame|agrega|agregame|agenda|ponme|tacha|termine|crea|nueva meta|quita|borra|cambia)\b/;
@@ -176,6 +183,20 @@ export default {
       }
       return json({ items, configurado: true });
     }
+    // Respaldo cifrado (el teléfono lo cifra con tu contraseña; aquí solo se guarda el paquete).
+    if (url.pathname === "/respaldo") {
+      if (!env.BUZON) return fail(501, "Falta el buzón (KV) en el intermediario");
+      if (request.method === "GET") {
+        const v = await env.BUZON.get("respaldo");
+        return v ? json(JSON.parse(v)) : fail(404, "No hay respaldo");
+      }
+      if (request.method === "POST") {
+        const b = await request.json().catch(() => null);
+        if (!b || typeof b.paquete !== "string" || b.paquete.length > 20 * 1024 * 1024 || !/^\{"v":1/.test(b.paquete)) return fail(400, "Respaldo inválido");
+        await env.BUZON.put("respaldo", JSON.stringify({ paquete: b.paquete, fecha: new Date().toISOString() }));
+        return json({ ok: true });
+      }
+    }
     // Aviso de prueba: llega en segundos, para confirmar que las notificaciones funcionan.
     if (url.pathname === "/push/prueba" && request.method === "POST") {
       if (!env.BUZON || !env.VAPID_PUBLIC || !env.VAPID_PRIVATE) return fail(501, "Faltan el buzón o las claves de avisos");
@@ -205,7 +226,7 @@ export default {
       const agenda = {};
       for (const [f, cosas] of Object.entries(b.agenda && typeof b.agenda === "object" ? b.agenda : {}).slice(0, 8))
         if (/^\d{4}-\d{2}-\d{2}$/.test(f) && Array.isArray(cosas)) agenda[f] = cosas.slice(0, 12).map((c) => String(c).slice(0, 120));
-      await env.BUZON.put(`dev:${b.id}`, JSON.stringify({ k: b.k, sub: b.suscripcion, avisos, agenda, enviados: [...enviados].slice(-300), cola: antes.cola || [] }));
+      await env.BUZON.put(`dev:${b.id}`, JSON.stringify({ k: b.k, sub: b.suscripcion, avisos, agenda, enviados: [...enviados].slice(-300), cola: antes.cola || [], ...(typeof b.mascota === "string" ? { mascota: b.mascota.slice(0, 30) } : { mascota: antes.mascota }) }));
       await indexar(env, b.id);
       return json({ ok: true, avisos: avisos.length });
     }
@@ -219,7 +240,7 @@ export default {
       const agenda = {};
       for (const [f, cosas] of Object.entries(b.agenda && typeof b.agenda === "object" ? b.agenda : {}).slice(0, 8))
         if (/^\d{4}-\d{2}-\d{2}$/.test(f) && Array.isArray(cosas)) agenda[f] = cosas.slice(0, 12).map((c) => String(c).slice(0, 120));
-      await env.BUZON.put(`dev:${b.id}`, JSON.stringify({ ...antes, k: b.k, agenda }));
+      await env.BUZON.put(`dev:${b.id}`, JSON.stringify({ ...antes, k: b.k, agenda, ...(typeof b.mascota === "string" ? { mascota: b.mascota.slice(0, 30) } : {}) }));
       await indexar(env, b.id);
       return json({ ok: true });
     }
@@ -296,51 +317,63 @@ async function siri(request, env) {
     const r = recordatorioSiri(norm(`recuerdame ${pend.texto} ${pend.dia || ""} ${ans}`), Date.now());
     if (r && !r.falta) rec = { ...r, completado: true };
   }
-  // Reglas rápidas ("recuérdame X en 10 minutos"); si no alcanzan, Gemini razona la frase.
-  if (!rec) rec = recordatorioSiri(t, Date.now());
-  let intento = null;
-  // Gemini solo cuando puede ser un aviso o algo con hora (lo demás se resuelve sin gastar cuota).
-  const quizasAviso = /\b(recuerd|record|avis|agend|alarma|notific)/.test(t) || /\b(a las?|ahora|ahorita|altiro|en \d+|dentro de|manana|esta (?:tarde|noche)|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/.test(t);
-  if ((!rec || rec.falta) && (pend || quizasAviso) && !DE_LA_APP.test(t)) {
-    intento = await entenderSiri(env, dicho, pend).catch(() => null);
-    if (intento?.tipo === "recordatorio") {
-      if (intento.fecha && intento.hora) rec = { ...instanteDe(intento.fecha, intento.hora, Date.now()), texto: intento.texto, completado: !!pend };
-      else rec = { falta: intento.fecha ? "hora" : "cuando", dia: intento.fecha ? diaTxt(intento.fecha, fechaChile()) : "", fecha: intento.fecha || "", texto: intento.texto };
-    } else if (intento) rec = null;
-  }
+  // Nombre de la mascota (para decir "Queda en Apolo").
+  let mascota = "";
+  if (env.BUZON) for (const id of await idsAparatos(env)) mascota = mascota || (await leerAparato(env, id))?.mascota || "";
+  const palabras = t.split(" ").length;
+  // Reglas rápidas para frases cortas y claras ("recuérdame X en 10 minutos").
+  if (!rec && palabras <= 14) rec = recordatorioSiri(t, Date.now());
   if (pend && rec && !rec.falta) await env.BUZON.delete("pend:siri");
+  // Gemini razona cuando puede ser un aviso, o cuando dijiste varias cosas de una vez (las separa en una lista).
+  const quizasAviso = /\b(recuerd|record|avis|agend|alarma|notific)/.test(t) || /\b(a las?|ahora|ahorita|altiro|en \d+|dentro de|manana|esta (?:tarde|noche)|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/.test(t);
+  if ((!rec || rec.falta) && (pend || quizasAviso || palabras > 9) && !DE_LA_APP.test(t)) {
+    const items = await entenderSiri(env, dicho, pend).catch(() => null);
+    if (items?.length) {
+      if (pend) await env.BUZON.delete("pend:siri");
+      const dichos = [];
+      let avisos = 0;
+      let sinPush = false;
+      for (const it of items) {
+        if (it.tipo === "recordatorio") {
+          if (!(it.fecha && it.hora)) {
+            // Le falta el cuándo: se pregunta (solo uno a la vez).
+            await env.BUZON.put("pend:siri", JSON.stringify({ texto: it.texto, dia: it.fecha ? diaTxt(it.fecha, fechaChile()) : "" }), { expirationTtl: 300 });
+            dichos.push(it.fecha ? `¿A qué hora ${diaTxt(it.fecha, fechaChile())} te recuerdo ${it.texto.toLowerCase()}?` : `¿Cuándo te recuerdo ${it.texto.toLowerCase()}?`);
+            continue;
+          }
+          const r = { ...instanteDe(it.fecha, it.hora, Date.now()), texto: it.texto };
+          const n = await programarAviso(env, r);
+          if (!n) sinPush = true;
+          avisos++;
+          await alBuzon(env, `recuérdame ${r.texto.toLowerCase()} ${r.cuandoApp}`);
+          dichos.push(`te aviso ${r.cuando}: ${r.texto.toLowerCase()}`);
+        } else if (it.tipo === "registro") {
+          await alBuzon(env, it.frase || it.texto, it.hora);
+          dichos.push(`anoté ${it.texto.toLowerCase()}${it.hora ? ` a las ${it.hora}` : ""} en ${areaDe(norm(it.frase || it.texto), mascota)}`);
+        } else if (it.respuesta) dichos.push(it.respuesta.replace(/[.!]+$/, ""));
+      }
+      if (dichos.length) {
+        const cuerpo = dichos.length === 1 ? cap1(dichos[0]) : `${dichos.length} cosas: ${dichos.map((d, i) => `${i + 1}, ${d}`).join(". ")}`;
+        return texto(`${/^¿/.test(cuerpo) ? "" : "Listo. "}${cuerpo}.${sinPush ? " Ojo: tu iPhone no tiene los avisos activados (Vida, Más, Recordatorios, Avisos)." : ""}`.replace(/\?\.$/, "?").replace(/\.\./g, "."));
+      }
+    }
+  }
   if (rec?.falta && env.BUZON) {
     await env.BUZON.put("pend:siri", JSON.stringify({ texto: rec.texto, dia: rec.dia || "" }), { expirationTtl: 300 });
     const q = rec.falta === "hora" ? `¿A qué hora ${String(rec.dia || "").replace("manana", "mañana")} te recuerdo ${rec.texto.toLowerCase()}?` : `¿Cuándo te recuerdo ${rec.texto.toLowerCase()}?`;
     return texto(q.replace(/\s+/g, " "));
   }
   if (rec && !rec.falta && env.BUZON) {
-    let n = 0;
-    for (const id of await idsAparatos(env)) {
-      const dev = await leerAparato(env, id);
-      if (!dev?.sub) continue;
-      const avisos = [...(dev.avisos || []), { id: `siri-${Date.now()}`, t: rec.t, titulo: "JARVIS", cuerpo: rec.texto }].slice(-MAX_AVISOS);
-      await env.BUZON.put(`dev:${id}`, JSON.stringify({ ...dev, avisos }));
-      n++;
-    }
-    const id = `m:${Date.now().toString().padStart(15, "0")}:${Math.random().toString(36).slice(2, 6)}`;
-    // A la app le llega en forma clara, para que también quede en Recordatorios.
-    await env.BUZON.put(id, JSON.stringify({ texto: `recuérdame ${rec.texto.toLowerCase()} ${rec.cuandoApp || rec.cuando}`, fecha: new Date().toISOString() }), { expirationTtl: BUZON_TTL });
+    const n = await programarAviso(env, rec);
+    await alBuzon(env, `recuérdame ${rec.texto.toLowerCase()} ${rec.cuandoApp || rec.cuando}`);
     return texto(n ? `Listo, te aviso ${rec.cuando}: ${rec.texto.toLowerCase()}.` : `Lo anoté para ${rec.cuando}, pero tu iPhone no tiene los avisos activados: en Vida ve a Más, Recordatorios, Avisos.`);
   }
-  // Algo que ya hizo ("saqué al Apolo a las 15:24"): queda anotado (a esa hora) y se guarda en su área al abrir la app.
-  if (intento?.tipo === "registro" && env.BUZON) {
-    const id = `m:${Date.now().toString().padStart(15, "0")}:${Math.random().toString(36).slice(2, 6)}`;
-    await env.BUZON.put(id, JSON.stringify({ texto: dicho, fecha: new Date().toISOString(), ...(intento.hora ? { hora: intento.hora } : {}) }), { expirationTtl: BUZON_TTL });
-    return texto(`Anotado${intento.hora ? ` a las ${intento.hora}` : ""}: ${intento.texto.toLowerCase()}. Queda en ${areaDe(t)}.`);
-  }
-  if (intento && (intento.tipo === "pregunta" || intento.tipo === "conversacion") && intento.respuesta && !DE_LA_APP.test(t) && !PARA_ANOTAR.test(t)) return texto(intento.respuesta);
   // Algo que cuenta o pide anotar: queda en el buzón y se guarda en su área al abrir la app.
   if (PARA_ANOTAR.test(t) || !PREGUNTA.test(t)) {
     if (!env.BUZON) return texto("Para anotar desde Siri falta crear el buzón en Cloudflare. Mientras, ábreme en la app y dímelo ahí.");
     const id = `m:${Date.now().toString().padStart(15, "0")}:${Math.random().toString(36).slice(2, 6)}`;
     await env.BUZON.put(id, JSON.stringify({ texto: dicho, fecha: new Date().toISOString() }), { expirationTtl: BUZON_TTL });
-    const a = areaDe(t);
+    const a = areaDe(t, mascota);
     return texto(`Listo, lo guardo en ${a}. Queda en Vida apenas abras la app.`);
   }
   if (DE_LA_APP.test(t)) return texto("Eso lo tengo guardado en tu teléfono, no en internet. Abre Vida y pregúntamelo ahí.");
@@ -580,6 +613,24 @@ export function recordatorioSiri(t, ahora = Date.now()) {
   return { t: cuandoMs, cuando, texto: texto.charAt(0).toUpperCase() + texto.slice(1) };
 }
 
+const cap1 = (x) => x.charAt(0).toUpperCase() + x.slice(1);
+async function alBuzon(env, txt, hora) {
+  const id = `m:${Date.now().toString().padStart(15, "0")}:${Math.random().toString(36).slice(2, 6)}`;
+  await env.BUZON.put(id, JSON.stringify({ texto: txt, fecha: new Date().toISOString(), ...(hora ? { hora } : {}) }), { expirationTtl: BUZON_TTL });
+}
+// Programa un aviso en cada iPhone con los avisos activos. Devuelve en cuántos quedó.
+async function programarAviso(env, rec) {
+  let n = 0;
+  for (const id of await idsAparatos(env)) {
+    const dev = await leerAparato(env, id);
+    if (!dev?.sub) continue;
+    const avisos = [...(dev.avisos || []), { id: `siri-${Date.now()}-${n}${Math.random().toString(36).slice(2, 5)}`, t: rec.t, titulo: "JARVIS", cuerpo: rec.texto }].slice(-MAX_AVISOS);
+    await env.BUZON.put(`dev:${id}`, JSON.stringify({ ...dev, avisos }));
+    n++;
+  }
+  return n;
+}
+
 // ---------- Gemini entiende lo que le dices a Siri ----------
 function diaTxt(fecha, hoy) {
   const dif = Math.round((Date.parse(fecha) - Date.parse(hoy)) / 864e5);
@@ -600,13 +651,14 @@ export async function entenderSiri(env, dicho, pend, ahora = Date.now(), fetcher
   const hoy = fechaChile(ahora);
   const ahoraTxt = `${DIAS_TXT[new Date(hoy + "T12:00:00Z").getUTCDay()]} ${hoy}, ${hhmmTxt(minutosChile(ahora))}`;
   const model = encodeURIComponent(env.GEMINI_MODEL || "gemini-flash-lite-latest");
-  const sistema = `Eres JARVIS, el asistente de Diego (Chile, habla chileno). Clasifica lo que Diego dijo por voz (puede venir mal dictado) y devuelve SOLO el JSON pedido.
+  const sistema = `Eres JARVIS, el asistente de Diego (Chile, habla chileno). Diego te habla por voz y el dictado puede venir mal escrito o con números separados ("2 kilómetros, 89" = 2,89 km; "15 16" = 15:16). Separa TODO lo que dijo en una lista de cosas, una por cada cosa distinta, y devuelve SOLO el JSON pedido.
 Ahora en Chile es ${ahoraTxt}.
-- "recordatorio": quiere que le avises algo en el FUTURO (recuérdame, avísame, agenda, ponme un recordatorio, tengo X a las..., quiero que me envíes un recordatorio...). texto = qué hacer, corto, en infinitivo y sin la hora ("ver el seminario Fénix"). fecha = AAAA-MM-DD y hora = HH:MM en 24 horas. Calcula tú: "en 10 minutos" = ahora + 10; "a las cuatro" sin decir mañana/noche = la próxima vez que sean las 4 (si ahora es de día y las 4 ya pasaron en la mañana, son las 16:00); "mañana" sin hora = fecha de mañana y hora vacía. Si no dijo cuándo, deja fecha y hora vacías.
-- "registro": cuenta algo que YA hizo o le pasó (saqué al perro, gasté, fui, comí, me duele). texto = lo que hizo, corto. hora = HH:MM si dijo a qué hora pasó ("ahora" = ${hhmmTxt(minutosChile(ahora))}), si no vacía. fecha vacía.
-- "pregunta": pregunta algo. respuesta = la respuesta para escuchar, máximo 2 frases cortas, en chileno relajado, sin emojis ni listas. Nunca inventes datos.
-- "conversacion": saludo o charla. respuesta = respuesta corta.${pend ? `
-OJO: hace un rato le preguntaste a Diego cuándo recordarle "${pend.texto}"${pend.dia ? ` (${pend.dia})` : ""}. Si ahora dice un día u hora, es tipo "recordatorio" con ese texto.` : ""}`;
+Tipos:
+- "recordatorio": quiere que le avises algo en el FUTURO (recuérdame, avísame, agenda, ponme un recordatorio, tengo X a las...). texto = qué hacer, corto, en infinitivo, sin la hora. fecha = AAAA-MM-DD y hora = HH:MM (24 h). Calcula tú: "en 10 minutos" = ahora + 10; "a las cuatro" sin decir mañana/noche = la próxima vez que sean las 4 (de día, 16:00 si las 4 de la mañana ya pasaron); "mañana" sin hora = fecha de mañana y hora vacía. Si no dijo cuándo, fecha y hora vacías.
+- "registro": algo que YA hizo o le pasó (troté, entrené, gasté, comí, saqué al perro, me duele, dormí). texto = resumen corto. frase = la frase en primera persona, clara y con los números en cifras, para que la app la anote (ej: "troté 2,89 km en 19 minutos 35 segundos y quemé 234 calorías", "gasté 5000 en almuerzo", "saqué al Apolo"). hora = HH:MM solo si dijo a qué hora pasó ("ahora" = ${hhmmTxt(minutosChile(ahora))}).
+- "pregunta": pregunta algo general. respuesta = respuesta para escuchar, máximo 2 frases cortas, chileno relajado, sin emojis ni listas. No inventes datos.
+- "conversacion": saludo o charla. respuesta corta.
+Un entrenamiento con sus datos (km, tiempo, calorías) es UNA sola cosa. Pero "troté 3 km, después saqué al perro y gasté 5 lucas" son TRES.${pend ? `\nOJO: hace un rato le preguntaste a Diego cuándo recordarle "${pend.texto}"${pend.dia ? ` (${pend.dia})` : ""}. Si ahora dice un día u hora, es un "recordatorio" con ese texto.` : ""}`;
   const res = await fetcher(`${GEMINI}/v1beta/models/${model}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
@@ -615,18 +667,28 @@ OJO: hace un rato le preguntaste a Diego cuándo recordarle "${pend.texto}"${pen
       contents: [{ role: "user", parts: [{ text: dicho }] }],
       generationConfig: {
         temperature: 0.1,
-        maxOutputTokens: 300,
+        maxOutputTokens: 800,
         responseMimeType: "application/json",
         responseSchema: {
           type: "OBJECT",
           properties: {
-            tipo: { type: "STRING", enum: ["recordatorio", "registro", "pregunta", "conversacion"] },
-            texto: { type: "STRING" },
-            fecha: { type: "STRING" },
-            hora: { type: "STRING" },
-            respuesta: { type: "STRING" },
+            cosas: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  tipo: { type: "STRING", enum: ["recordatorio", "registro", "pregunta", "conversacion"] },
+                  texto: { type: "STRING" },
+                  frase: { type: "STRING" },
+                  fecha: { type: "STRING" },
+                  hora: { type: "STRING" },
+                  respuesta: { type: "STRING" },
+                },
+                required: ["tipo", "texto"],
+              },
+            },
           },
-          required: ["tipo", "texto"],
+          required: ["cosas"],
         },
       },
     }),
@@ -634,9 +696,17 @@ OJO: hace un rato le preguntaste a Diego cuándo recordarle "${pend.texto}"${pen
   if (!res?.ok) return null;
   const data = await res.json();
   const j = JSON.parse((data?.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("") || "null");
-  if (!j || !["recordatorio", "registro", "pregunta", "conversacion"].includes(j.tipo)) return null;
-  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(j.fecha || "") ? j.fecha : "";
-  const hora = /^\d{1,2}:\d{2}$/.test(j.hora || "") ? j.hora.padStart(5, "0") : "";
-  const tx = String(j.texto || "").replace(/[*_#`]/g, "").trim().slice(0, 200);
-  return { tipo: j.tipo, texto: tx ? tx.charAt(0).toUpperCase() + tx.slice(1) : "", fecha, hora: j.tipo === "recordatorio" && !fecha && hora ? "" : hora, ...(j.tipo === "recordatorio" && !fecha && hora ? { fecha: hoy, hora } : {}), respuesta: String(j.respuesta || "").replace(/[*_#`]/g, "").trim() };
+  const lista = Array.isArray(j) ? j : Array.isArray(j?.cosas) ? j.cosas : j?.tipo ? [j] : [];
+  const limpio = (x) => String(x || "").replace(/[*_#`]/g, "").trim();
+  return lista
+    .filter((x) => x && ["recordatorio", "registro", "pregunta", "conversacion"].includes(x.tipo))
+    .slice(0, 8)
+    .map((x) => {
+      let fecha = /^\d{4}-\d{2}-\d{2}$/.test(x.fecha || "") ? x.fecha : "";
+      const hora = /^\d{1,2}:\d{2}$/.test(x.hora || "") ? x.hora.padStart(5, "0") : "";
+      if (x.tipo === "recordatorio" && hora && !fecha) fecha = hoy;
+      const tx = limpio(x.texto).slice(0, 200);
+      return { tipo: x.tipo, texto: tx ? cap1(tx) : "", frase: limpio(x.frase).slice(0, 300), fecha: x.tipo === "recordatorio" ? fecha : "", hora, respuesta: limpio(x.respuesta) };
+    })
+    .filter((x) => x.texto || x.respuesta);
 }

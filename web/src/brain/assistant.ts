@@ -198,6 +198,10 @@ export class Assistant {
       }
     }
 
+    // Varias cosas de una vez ("troté 3 km, después saqué al Apolo y gasté 5 lucas"): Gemini las separa y anota cada una.
+    const separadores = (frase.match(/\s(y|después|despues|luego|además|ademas|también|tambien)\s|,/gi) || []).length;
+    if (connected(this.conn()) && frase.split(/\s+/).length > 12 && separadores >= 2 && !(this.opts.privado?.() && DE_PLATA.test(frase)))
+      return this.viaGemini(said, onText, `\nDiego dijo VARIAS cosas en una frase. Sepáralas y anota CADA UNA con la herramienta que corresponda (registrar_entreno con km, minutos, segundos y calorías; registrar_gasto; crear_recordatorio solo para lo que pide que le avises en el futuro; anotar_en_area para lo que solo cuenta, por ejemplo lo de su mascota). Después responde con una lista corta de lo que anotaste.`);
     const vida = this.opts.parse?.(frase, this.clock());
     if (vida) {
       const local = await this.runLocal(vida, true);

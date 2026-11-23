@@ -28,7 +28,7 @@ describe("intermediario", () => {
     expect((await worker.fetch(req("/v1beta/models/x:generateContent", { headers: { Authorization: "Bearer malo" } }), env)).status).toBe(401);
     expect((await worker.fetch(req("/v1beta/models/x:generateContent", { headers: { Origin: "https://otro.com" } }), env)).status).toBe(403);
     expect((await worker.fetch(req("/v1beta/files"), env)).status).toBe(404);
-    expect((await worker.fetch(req("/v1beta/models/x:generateContent", { body: "x".repeat(70000) }), env)).status).toBe(413);
+    expect((await worker.fetch(req("/v1beta/models/x:generateContent", { body: "x".repeat(3 * 1024 * 1024 + 10) }), env)).status).toBe(413);
     expect(fetch).not.toHaveBeenCalled();
   });
   it("responde al preflight CORS", async () => {
@@ -273,14 +273,16 @@ describe("Siri razona con Gemini cuando las reglas no alcanzan", () => {
     const BUZON = kvFalso();
     await BUZON.put("dev:abcdefghijklmnop", JSON.stringify({ k: "x", sub: { endpoint: "https://web.push.apple.com/z" }, avisos: [], enviados: [], cola: [] }));
     const r = await worker.fetch(siri("Quiero que me envíes un recordatorio a las cuatro para ver el seminario Fénix"), { ...env, BUZON });
-    expect(await r.text()).toBe("Listo, te aviso mañana a las 16:00: ver el seminario fénix.");
+    expect(await r.text()).toBe("Listo. Te aviso mañana a las 16:00: ver el seminario fénix.");
     expect(JSON.parse(BUZON.m.get("dev:abcdefghijklmnop")).avisos[0].cuerpo).toBe("Ver el seminario Fénix");
   });
   it("'saqué al Apolo a las 15:24' es algo que ya hizo: se anota, no se agenda", async () => {
-    vi.stubGlobal("fetch", gem({ tipo: "registro", texto: "sacar al Apolo", fecha: "", hora: "15:24" }));
+    vi.stubGlobal("fetch", gem({ cosas: [{ tipo: "registro", texto: "saqué al Apolo", frase: "saqué al Apolo", fecha: "", hora: "15:24" }] }));
     const BUZON = kvFalso();
+    await BUZON.put("dev:abcdefghijklmnop", JSON.stringify({ k: "x", mascota: "Apolo", avisos: [], enviados: [], cola: [] }));
+    await BUZON.put("idx:devs", JSON.stringify(["abcdefghijklmnop"]));
     const r = await worker.fetch(siri("saqué al Apolo ahora a las 15:24"), { ...env, BUZON });
-    expect(await r.text()).toMatch(/^Anotado a las 15:24: sacar al apolo\./);
+    expect(await r.text()).toBe("Listo. Anoté saqué al apolo a las 15:24 en Apolo.");
     const item = [...BUZON.m.entries()].find(([k]) => k.startsWith("m:"));
     expect(JSON.parse(item[1]).hora).toBe("15:24");
   });
@@ -288,5 +290,34 @@ describe("Siri razona con Gemini cuando las reglas no alcanzan", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("sin red")));
     const r = await worker.fetch(siri("hoy salí con la polola"), { ...env, BUZON: kvFalso() });
     expect(await r.text()).toMatch(/^Listo, lo guardo en Amor/);
+  });
+});
+
+
+describe("varias cosas de una vez", () => {
+  it("las separa en una lista: entreno, mascota y gasto, cada una al buzón por separado", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ cosas: [
+      { tipo: "registro", texto: "troté 2,89 km", frase: "troté 2,89 km en 19 minutos 35 segundos y quemé 234 calorías" },
+      { tipo: "registro", texto: "saqué al Apolo", frase: "saqué al Apolo" },
+      { tipo: "registro", texto: "gasté 5 lucas en almuerzo", frase: "gasté 5000 en almuerzo" },
+    ] }) }] } }] }))));
+    const BUZON = kvFalso();
+    const r = await worker.fetch(siri("troté 2 kilómetros 89 en 19 minutos 35 segundos quemé 234 calorías después saqué al Apolo y gasté 5 lucas en almuerzo"), { ...env, BUZON });
+    expect(await r.text()).toBe("Listo. 3 cosas: 1, anoté troté 2,89 km en Entrenamiento. 2, anoté saqué al apolo en Mascota. 3, anoté gasté 5 lucas en almuerzo en Dinero.");
+    const textos = [...BUZON.m.entries()].filter(([k]) => k.startsWith("m:")).map(([, v]) => JSON.parse(v).texto);
+    expect(textos).toEqual(["troté 2,89 km en 19 minutos 35 segundos y quemé 234 calorías", "saqué al Apolo", "gasté 5000 en almuerzo"]);
+  });
+});
+
+describe("respaldo cifrado", () => {
+  it("guarda y devuelve el paquete tal cual, solo con tu código", async () => {
+    const e = { ...env, BUZON: kvFalso() };
+    const paquete = '{"v":1,"gz":true,"s":"a","i":"b","c":"c"}';
+    expect((await worker.fetch(req("/respaldo", { method: "GET", body: null }), e)).status).toBe(404);
+    expect((await worker.fetch(req("/respaldo", { body: JSON.stringify({ paquete }) }), e)).status).toBe(200);
+    const r = await (await worker.fetch(req("/respaldo", { method: "GET", body: null }), e)).json();
+    expect(r.paquete).toBe(paquete);
+    expect((await worker.fetch(req("/respaldo", { method: "GET", body: null, headers: { Authorization: "Bearer x" } }), e)).status).toBe(401);
+    expect((await worker.fetch(req("/respaldo", { body: JSON.stringify({ paquete: "no cifrado" }) }), e)).status).toBe(400);
   });
 });

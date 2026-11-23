@@ -26,10 +26,14 @@ export interface ExtrasDeps {
   routine?: Routine;
   clock: () => ChileNow;
   dificil?: { get: () => Periodo[]; set: (p: Periodo[]) => void };
+  mascota?: { get: () => string; set: (n: string) => void };
 }
 
 
-export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
+// Solo la primera letra en minúscula (así "Apolo" o "Fénix" quedan bien escritos).
+const minus = (x: string) => x.charAt(0).toLowerCase() + x.slice(1);
+
+export function extrasTools({ store, clock, dificil, mascota }: ExtrasDeps): Tool[] {
   const d = () => store.data;
   const ahora = () => {
     const n = clock();
@@ -37,6 +41,20 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
   };
 
   return [
+    {
+      name: "nombre_mascota",
+      description: "Guarda cómo se llama la mascota de Diego (su perro, gato…). Lo de la mascota queda en su propia área con ese nombre.",
+      parameters: { type: "object", properties: { nombre: { type: "string" } }, required: ["nombre"] },
+      run: (a) => {
+        const n = String(a.nombre || "").trim().replace(/[^\p{L} ]/gu, "").slice(0, 30);
+        if (!n || !mascota) return { ok: false, say: "¿Cómo se llama tu mascota?" };
+        const antes = mascota.get();
+        const bonito = n.charAt(0).toUpperCase() + n.slice(1);
+        mascota.set(bonito);
+        return { ok: true, say: `Listo, ${bonito} tiene su propia área en Mi vida: paseos, comida, veterinario, todo lo de ${bonito} queda ahí.`, undo: () => mascota.set(antes) };
+      },
+    },
+
     // ---------- Recordatorios ----------
     {
       name: "crear_recordatorio",
@@ -49,16 +67,16 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
         if (esSensible(texto)) return { ok: false, say: "Eso parece una clave o un dato de tarjeta: mejor no lo guardo. Para claves usa el llavero del iPhone." };
         const c = parseCuando(String(a.cuando || texto), n.date, n.minutes);
         // Sin cuándo, o con el día pero sin la hora: JARVIS pregunta (y la respuesta completa el recordatorio).
-        if (!c) return { ok: false, say: `¿Cuándo te recuerdo ${texto.toLowerCase()}? Dime por ejemplo: hoy a las 6, mañana a las 8 o en 2 horas.`, data: { falta: "cuando", texto, extra: a.agenda ? { agenda: true } : a.pendiente ? { pendiente: true } : {} } };
+        if (!c) return { ok: false, say: `¿Cuándo te recuerdo ${minus(texto)}? Dime por ejemplo: hoy a las 6, mañana a las 8 o en 2 horas.`, data: { falta: "cuando", texto, extra: a.agenda ? { agenda: true } : a.pendiente ? { pendiente: true } : {} } };
         if (!c.horaDicha && c.repetir !== "anual")
-          return { ok: false, say: `¿A qué hora ${cuandoTxt(`${c.fecha}T09:00`, n.date).replace(/ a las 09:00$/, "")} te recuerdo ${texto.toLowerCase()}?`, data: { falta: "hora", texto, cuando: String(a.cuando || texto), extra: a.agenda ? { agenda: true } : a.pendiente ? { pendiente: true } : {} } };
+          return { ok: false, say: `¿A qué hora ${cuandoTxt(`${c.fecha}T09:00`, n.date).replace(/ a las 09:00$/, "")} te recuerdo ${minus(texto)}?`, data: { falta: "hora", texto, cuando: String(a.cuando || texto), extra: a.agenda ? { agenda: true } : a.pendiente ? { pendiente: true } : {} } };
         const r: Recordatorio = { id: uid(), texto: cap(texto), cuando: `${c.fecha}T${c.hora}`, ...(c.repetir ? { repetir: c.repetir } : {}) };
         await store.put("recordatorios", r);
         const dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábados", "domingos"];
         const cuando = r.repetir === "diario" ? `todos los días a las ${c.hora}` : r.repetir === "semanal" ? `todos los ${dias[dow(c.fecha)]} a las ${c.hora}` : r.repetir === "mensual" ? `todos los meses, el ${Number(c.fecha.slice(8))}, a las ${c.hora}` : r.repetir === "anual" ? `todos los años, el ${fechaCorta(c.fecha)}` : cuandoTxt(r.cuando, n.date);
-        if (a.pendiente) return { ok: true, say: `Anotado: ${r.texto.toLowerCase()}. Te lo recuerdo ${/^en \d+ minutos?$/.test(String(a.cuando)) ? `en ${String(a.cuando).slice(3)}, por si se te pasa` : cuando}.`, undo: () => store.remove("recordatorios", r.id).then(() => {}) };
-        if (a.agenda) return { ok: true, say: `Agendé ${r.texto.toLowerCase()} ${cuando}; te aviso a esa hora.`, undo: () => store.remove("recordatorios", r.id).then(() => {}) };
-        return { ok: true, say: `Listo, te recuerdo ${r.texto.toLowerCase()} ${cuando}.${c.horaDicha ? "" : " Te aviso a las 9."}`, undo: () => store.remove("recordatorios", r.id).then(() => {}) };
+        if (a.pendiente) return { ok: true, say: `Anotado: ${minus(r.texto)}. Te lo recuerdo ${/^en \d+ minutos?$/.test(String(a.cuando)) ? `en ${String(a.cuando).slice(3)}, por si se te pasa` : cuando}.`, undo: () => store.remove("recordatorios", r.id).then(() => {}) };
+        if (a.agenda) return { ok: true, say: `Agendé ${minus(r.texto)} ${cuando}; te aviso a esa hora.`, undo: () => store.remove("recordatorios", r.id).then(() => {}) };
+        return { ok: true, say: `Listo, te recuerdo ${minus(r.texto)} ${cuando}.${c.horaDicha ? "" : " Te aviso a las 9."}`, undo: () => store.remove("recordatorios", r.id).then(() => {}) };
       },
     },
     {
@@ -69,7 +87,7 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
         const n = clock();
         const rs = proximos(d().recordatorios, ahora(), 14);
         if (!rs.length) return { ok: true, say: 'No tienes recordatorios pendientes. Dime por ejemplo "recuérdame pagar la luz el viernes a las 10".' };
-        return { ok: true, say: `Tienes ${rs.length === 1 ? "un recordatorio" : `${rs.length} recordatorios`}: ${joinY(rs.slice(0, 5).map((r) => `${r.texto.toLowerCase()} ${cuandoTxt(r.cuando, n.date)}`))}${rs.length > 5 ? ", y más en Recordatorios" : ""}.` };
+        return { ok: true, say: `Tienes ${rs.length === 1 ? "un recordatorio" : `${rs.length} recordatorios`}: ${joinY(rs.slice(0, 5).map((r) => `${minus(r.texto)} ${cuandoTxt(r.cuando, n.date)}`))}${rs.length > 5 ? ", y más en Recordatorios" : ""}.` };
       },
     },
     {
@@ -81,7 +99,7 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
         const r = d().recordatorios.filter((x) => !x.hecho).find((x) => norm(x.texto).includes(t) || t.includes(norm(x.texto)) || norm(x.texto).split(" ").some((w) => w.length > 3 && t.split(" ").includes(w)));
         if (!r) return { ok: false, say: "No encontré ese recordatorio." };
         const u = await store.remove("recordatorios", r.id);
-        return { ok: true, say: `Listo, borré "${r.texto.toLowerCase()}".`, undo: () => u() };
+        return { ok: true, say: `Listo, borré "${minus(r.texto)}".`, undo: () => u() };
       },
     },
     {
@@ -97,7 +115,7 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
           const ev = eventosDia(d(), [], f).eventos.filter((e) => e.tipo !== "rutina" && e.tipo !== "fisico");
           const recs = d().recordatorios.filter((r) => !r.hecho && r.cuando.startsWith(f));
           const rec = d().recuerdos.filter((r) => r.fecha === f);
-          const cosas = [...ev.map((e) => `${e.titulo.replace(/^./, (c) => c.toLowerCase())}${e.inicio ? ` a las ${e.inicio}` : ""}`), ...recs.map((r) => `${r.texto.toLowerCase()} (recordatorio, ${r.cuando.slice(11)})`), ...rec.map((r) => r.texto.toLowerCase())];
+          const cosas = [...ev.map((e) => `${e.titulo.replace(/^./, (c) => c.toLowerCase())}${e.inicio ? ` a las ${e.inicio}` : ""}`), ...recs.map((r) => `${minus(r.texto)} (recordatorio, ${r.cuando.slice(11)})`), ...rec.map((r) => minus(r.texto))];
           const fechas = proximasFechas(d().fechas, n.date, dias).filter((p) => p.fecha === f);
           cosas.push(...fechas.map((p) => p.f.nombre.toLowerCase()));
           if (cosas.length) partes.push(`${i === 1 ? "Mañana" : i === 2 ? "Pasado mañana" : `El ${DAY_NAMES[dow(f)]}`}: ${joinY(cosas)}.`);

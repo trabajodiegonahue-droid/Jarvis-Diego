@@ -30,6 +30,7 @@ export interface Request {
   tools?: unknown[];
   maxTokens?: number;
   think?: boolean; // razonar antes de responder (por defecto sí)
+  schema?: unknown; // si viene, la respuesta es JSON con esta forma
 }
 
 export interface StreamResult {
@@ -67,6 +68,7 @@ function body(r: Request, think: boolean) {
       temperature: 0.7,
       // Con razonamiento, el modelo piensa primero (hasta THINKING_BUDGET tokens) y después responde corto.
       ...(think ? { maxOutputTokens: max + THINKING_BUDGET, thinkingConfig: { thinkingBudget: THINKING_BUDGET } } : { maxOutputTokens: max }),
+      ...(r.schema ? { responseMimeType: "application/json", responseSchema: r.schema } : {}),
     },
   });
 }

@@ -10,6 +10,7 @@ import { Progress, Rueda } from "../charts";
 import { eventosDia } from "../../calendar/calc";
 import { Empty } from "../components";
 import { Icon } from "../icons";
+import { abrirJarvis } from "./Jarvis";
 import { AREAS, cardReady, go, useApp, type CardId, getPrefs } from "../state";
 import { diffDays, fechaCorta } from "../../core/dates";
 import { equilibrioMetas, metasPrincipales } from "../../goals/calc";
@@ -270,6 +271,9 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
   };
 
   const fecha = `${DAY_NAMES[n.dow][0].toUpperCase() + DAY_NAMES[n.dow].slice(1)} ${dia} de ${MESES[Number(mes.slice(5)) - 1]}`;
+  // Lo principal arriba; el resto, a un toque (ordénalo en Ajustes › Tarjetas del inicio).
+  const visibles = prefs.cards.filter((c) => c.on && cardReady(c.id));
+  const [todo, setTodo] = useState(false);
   return (
     <main class="page">
       <header class="hero">
@@ -288,13 +292,33 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
           )}
         </div>
       </header>
+      <div class="cuentale">
+        <button class="cuentale-barra" onClick={() => abrirJarvis()}>
+          <span class="cuentale-orb" aria-hidden="true">
+            <Icon name="mic" size={18} />
+          </span>
+          <span>Cuéntale algo a JARVIS…</span>
+        </button>
+        <div class="cuentale-rapido">
+          <button onClick={() => abrirJarvis({ borrador: "¿Qué me toca hoy?", enviar: true })}>Mi día</button>
+          <button onClick={() => abrirJarvis({ borrador: "recuérdame " })}>Recordatorio</button>
+          <button onClick={() => abrirJarvis({ borrador: "gasté " })}>Gasto</button>
+          <button onClick={() => abrirJarvis({ borrador: "empecé a " })}>Empecé…</button>
+          <button onClick={() => abrirJarvis({ borrador: "¿Qué se viene los próximos días?", enviar: true })}>Lo que viene</button>
+        </div>
+      </div>
       {store.hasDemo() && <DemoBanner />}
       <SemanaDificil />
       <LogroNuevo />
       <BackupReminder />
-      {prefs.cards.filter((c) => c.on && cardReady(c.id)).map((c) => (
+      {visibles.slice(0, todo ? visibles.length : 4).map((c) => (
         <div key={c.id}>{cards[c.id]()}</div>
       ))}
+      {visibles.length > 4 && (
+        <button class="btn full ver-mas" onClick={() => setTodo(!todo)} aria-expanded={todo}>
+          {todo ? "Ver menos" : `Ver más (${visibles.length - 4})`}
+        </button>
+      )}
       {!tot.ingresos && !tot.egresos && (
         <button class="btn main" onClick={onAdd}>
           Registrar mi primer movimiento
