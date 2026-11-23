@@ -99,3 +99,22 @@ describe("voz de JARVIS", () => {
     expect(pickVoice(voces, "Francisca")?.name).toBe("Francisca");
   });
 });
+
+describe("pendientes: 'tengo que sacar la caca del perro ahora'", () => {
+  it("queda como aviso (no solo como nota) y en Casa", async () => {
+    resetDB();
+    await new Promise<void>((res) => { const r = indexedDB.deleteDatabase("vida"); r.onsuccess = r.onerror = () => res(); });
+    const { kv, routine, store, reloj, reg } = registro();
+    await store.load();
+    const a = new Assistant(reg, routine, () => ({ mode: "key", apiKey: "" }) as any, kv, reloj, { stream: vi.fn(), ask: vi.fn() } as any, {
+      parse: (t, n) => parseVida(t, n.date, {}),
+      notar: crearNotar(store, reloj),
+      esPregunta,
+    });
+    const r = await a.handle("tengo que sacar la caca del perro ahora", () => {}, "siri");
+    expect(r.text).toBe("Anotado: sacar la caca del perro. Te lo recuerdo en 10 minutos, por si se te pasa.");
+    expect(store.data.recordatorios[0]).toMatchObject({ texto: "Sacar la caca del perro", cuando: `${reloj().date}T12:10` });
+    expect(r.guardado?.[0]).toMatchObject({ id: "casa", seccion: { nombre: "Recordatorios" } });
+    expect(parseVida("tengo que estudiar mas", "2026-11-23", {})).toBeNull();
+  });
+});

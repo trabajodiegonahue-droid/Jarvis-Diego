@@ -53,6 +53,7 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
         await store.put("recordatorios", r);
         const dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábados", "domingos"];
         const cuando = r.repetir === "diario" ? `todos los días a las ${c.hora}` : r.repetir === "semanal" ? `todos los ${dias[dow(c.fecha)]} a las ${c.hora}` : r.repetir === "mensual" ? `todos los meses, el ${Number(c.fecha.slice(8))}, a las ${c.hora}` : r.repetir === "anual" ? `todos los años, el ${fechaCorta(c.fecha)}` : cuandoTxt(r.cuando, n.date);
+        if (a.pendiente) return { ok: true, say: `Anotado: ${r.texto.toLowerCase()}. Te lo recuerdo ${/^en \d+ minutos?$/.test(String(a.cuando)) ? `en ${String(a.cuando).slice(3)}, por si se te pasa` : cuando}.`, undo: () => store.remove("recordatorios", r.id).then(() => {}) };
         if (a.agenda) return { ok: true, say: `Agendé ${r.texto.toLowerCase()} ${cuando}; te aviso a esa hora.`, undo: () => store.remove("recordatorios", r.id).then(() => {}) };
         return { ok: true, say: `Listo, te recuerdo "${r.texto.toLowerCase()}" ${cuando}.${c.horaDicha ? "" : " Como no me dijiste la hora, te aviso a las 9."}`, undo: () => store.remove("recordatorios", r.id).then(() => {}) };
       },

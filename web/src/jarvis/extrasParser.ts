@@ -53,7 +53,7 @@ export function parseExtras(text: string, ctx: CtxExtras = {}): LocalCommand | n
 
   // ---------- Agenda: "tengo fútbol a las 3:30 y a las 5 gimnasio" ----------
   // Cada cosa con su hora queda como un aviso aparte (y cada una en su área).
-  const agenda = parseAgenda(raw, t);
+  const agenda = parseAgenda(raw, t) || parsePendiente(raw, t);
   if (agenda) return agenda;
 
   // ---------- Lo que viene ----------
@@ -173,3 +173,30 @@ export function parseAgenda(raw: string, t: string): LocalCommand | null {
 
 const TILDES: Record<string, string> = { futbol: "fútbol", ingles: "inglés", mama: "mamá", papa: "papá", reunion: "reunión", medico: "médico", dentista: "dentista", kinesiologo: "kinesiólogo", clase: "clase", examen: "examen", musica: "música", nataci: "natación" };
 const conTildes = (s: string) => s.replace(/\b[a-z]+\b/g, (w) => TILDES[w] || w);
+
+// "tengo que sacar la caca del Apolo ahora", "debo pagar la luz mañana": un pendiente con aviso.
+const CUANDO_PENDIENTE: [RegExp, string][] = [
+  [/\b(ahora ya|ahora mismo|ya mismo|ahorita|ahora|altiro|al tiro|enseguida)\b/, "en 10 minutos"],
+  [/\b(en un rato|en un ratito|mas rato|luego|despues|hoy)\b/, "en 1 hora"],
+];
+export function parsePendiente(raw: string, t: string): LocalCommand | null {
+  const m = t.match(/^(?:ya )?(?:tengo que|tengo q|debo|necesito|me falta|hay que|me toca)\s+(.+)$/);
+  if (!m || /\?/.test(raw)) return null;
+  let resto = m[1];
+  let cuando = "";
+  for (const [re, c] of CUANDO_PENDIENTE)
+    if (re.test(resto)) {
+      cuando = c;
+      resto = resto.replace(re, " ");
+      break;
+    }
+  if (!cuando) {
+    const d = resto.match(/\b(pasado manana|manana|esta (?:tarde|noche)|en la (?:manana|tarde|noche)|(?:el |este )?(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)|en \S+ (?:minutos?|min|horas?))\b/);
+    if (!d) return null; // sin cuándo: queda como nota en su área
+    cuando = d[1];
+    resto = resto.replace(d[0], " ");
+  }
+  const titulo = resto.replace(/\s+/g, " ").trim().replace(/\s+(?:de|que|a|y|el|la|po|nomas)$/, "");
+  if (titulo.length < 2) return null;
+  return { tool: "crear_recordatorio", args: { texto: conTildes(original(raw, titulo)), cuando, pendiente: true } };
+}
