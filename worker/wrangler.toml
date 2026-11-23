@@ -12,19 +12,19 @@ ALLOWED_ORIGIN = "https://trabajodiegonahue-droid.github.io"
 # El modelo lo decide el intermediario, no el teléfono (así nadie puede pedir uno de pago).
 GEMINI_MODEL = "gemini-flash-lite-latest"
 # Clave pública de los avisos (ver abajo). No es secreta.
-# VAPID_PUBLIC = "pega-aqui-la-clave-publica"
+VAPID_PUBLIC = "BNPa0iPkSibsaEENRsHx0mGGh49JJVrvqJi06HnGyqTiqHSI9mqoLCkOIGAwFTa2PrQoUwVpBCFbcBl7STBSg2c"
 
 # Buzón para el Atajo de Siri (opcional, gratis): lo que dictas para anotar queda aquí
 # hasta que abres la app. Para activarlo:
 #   1. npx wrangler kv namespace create BUZON
 #   2. Copia el "id" que te muestra y descomenta estas tres líneas:
-# [[kv_namespaces]]
-# binding = "BUZON"
-# id = "pega-aqui-el-id"
+[[kv_namespaces]]
+binding = "BUZON"
+id = "b5a5f5e546bc417696f6e4d216df4873"
 
 # Avisos en el iPhone (opcional, gratis). Necesitan el buzón de arriba y un par de claves:
 #   node scripts/claves-avisos.mjs
 #   npx wrangler secret put VAPID_PRIVATE
 # Después pega la clave pública en VAPID_PUBLIC (arriba, en [vars]) y descomenta el reloj que revisa los avisos cada 5 minutos:
-# [triggers]
-# crons = ["*/5 * * * *"]
+[triggers]
+crons = ["*/5 * * * *"]
