@@ -27,4 +27,4 @@ id = "b5a5f5e546bc417696f6e4d216df4873"
 #   npx wrangler secret put VAPID_PRIVATE
 # Después pega la clave pública en VAPID_PUBLIC (arriba, en [vars]) y descomenta el reloj que revisa los avisos cada 5 minutos:
 [triggers]
-crons = ["*/5 * * * *"]
+crons = ["* * * * *"] # cada minuto: los avisos llegan a la hora

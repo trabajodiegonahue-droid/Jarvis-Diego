@@ -117,27 +117,54 @@ function aparato() {
 }
 
 // Se llama desde un toque (iOS solo pide permiso así).
+// Qué paso falló la última vez (para mostrarlo y poder arreglarlo).
+export let detallePush = "";
+
 export async function activarPush(): Promise<EstadoPush> {
+  detallePush = "";
   const no = pushPosible();
   if (no) return no;
+  let paso = "pedir permiso";
   try {
     const permiso = await Notification.requestPermission();
     if (permiso !== "granted") return "denegado";
-    const reg = await navigator.serviceWorker.ready;
+    paso = "preparar la app (service worker)";
+    const reg = await Promise.race([navigator.serviceWorker.ready, new Promise<never>((_, rej) => setTimeout(() => rej(new Error("tiempo")), 10000))]);
+    paso = "pedir la clave de avisos al intermediario";
     const r = await fetch(`${base()}/push/clave`, { headers: headers() });
-    if (!r.ok) return "error";
+    if (!r.ok) {
+      detallePush = `El intermediario respondió ${r.status} al pedir la clave de avisos.`;
+      return "error";
+    }
     const { clave } = await r.json();
+    paso = "suscribirse a los avisos de Apple";
     let sub = await reg.pushManager.getSubscription();
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uABytes(clave) });
     const a = aparato();
     // El service worker necesita saber a quién preguntar el texto de los avisos.
+    paso = "guardar los datos del aviso";
     const c = await caches.open("vida-avisos");
     await c.put(new URL("__avisos.json", location.href).href, new Response(JSON.stringify({ url: base(), id: a.id, k: a.k }), { headers: { "Content-Type": "application/json" } }));
     setPrefs({ avisos: { ...getPrefs().avisos, activos: true } });
+    paso = "registrar el teléfono en el intermediario";
     const ok = await sincronizarPush(true);
+    if (!ok) detallePush = `No pude registrar el teléfono en el intermediario${ultimoStatus ? ` (respondió ${ultimoStatus})` : ""}.`;
     return ok ? "listo" : "error";
-  } catch {
+  } catch (e) {
+    detallePush = `Falló al ${paso}${e instanceof Error && e.message ? `: ${e.message}` : ""}.`;
     return "error";
+  }
+}
+
+// Manda un aviso de prueba que llega en segundos.
+export async function probarPush(): Promise<string> {
+  try {
+    const r = await fetch(`${base()}/push/prueba`, { method: "POST", headers: headers(), body: JSON.stringify(aparato()) });
+    if (r.ok) return "Listo: en unos segundos te debería llegar un aviso. Si no llega, revisa Ajustes del iPhone › Notificaciones › Vida.";
+    const j = await r.json().catch(() => ({}) as any);
+    return `${j?.error || `Error ${r.status}`}.`;
+  } catch {
+    return "No pude llegar al intermediario. Revisa tu internet.";
   }
 }
 
@@ -168,6 +195,7 @@ export async function sincronizarAgenda(): Promise<boolean> {
 }
 
 let ultimo = "";
+let ultimoStatus = 0;
 export async function sincronizarPush(forzar = false): Promise<boolean> {
   const p = getPrefs().avisos;
   if (!p.activos || pushPosible() || !store.ready) return false;
@@ -182,6 +210,7 @@ export async function sincronizarPush(forzar = false): Promise<boolean> {
     const cuerpo = JSON.stringify({ ...aparato(), suscripcion: sub.toJSON(), avisos, agenda });
     if (!forzar && cuerpo === ultimo) return true;
     const r = await fetch(`${base()}/avisos`, { method: "POST", headers: headers(), body: cuerpo });
+    ultimoStatus = r.status;
     if (r.ok) ultimo = cuerpo;
     return r.ok;
   } catch {

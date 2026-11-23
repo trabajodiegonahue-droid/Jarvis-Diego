@@ -142,7 +142,7 @@ describe("avisos en el iPhone (push)", () => {
     await worker.fetch(req("/avisos", { body: JSON.stringify({ id: ID, k: "x", suscripcion: SUB, avisos: [{ id: "a", t: 1, titulo: "x", cuerpo: "y" }] }) }), e);
     const { enviarAvisos } = await import("../src/index.js");
     await enviarAvisos(e, 1000, vi.fn(async () => new Response(null, { status: 410 })));
-    expect(BUZON.m.size).toBe(0);
+    expect([...BUZON.m.keys()].filter((k) => k.startsWith("dev:"))).toEqual([]);
   });
 
   it("rechaza avisos de otro origen o con datos raros", async () => {
@@ -209,5 +209,31 @@ describe("código dentro del JSON (sin encabezado)", () => {
     expect(JSON.stringify([...e.BUZON.m.values()])).not.toContain("secreto");
     const mal = await worker.fetch(new Request("https://w.dev/siri", { method: "POST", body: JSON.stringify({ texto: "hola", codigo: "otro" }) }), e);
     expect(mal.status).toBe(401);
+  });
+});
+
+describe("recordatorios por Siri, al tiro", () => {
+  const T = Date.parse("2026-11-23T17:30:00Z"); // 14:30 en Chile
+  it("entiende en N minutos, a las H, mañana y altiro", async () => {
+    const { recordatorioSiri } = await import("../src/index.js");
+    const r = (s) => recordatorioSiri(s, T);
+    expect(r("recuerdame sacar al perro en 10 minutos")).toMatchObject({ t: T + 600000, texto: "Sacar al perro" });
+    expect(r("recuerdame tomar agua dentro de media hora")?.t).toBe(T + 1800000);
+    expect(r("avisame a las 5 que llame a mi mama")).toMatchObject({ t: Date.parse("2026-11-23T20:00:00Z"), cuando: "hoy a las 17:00" });
+    expect(r("recuerdame a las 2 ir al banco")?.cuando).toBe("mañana a las 14:00");
+    expect(r("recuerdame pagar la luz manana a las 10")?.t).toBe(Date.parse("2026-11-24T13:00:00Z"));
+    expect(r("tengo que comprar pan altiro")).toMatchObject({ t: T + 600000, texto: "Comprar pan" });
+    expect(r("me duele la rodilla")).toBeNull();
+  });
+  it("lo agenda en el teléfono sin esperar a que abras la app", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const BUZON = kvFalso();
+    await BUZON.put("dev:abcdefghijklmnop", JSON.stringify({ k: "x", sub: { endpoint: "https://web.push.apple.com/z" }, avisos: [], enviados: [], cola: [] }));
+    const e = { ...env, BUZON };
+    const res = await worker.fetch(siri("recuérdame sacar al perro en 10 minutos"), e);
+    expect(await res.text()).toMatch(/^Listo, te aviso a las \d\d:\d\d: sacar al perro\.$/);
+    const dev = JSON.parse(BUZON.m.get("dev:abcdefghijklmnop"));
+    expect(dev.avisos).toHaveLength(1);
+    expect(dev.avisos[0].cuerpo).toBe("Sacar al perro");
   });
 });
