@@ -48,14 +48,17 @@ export function extrasTools({ store, clock, dificil }: ExtrasDeps): Tool[] {
         if (!texto) return { ok: false, say: "¿Qué te recuerdo?" };
         if (esSensible(texto)) return { ok: false, say: "Eso parece una clave o un dato de tarjeta: mejor no lo guardo. Para claves usa el llavero del iPhone." };
         const c = parseCuando(String(a.cuando || texto), n.date, n.minutes);
-        if (!c) return { ok: false, say: `¿Cuándo te recuerdo "${texto}"? Por ejemplo: mañana a las 9, el viernes en la tarde o en 2 horas.` };
+        // Sin cuándo, o con el día pero sin la hora: JARVIS pregunta (y la respuesta completa el recordatorio).
+        if (!c) return { ok: false, say: `¿Cuándo te recuerdo ${texto.toLowerCase()}? Dime por ejemplo: hoy a las 6, mañana a las 8 o en 2 horas.`, data: { falta: "cuando", texto, extra: a.agenda ? { agenda: true } : a.pendiente ? { pendiente: true } : {} } };
+        if (!c.horaDicha && c.repetir !== "anual")
+          return { ok: false, say: `¿A qué hora ${cuandoTxt(`${c.fecha}T09:00`, n.date).replace(/ a las 09:00$/, "")} te recuerdo ${texto.toLowerCase()}?`, data: { falta: "hora", texto, cuando: String(a.cuando || texto), extra: a.agenda ? { agenda: true } : a.pendiente ? { pendiente: true } : {} } };
         const r: Recordatorio = { id: uid(), texto: cap(texto), cuando: `${c.fecha}T${c.hora}`, ...(c.repetir ? { repetir: c.repetir } : {}) };
         await store.put("recordatorios", r);
         const dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábados", "domingos"];
         const cuando = r.repetir === "diario" ? `todos los días a las ${c.hora}` : r.repetir === "semanal" ? `todos los ${dias[dow(c.fecha)]} a las ${c.hora}` : r.repetir === "mensual" ? `todos los meses, el ${Number(c.fecha.slice(8))}, a las ${c.hora}` : r.repetir === "anual" ? `todos los años, el ${fechaCorta(c.fecha)}` : cuandoTxt(r.cuando, n.date);
         if (a.pendiente) return { ok: true, say: `Anotado: ${r.texto.toLowerCase()}. Te lo recuerdo ${/^en \d+ minutos?$/.test(String(a.cuando)) ? `en ${String(a.cuando).slice(3)}, por si se te pasa` : cuando}.`, undo: () => store.remove("recordatorios", r.id).then(() => {}) };
         if (a.agenda) return { ok: true, say: `Agendé ${r.texto.toLowerCase()} ${cuando}; te aviso a esa hora.`, undo: () => store.remove("recordatorios", r.id).then(() => {}) };
-        return { ok: true, say: `Listo, te recuerdo "${r.texto.toLowerCase()}" ${cuando}.${c.horaDicha ? "" : " Como no me dijiste la hora, te aviso a las 9."}`, undo: () => store.remove("recordatorios", r.id).then(() => {}) };
+        return { ok: true, say: `Listo, te recuerdo ${r.texto.toLowerCase()} ${cuando}.${c.horaDicha ? "" : " Te aviso a las 9."}`, undo: () => store.remove("recordatorios", r.id).then(() => {}) };
       },
     },
     {

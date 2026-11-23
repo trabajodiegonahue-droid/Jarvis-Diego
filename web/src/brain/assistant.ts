@@ -58,7 +58,8 @@ type Pending =
   | { kind: "choose"; date: string; ids: string[] }
   | { kind: "hour"; title: string }
   | { kind: "monto"; tipo: "ingreso" | "egreso"; descripcion?: string }
-  | { kind: "acoste" };
+  | { kind: "acoste" }
+  | { kind: "recordar"; falta: "cuando" | "hora"; texto: string; cuando?: string; extra?: any };
 
 const NUM_WORDS: Record<string, number> = { uno: 1, una: 1, primera: 1, primero: 1, dos: 2, segunda: 2, segundo: 2, tres: 3, tercera: 3, tercero: 3, cuatro: 4, cuarta: 4, cinco: 5, quinta: 5, seis: 6, sexta: 6, siete: 7, septima: 7 };
 
@@ -107,6 +108,10 @@ export class Assistant {
   // Llama a una herramienta y guarda cómo deshacer lo que hizo.
   private async call(name: string, args: any): Promise<ToolResult> {
     const r = await this.tools.call(name, args);
+    // A un recordatorio le faltó cuándo o la hora: la próxima respuesta lo completa.
+    const f = r.data as { falta?: "cuando" | "hora"; texto?: string; cuando?: string; extra?: any } | undefined;
+    if (!r.ok && name === "crear_recordatorio" && f?.texto && (f.falta === "cuando" || f.falta === "hora"))
+      this.pending = { kind: "recordar", falta: f.falta, texto: f.texto, cuando: f.cuando, extra: f.extra };
     if (r.ok && r.undo) {
       let undo = r.undo;
       // Lo anotado también queda en su área, con la frase tal como la dijiste.
@@ -158,6 +163,16 @@ export class Assistant {
         const cmd = parseCommand(`agrega ${p.title} ${phrase}`, this.clock());
         if (cmd?.tool === "agregar_tarea") return this.local(said, (await this.call(cmd.tool, cmd.args)).say, onText);
         if (isNo(frase)) return this.local(said, "Ya, no agrego nada.", onText);
+      } else if (p.kind === "recordar") {
+        if (isNo(frase) || /^(nada|olvidalo|olvídalo|déjalo|dejalo|cancela)\b/i.test(frase)) return this.local(said, "Ya, no lo agendo.", onText);
+        // Solo si la respuesta parece un cuándo ("a las 7", "mañana", "en 20 minutos", "7:30"); si no, se atiende como frase nueva.
+        const otra = this.opts.parse?.(frase, this.clock());
+        if (!(otra && otra.tool !== "crear_recordatorio") && /\d|\b(hoy|mañana|manana|pasado|lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo|ahora|altiro|al tiro|tarde|noche|mediod[ií]a|semana|mes|todos|cada|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)\b/i.test(frase)) {
+          const ans = frase.trim().replace(/[.!]+$/, "");
+          const hora = /^\d{1,2}([:.]\d{2})?( ?(am|pm|hrs?|horas))?$|^(una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)( y media)?$/i.test(ans) ? `a las ${ans}` : ans;
+          const cuando = p.falta === "hora" ? `${p.cuando} ${hora}` : hora;
+          return this.local(said, (await this.call("crear_recordatorio", { texto: p.texto, cuando, ...(p.extra || {}) })).say, onText);
+        }
       } else if (p.kind === "acoste") {
         // "¿A qué hora te acostaste?" → "a las 12", "como a la 1", "23:30"
         const h = parseHour(frase.replace(/^(como |tipo |a eso de |cerca de )?(a las |a la )?/i, ""));
