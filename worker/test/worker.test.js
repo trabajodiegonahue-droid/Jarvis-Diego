@@ -253,3 +253,12 @@ describe("Siri pregunta la hora si falta", () => {
     expect(await (await worker.fetch(siri("a las 10"), e)).text()).toMatch(/^Listo, te aviso .* a las 10:00: pagar la luz\.$/);
   });
 });
+
+describe("dictado y horas que ya pasaron", () => {
+  it("'a las 15 16' es 15:16, y 'hoy' a una hora pasada avisa al tiro", async () => {
+    const { recordatorioSiri } = await import("../src/index.js");
+    const T = Date.parse("2026-11-23T18:16:03Z"); // 15:16 en Chile
+    expect(recordatorioSiri("recuerdame sacar al perro a las 15 20", T)).toMatchObject({ t: Date.parse("2026-11-23T18:20:00Z"), texto: "Sacar al perro" });
+    expect(recordatorioSiri("recuerdame sacar al perro hoy a las 15 16", T)).toMatchObject({ t: T + 60000, texto: "Sacar al perro" });
+  });
+});

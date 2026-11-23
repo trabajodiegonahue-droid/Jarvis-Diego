@@ -187,3 +187,10 @@ describe("recordatorio sin hora: JARVIS pregunta", () => {
     expect((await a.handle("no")).text).toBe("Ya, no lo agendo.");
   });
 });
+
+describe("dictado", () => {
+  it("'a las 15 16' es 15:16", () => {
+    expect(normalizarChileno("recuérdame sacar al perro hoy a las 15 16")).toBe("recuérdame sacar al perro hoy a las 15:16");
+    expect(normalizarChileno("en 15 minutos")).toBe("en 15 minutos");
+  });
+});

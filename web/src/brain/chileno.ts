@@ -47,6 +47,7 @@ export function normalizarChileno(texto: string): string {
     // "cansao", "gastao", "reventao" → "cansado", "gastado", "reventado"
     .replace(/\b([a-zñ]{3,})ao\b/gi, (w, r) => (/^(bacal|cac|call|sar)$/i.test(r) ? w : `${r}ado`))
     // Tiempos relativos a una forma que JARVIS calcula: "dentro de media hora" → "en 30 minutos".
+    .replace(/\b(a las?|para las?|tipo|como a las?) (\d{1,2}) (\d{2})\b(?! ?(?:minutos?|min|horas?))/gi, "$1 $2:$3") // dictado: "15 16" = "15:16"
     .replace(/\bdentro de\b/gi, "en")
     .replace(/\b(?:una |1 )?hora y media\b/gi, "90 minutos")
     .replace(/\bmedia hora\b/gi, "30 minutos")

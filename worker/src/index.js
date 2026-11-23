@@ -492,7 +492,11 @@ export function recordatorioSiri(t, ahora = Date.now()) {
     resto = m[1];
     altiro = true;
   }
-  resto = resto.replace(/\bdentro de\b/g, "en").replace(/\b(?:una |1 )?hora y media\b/g, "90 minutos").replace(/\bmedia hora\b/g, "30 minutos").replace(/\b(?:un )?cuarto de hora\b/g, "15 minutos");
+  resto = resto
+    .replace(/\b(a las?|para las?|tipo|como a las?) (\d{1,2}) (\d{2})\b(?! ?(?:minutos?|min|horas?))/g, "$1 $2:$3") // el dictado escribe "15 16" por "15:16"
+    .replace(/\b(a las?|para las?|tipo|como a las?) (\d{1,2}) y media\b/g, "$1 $2:30")
+    .replace(/\b(a las?|para las?|tipo|como a las?) (\d{1,2}) y cuarto\b/g, "$1 $2:15")
+    .replace(/\bdentro de\b/g, "en").replace(/\b(?:una |1 )?hora y media\b/g, "90 minutos").replace(/\bmedia hora\b/g, "30 minutos").replace(/\b(?:un )?cuarto de hora\b/g, "15 minutos");
   const hoy = fechaChile(ahora);
   const ahoraMin = minutosChile(ahora);
   let cuandoMs = null;
@@ -528,10 +532,15 @@ export function recordatorioSiri(t, ahora = Date.now()) {
     let fecha = otroDia || hoy;
     let total = h * 60 + mi;
     if (!otroDia && !m[3] && h < 12 && total <= ahoraMin && (h + 12) * 60 + mi > ahoraMin) total += 720;
-    if (!otroDia && total <= ahoraMin) fecha = sumarDias(hoy, 1);
-    cuandoMs = chileAUtcMs(fecha, total);
+    // Una hora que acaba de pasar (o "hoy" a una hora ya pasada): se avisa al tiro en vez de mañana.
+    let yaPaso = false;
+    if (!otroDia && total <= ahoraMin) {
+      if (ahoraMin - total <= 2 || /\bhoy\b/.test(sinDeLa)) yaPaso = true;
+      else fecha = sumarDias(hoy, 1);
+    }
+    cuandoMs = yaPaso ? ahora + 60000 : chileAUtcMs(fecha, total);
     const dif = Math.round((Date.parse(fecha) - Date.parse(hoy)) / 864e5);
-    cuando = `${dif === 0 ? "hoy" : dif === 1 ? "mañana" : dif === 2 ? "pasado mañana" : `el ${["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(fecha + "T12:00:00Z").getUTCDay()]}`} a las ${hhmmTxt(total)}`;
+    cuando = yaPaso ? `en un minuto (las ${hhmmTxt(total)} ya pasaron)` : `${dif === 0 ? "hoy" : dif === 1 ? "mañana" : dif === 2 ? "pasado mañana" : `el ${["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(fecha + "T12:00:00Z").getUTCDay()]}`} a las ${hhmmTxt(total)}`;
     quitar = m[0];
   } else {
     // Es un recordatorio pero sin hora: se pregunta (y la próxima vez que hables con Siri se completa).
