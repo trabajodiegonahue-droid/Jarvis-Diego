@@ -10,6 +10,7 @@ import { alChat, JarvisSheet } from "./screens/Jarvis";
 import { Cardio } from "./screens/Cardio";
 import { MiDia } from "./screens/MiDia";
 import { Estudio } from "./screens/Estudio";
+import { Comida } from "./screens/Comida";
 import { Mascota } from "./screens/Mascota";
 import { revisarBuzon } from "../jarvis/buzon";
 import { assistant, settings } from "../jarvis/instance";
@@ -131,6 +132,8 @@ export function App() {
         return <Recordatorios />;
       case "/mas/compras":
         return <Compras />;
+      case "/mas/comida":
+        return <Comida />;
       case "/mas/midia":
         return <MiDia />;
       case "/mas/cardio":

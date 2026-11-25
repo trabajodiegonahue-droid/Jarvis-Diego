@@ -62,6 +62,7 @@ export interface Prefs {
   estiloPastel: boolean; // ya se pasó una vez al estilo claro pastel
   estudioChecks: Record<string, boolean>; // subtemas y temas hechos, checks diarios de inglés
   quiz: Record<string, number>; // resultado de cada mini-quiz (aciertos de 3)
+  comida: { medida: number; meta: number; almuerzo: number; once: number; colacion: number }; // proteína
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -91,6 +92,7 @@ const DEFAULT_PREFS: Prefs = {
   estiloPastel: false,
   estudioChecks: {},
   quiz: {},
+  comida: { medida: 24, meta: 110, almuerzo: 25, once: 20, colacion: 8 },
 };
 
 let prefs: Prefs = loadPrefs();

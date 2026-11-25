@@ -642,3 +642,15 @@ nav.tabs a.on { color: var(--accent); background: var(--accent-soft); }
 .quiz-op.bien { background: color-mix(in srgb, var(--green) 20%, var(--card2)); border-color: var(--green); }
 .quiz-op.mal { background: color-mix(in srgb, var(--red) 18%, var(--card2)); border-color: var(--red); }
 .quiz-op:disabled { opacity: 1; cursor: default; }
+
+/* Comida */
+.comida-item { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 8px 10px; border-radius: 16px; border: 0; background: var(--card2); color: var(--ink); text-align: left; }
+.comida-item.ok { background: color-mix(in srgb, #e8772e 14%, var(--card2)); }
+.comida-item.ok strong { text-decoration: line-through; color: var(--muted); }
+.comida-check { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; color: #fff; }
+.comida-item.ok .comida-check { background: #e8772e; border-color: #e8772e; }
+.agua { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 6px; flex-wrap: wrap; }
+.creatina-fila { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 4px; }
+.creatina-dia { aspect-ratio: 1; border-radius: 8px; background: var(--card2); display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; }
+.creatina-dia.ok { background: var(--accent); }
+.creatina-dia.hoy { outline: 2px solid var(--accent); outline-offset: 1px; }
