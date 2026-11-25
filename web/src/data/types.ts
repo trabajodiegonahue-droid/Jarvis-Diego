@@ -226,6 +226,8 @@ export interface Entreno {
   items: { ejId: string; series: SerieHecha[] }[];
   rpe?: number; // esfuerzo percibido 1 a 10
   nota?: string;
+  sesion?: string; // sesión del bloque (fuerzaA, velocidad…)
+  tipoSesion?: string; // fuerza, velocidad, técnica… (para los gráficos)
   // Cardio (trote, bici, natación): distancia, duración y calorías.
   km?: number;
   seg?: number;

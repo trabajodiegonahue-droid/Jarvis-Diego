@@ -1,4 +1,5 @@
 // Preparación física: cómo me siento, rutina generada, sesión guiada, biblioteca y récords.
+import { HoyFutbol } from "./Entrenar";
 import { enDificil } from "../../extras/calc";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { fechaCorta, lunesDe } from "../../core/dates";
@@ -6,9 +7,10 @@ import { chileNow, DAY_NAMES } from "../../core/time";
 import { store } from "../../data/store";
 import { uid, type Chequeo, type Entreno, type ItemPlan, type Objetivo, type Plan, type SesionPlan } from "../../data/types";
 import { CALENTAMIENTO, EJERCICIOS, EQUIPOS, ejercicio, MUSCULOS, NOTA_EMG, VUELTA_CALMA, type Ejercicio, type Equipo, type Musculo } from "../../training/ejercicios";
-import { chequeoDeHoy, cargaDelDia, generarRutina, records, recordsNuevos, sesionDeHoy, seriesAjustadas, sugerencia, volumenPorMusculo } from "../../training/calc";
+import { chequeoDeHoy, cargaDelDia, generarRutina, records, recordsNuevos, seriesAjustadas, sugerencia, volumenPorMusculo } from "../../training/calc";
 import { Progress } from "../charts";
-import { Empty, Sheet } from "../components";
+import { Sheet } from "../components";
+
 import { Icon } from "../icons";
 import { toast, useApp, getPrefs } from "../state";
 import { speaker } from "../../jarvis/instance";
@@ -33,58 +35,16 @@ const inp = { minHeight: "44px", borderRadius: "12px", border: "1px solid var(--
 
 export function Fisico() {
   const { data } = useApp();
-  const hoy = chileNow().date;
   const plan = data.planes.find((p) => p.id === "activo");
   const [gen, setGen] = useState(false);
   const [sesion, setSesion] = useState<SesionPlan | null>(null);
   const [ej, setEj] = useState<string | null>(null);
-  const hoyS = sesionDeHoy(plan, hoy);
-  const ch = chequeoDeHoy(data, hoy);
-  const carga = cargaDelDia(ch, data.partidos, hoy, data.chequeos, enDificil(getPrefs().dificil, hoy));
 
   return (
     <>
+      {/* El plan del físico es el bloque de 8 semanas (según el día del partido). */}
+      <HoyFutbol />
       <ChequeoCard />
-      {!plan ? (
-        <div class="card">
-          <Empty text="Arma tu rutina según tu objetivo, tus días, el tiempo y el equipo que tienes." action="Armar mi rutina" onAction={() => setGen(true)} />
-        </div>
-      ) : (
-        <div class="card">
-          <div class="between">
-            <h2>Mi semana</h2>
-            <button class="link" onClick={() => setGen(true)}>
-              Rehacer rutina
-            </button>
-          </div>
-          {DAY_NAMES.map((d, i) => {
-            const s = plan.sesiones.find((x) => x.dia === i);
-            const esHoy = i === (new Date(hoy + "T12:00:00Z").getUTCDay() + 6) % 7;
-            return (
-              <button
-                key={d}
-                class="between"
-                disabled={!s}
-                onClick={() => s && setSesion(s)}
-                style={{ background: esHoy ? "color-mix(in srgb, var(--blue) 10%, transparent)" : "none", border: 0, color: "inherit", minHeight: "44px", padding: "0 6px", borderRadius: "10px", textAlign: "left" }}
-              >
-                <span class="small" style={{ width: "44px" }}>
-                  {d.slice(0, 3)}
-                </span>
-                <span style={{ flex: 1, color: s ? "var(--ink)" : "var(--muted)" }}>{s ? s.nombre.replace(/^[^:]+: /, "") : "Descanso"}</span>
-                {s && <span class="small">{s.minutos} min</span>}
-              </button>
-            );
-          })}
-          {hoyS ? (
-            <button class="btn main full" disabled={carga.nivel === "parar"} onClick={() => setSesion(hoyS)}>
-              {carga.nivel === "parar" ? "Hoy no: cuida esa zona" : "Entrenar hoy"}
-            </button>
-          ) : (
-            <span class="small">Hoy no tienes sesión. Descansar también es entrenar.</span>
-          )}
-        </div>
-      )}
       <Volumen />
       <Historial />
       <Biblioteca onOpen={setEj} />

@@ -452,3 +452,36 @@ h2.lbl { margin: 0; }
 .midia-txt svg { color: var(--muted); }
 .midia-hora { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px; color: var(--muted); }
 .midia-b.ahora .midia-hora { color: var(--green); }
+
+/* ---------- Fútbol: Hoy, modo entrenamiento y temporizadores ---------- */
+.btn.grande { min-height: 56px; font-size: 16px; border-radius: 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.sesion-card { --c: var(--green); display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: var(--r); border: 1px solid var(--line); border-left: 5px solid var(--c); background: radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--c) 16%, transparent), transparent 60%), var(--card); }
+.tipo-chip { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--c); color: #fff; }
+.figura { flex: none; background: var(--card2); border-radius: 16px; }
+.ent-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 6px; }
+.ent-ej { display: flex; gap: 14px; align-items: center; }
+.consejos { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
+.series { display: flex; flex-direction: column; gap: 8px; }
+.serie { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 16px; background: var(--card2); border: 1px solid transparent; }
+.serie.ok { border-color: color-mix(in srgb, var(--green) 60%, transparent); background: color-mix(in srgb, var(--green) 10%, var(--card2)); }
+.serie-n { width: 28px; text-align: center; font-weight: 800; color: var(--muted); }
+.serie-in { flex: 1; display: flex; align-items: center; gap: 4px; min-width: 0; }
+.serie-in input { width: 100%; min-width: 0; min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 18px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+.serie-in span { font-size: 12px; color: var(--muted); }
+.serie-ok { width: 56px; height: 56px; flex: none; border-radius: 16px; border: 2px solid var(--line); background: none; color: var(--muted); display: grid; place-items: center; }
+.serie.ok .serie-ok { background: var(--green); border-color: var(--green); color: var(--on-accent); }
+.descanso { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-radius: 18px; background: color-mix(in srgb, var(--blue) 18%, var(--card2)); flex: none; }
+.descanso strong { font-size: 30px; font-variant-numeric: tabular-nums; }
+.ent-nav { display: flex; gap: 8px; flex: none; }
+.ent-nav .btn.main { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn.stop { background: color-mix(in srgb, var(--red) 18%, var(--card)); color: var(--red); border-color: color-mix(in srgb, var(--red) 50%, var(--line)); flex: none; }
+.rpe-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.rpe-grid button { min-height: 56px; border-radius: 14px; border: 1px solid var(--line); background: var(--card2); color: var(--ink); font-size: 20px; font-weight: 800; }
+.rpe-grid button.on { background: var(--green); color: var(--on-accent); border-color: var(--green); }
+.timer { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 14px; border-radius: 22px; text-align: center; background: color-mix(in srgb, var(--blue) 14%, var(--card2)); }
+.timer.trabajo { background: color-mix(in srgb, var(--green) 18%, var(--card2)); }
+.timer-nombre { font-size: 20px; }
+.timer-num { font-size: 72px; font-weight: 800; letter-spacing: -2px; font-variant-numeric: tabular-nums; line-height: 1; }
+.timer-barra { width: 100%; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.timer-barra i { display: block; height: 100%; background: var(--green); transition: width 0.3s; }
