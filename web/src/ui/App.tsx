@@ -156,9 +156,7 @@ export function App() {
       <Seguro key={route} pagina onVolver={() => go("/")}>
         {screen}
       </Seguro>
-      <button class="fab plus" aria-label="Registrar algo" onClick={() => setAdd(true)}>
-        <Icon name="plus" size={26} />
-      </button>
+      {/* Registrar a mano: desde Dinero. Lo normal es contárselo a JARVIS. */}
       <button class="fab jarvis" aria-label="Hablar con JARVIS" onClick={() => setJarvis({})}>
         <Icon name="mic" size={24} />
       </button>

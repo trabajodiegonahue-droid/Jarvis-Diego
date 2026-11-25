@@ -34,7 +34,7 @@ function hablar(t: string): Promise<void> {
 
 const inp = { minHeight: "44px", borderRadius: "12px", border: "1px solid var(--line)", background: "var(--card2)", padding: "0 10px", width: "100%" };
 
-export type SubFisico = "hoy" | "semana" | "ejercicios" | "tests" | "graficos";
+export type SubFisico = "hoy" | "semana" | "ejercicios" | "tests" | "graficos" | "progreso";
 export function Fisico({ sub: subExt }: { sub?: SubFisico } = {}) {
   const { data } = useApp();
   const plan = data.planes.find((p) => p.id === "activo");
@@ -61,9 +61,17 @@ export function Fisico({ sub: subExt }: { sub?: SubFisico } = {}) {
       {sub === "tests" && <TestsBloque />}
       {sub === "graficos" && <GraficosFutbol />}
       {sub === "hoy" && <HoyFutbol />}
-      {sub === "hoy" && <ChequeoCard />}
-      {sub === "hoy" && <Volumen />}
-      {sub === "hoy" && <Historial />}
+
+      {sub === "progreso" && <TestsBloque />}
+      {sub === "progreso" && <GraficosFutbol />}
+      {sub === "progreso" && <Volumen />}
+      {sub === "progreso" && <Historial />}
+      {sub === "hoy" && (
+        <details class="card">
+          <summary style={{ cursor: "pointer", minHeight: "32px", fontWeight: 600 }}>¿Cómo amaneciste?</summary>
+          <ChequeoCard />
+        </details>
+      )}
       {sub === "ejercicios" && <Biblioteca onOpen={setEj} />}
       {gen && (
         <Sheet title="Armar mi rutina" onClose={() => setGen(false)}>

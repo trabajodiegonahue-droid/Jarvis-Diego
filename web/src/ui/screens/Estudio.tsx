@@ -21,7 +21,7 @@ import { setPrefs, toast, useApp } from "../state";
 import { Estudios } from "./Estudios";
 import { sumarDiaMeta } from "../../jarvis/metasPlan";
 
-type Seccion = "hoy" | MateriaBloque | "otros";
+type Seccion = "hoy" | MateriaBloque | "progreso" | "otros";
 const inp = { width: "100%", minWidth: 0, minHeight: "48px", borderRadius: "14px", border: "1px solid var(--line)", background: "var(--card2)", color: "var(--ink)", padding: "0 12px", fontSize: "16px" } as const;
 const tachar = (titulo: string, fecha: string) => {
   const t = routine.tasks.find((x) => norm(x.title) === norm(titulo));
@@ -57,7 +57,8 @@ export function Estudio() {
         <h1>Estudio</h1>
       </header>
       <Secciones sec={sec} setSec={setSec} />
-      {sec === "hoy" && <Hoy ir={setSec} />}
+      {sec === "hoy" && <Hoy ir={setSec} modo="hoy" />}
+      {sec === "progreso" && <Hoy ir={setSec} modo="progreso" />}
       {sec === "mate" && <Mate />}
       {sec === "ingles" && <Ingles />}
       {sec === "lenguaje" && <Lenguaje />}
@@ -68,7 +69,7 @@ export function Estudio() {
 }
 
 function Secciones({ sec, setSec, flotante }: { sec: Seccion; setSec: (s: Seccion) => void; flotante?: boolean }) {
-  const items: [Seccion, string][] = [["hoy", "Hoy"], ...MATERIAS.map((m): [Seccion, string] => [m.id, `${m.emoji} ${m.corto}`]), ["otros", "Pendientes y pruebas"]];
+  const items: [Seccion, string][] = [["hoy", "Hoy"], ["progreso", "Progreso"], ...MATERIAS.map((m): [Seccion, string] => [m.id, `${m.emoji} ${m.corto}`]), ["otros", "Pendientes y pruebas"]];
   return (
     <div class="jv-sugerencias secciones" style={flotante ? { padding: "calc(env(safe-area-inset-top) + 12px) 20px 0", maxWidth: "560px", margin: "0 auto" } : {}}>
       {items.map(([k, n]) => (
@@ -81,7 +82,7 @@ function Secciones({ sec, setSec, flotante }: { sec: Seccion; setSec: (s: Seccio
 }
 
 // ---------- Hoy ----------
-function Hoy({ ir }: { ir: (s: Seccion) => void }) {
+function Hoy({ ir, modo }: { ir: (s: Seccion) => void; modo: "hoy" | "progreso" }) {
   const { data, prefs } = useApp();
   const hoy = chileNow().date;
   const e = estudioDeHoy(hoy);
@@ -104,6 +105,8 @@ function Hoy({ ir }: { ir: (s: Seccion) => void }) {
   };
   return (
     <>
+      {modo === "hoy" && (
+        <>
       <section class="card estudio-hoy" style={{ "--c": e.materia ? materia(e.materia).color : "var(--accent)" } as any}>
         <span class="lbl">Hoy, 13:45</span>
         <strong style={{ fontSize: "22px" }}>{e.materia ? `${materia(e.materia).emoji} ${materia(e.materia).nombre}` : e.ensayo ? "Mini-ensayo (opcional)" : "Libre"}</strong>
@@ -150,6 +153,10 @@ function Hoy({ ir }: { ir: (s: Seccion) => void }) {
           );
         })}
       </div>
+        </>
+      )}
+      {modo === "progreso" && (
+        <>
       <div class="seg">
         {(
           [
@@ -191,6 +198,8 @@ function Hoy({ ir }: { ir: (s: Seccion) => void }) {
         <span class="lbl">Avance por materia</span>
         <Rueda data={MATERIAS.map((m) => ({ nombre: m.corto, valor: avance(m.id) }))} label="Avance del temario por materia" />
       </section>
+        </>
+      )}
       {timer && <TimerEstudio m={timer} onClose={() => setTimer(null)} />}
     </>
   );

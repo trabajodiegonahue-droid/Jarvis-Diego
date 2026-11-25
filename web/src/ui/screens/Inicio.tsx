@@ -11,7 +11,7 @@ import { eventosDia } from "../../calendar/calc";
 import { Empty } from "../components";
 import { Icon } from "../icons";
 import { abrirJarvis } from "./Jarvis";
-import { Graficos, HoyLinea, Numeros, PlanInicio, SemanaFila } from "./Panel";
+import { AhoraCard, Graficos, HoyLinea, Numeros, PlanInicio, SemanaFila } from "./Panel";
 import { AREAS, cardReady, go, useApp, type CardId, getPrefs } from "../state";
 import { diffDays, fechaCorta } from "../../core/dates";
 import { equilibrioMetas, metasPrincipales } from "../../goals/calc";
@@ -278,20 +278,19 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
   return (
     <main class="page">
       <header class="hero">
-        <span class="sub">{fecha}</span>
+        <span class="sub">
+          {fecha}
+          {climaHoy ? ` · ${climaHoy.min}°–${climaHoy.max}° ${describir(climaHoy.codigo).toLowerCase()}` : ""}
+        </span>
         <h1>{n.minutes < 12 * 60 ? "Buenos días" : n.minutes < 20 * 60 ? "Buenas tardes" : "Buenas noches"}, Diego</h1>
-        <div class="pills">
-          <a class="pill ahora" href="#/mas/calendario">
-            <Icon name="reloj" size={15} />
-            {proximoHoy || ahora}
-          </a>
-          {climaHoy && (
-            <span class="pill" title="Clima de hoy (Open-Meteo)">
-              {climaHoy.min}°–{climaHoy.max}° · {describir(climaHoy.codigo)}
-              {climaHoy.lluvia >= 40 ? ` · ${climaHoy.lluvia}% lluvia` : ""}
-            </span>
-          )}
-        </div>
+        {!getPrefs().miDia && (
+          <div class="pills">
+            <a class="pill ahora" href="#/mas/calendario">
+              <Icon name="reloj" size={15} />
+              {proximoHoy || ahora}
+            </a>
+          </div>
+        )}
       </header>
       <div class="cuentale">
         <button class="cuentale-barra" onClick={() => abrirJarvis()}>
@@ -300,14 +299,10 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
           </span>
           <span>Cuéntale algo a JARVIS…</span>
         </button>
-        <div class="cuentale-rapido">
-          <button onClick={() => abrirJarvis({ borrador: "¿Qué me toca hoy?", enviar: true })}>Mi día</button>
-          <button onClick={() => abrirJarvis({ borrador: "recuérdame " })}>Recordatorio</button>
-          <button onClick={() => abrirJarvis({ borrador: "gasté " })}>Gasto</button>
 
-        </div>
       </div>
       {/* Con el plan cargado, el inicio es corto: tu plan y lo de hoy. Lo demás está en Más detalles. */}
+      {prefs.miDia && <AhoraCard />}
       {prefs.miDia && <PlanInicio data={data} />}
       <HoyLinea data={data} />
       {!prefs.miDia && <Numeros data={data} />}
@@ -318,8 +313,8 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
       <LogroNuevo />
       <BackupReminder />
       {visibles.length > 0 && (
-        <button class="btn full ver-mas" onClick={() => setTodo(!todo)} aria-expanded={todo}>
-          {todo ? "Ocultar detalles" : `Más detalles (${visibles.length})`}
+        <button class="mas-detalles" onClick={() => setTodo(!todo)} aria-expanded={todo}>
+          {todo ? "Ocultar detalles" : "Más detalles"}
         </button>
       )}
       {visibles.slice(0, todo ? visibles.length : 0).map((c) => (
