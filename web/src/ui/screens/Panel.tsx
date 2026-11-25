@@ -191,7 +191,7 @@ export function Graficos({ data }: { data: Datos }) {
             Dinero ›
           </a>
         </div>
-        <Bars data={gastos} label="Gastos por día, últimos 7 días" fmt={(x) => (x >= 1000 ? `${Math.round(x / 1000)}k` : String(x))} color="var(--red)" />
+        <Bars data={gastos} label="Gastos por día, últimos 7 días" fmt={(x) => (x >= 1000 ? `${Math.round(x / 1000)}k` : String(x))} color="#f08a7e" />
       </section>
       <section class="card" aria-labelledby="p-sue">
         <div class="between">

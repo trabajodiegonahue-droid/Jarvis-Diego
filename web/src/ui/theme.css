@@ -501,3 +501,119 @@ h2.lbl { margin: 0; }
 .test-in { display: flex; flex-direction: column; gap: 4px; }
 .test-in input { width: 100%; min-width: 0; min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--card2); color: var(--ink); font-size: 18px; font-weight: 700; text-align: center; }
 .seg.sub button { font-size: 13px; padding: 0 4px; }
+
+/* =====================================================================
+   Estilo pastel (inspirado en apps de hábitos): fondos suaves, tarjetas
+   blancas muy redondeadas, color protagonista lavanda y letra redonda.
+   Va al final para mandar sobre lo anterior.
+   ===================================================================== */
+:root {
+  --bg: #12111c;
+  --card: #1c1a2b;
+  --card2: #252339;
+  --line: #2f2c47;
+  --ink: #f2f0fb;
+  --muted: #a19dbd;
+  --accent: #a598ff;
+  --accent-ink: #15122b;
+  --accent-soft: #2d2852;
+  --nav: rgba(28, 26, 43, 0.86);
+  --shadow: 0 14px 30px -20px rgba(0, 0, 0, 0.8);
+  --r: 24px;
+  --card-hi: rgba(255, 255, 255, 0.03);
+  --fondo: radial-gradient(90% 50% at 0% 0%, rgba(165, 152, 255, 0.14), transparent 70%), radial-gradient(80% 45% at 100% 0%, rgba(255, 170, 130, 0.08), transparent 70%), #12111c;
+}
+:root[data-theme="light"] {
+  --bg: #f6f3fd;
+  --card: #ffffff;
+  --card2: #f3effb;
+  --line: #ebe6f6;
+  --ink: #1f1c35;
+  --muted: #77738f;
+  --green: #12946c;
+  --red: #d9475b;
+  --amber: #b86a0c;
+  --blue: #4f6fe0;
+  --gold: #a26f10;
+  --accent: #7262ea;
+  --accent-ink: #ffffff;
+  --accent-soft: #eeebff;
+  --on-accent: #ffffff;
+  --nav: rgba(255, 255, 255, 0.86);
+  --shadow: 0 14px 32px -20px rgba(84, 62, 170, 0.35);
+  --card-hi: rgba(255, 255, 255, 0);
+  --fondo: radial-gradient(90% 45% at 0% 0%, #ebe5ff, transparent 70%), radial-gradient(80% 40% at 100% 0%, #ffe9dc, transparent 70%), radial-gradient(70% 40% at 50% 100%, #e3f6ef, transparent 70%), #f6f3fd;
+}
+html, body { background: var(--fondo); background-attachment: fixed; }
+body { font-family: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Nunito", system-ui, sans-serif; letter-spacing: 0.1px; }
+.page { gap: 14px; padding-bottom: calc(env(safe-area-inset-bottom) + 120px); }
+.head h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.6px; }
+.hero h1 { font-weight: 800; }
+.card, .kpi, .numero, .sesion-card { border-radius: var(--r); padding: 18px; }
+:root[data-theme="light"] .card, :root[data-theme="light"] .kpi, :root[data-theme="light"] .numero, :root[data-theme="light"] .sesion-card, :root[data-theme="light"] .cuentale-barra { border-color: transparent; box-shadow: var(--shadow); }
+.card h2, h2.lbl { font-size: 16px; font-weight: 750; color: var(--ink); }
+.lbl { font-size: 13px; font-weight: 650; }
+span.lbl { color: var(--muted); }
+.big { font-weight: 800; }
+
+/* Botones */
+.btn { border-radius: 16px; font-weight: 650; }
+.btn.main { background: var(--accent); color: var(--accent-ink); box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--accent) 80%, transparent); }
+.btn.main:active, .btn:active { transform: scale(0.98); }
+.link, a.ver, .ver { color: var(--accent); }
+
+/* Selector segmentado tipo iPhone */
+.seg { background: var(--card2); padding: 4px; border-radius: 16px; gap: 2px; flex-wrap: nowrap; }
+.seg button { flex: 1; border: 0; background: transparent; border-radius: 12px; min-height: 40px; color: var(--muted); font-weight: 650; }
+.seg button.on { background: var(--card); color: var(--ink); border: 0; box-shadow: 0 2px 8px -2px rgba(40, 30, 90, 0.18); }
+:root:not([data-theme="light"]) .seg button.on { background: var(--accent-soft); color: var(--ink); }
+.chips button { border-radius: 999px; font-weight: 600; }
+.chips button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.pill { border-radius: 999px; background: var(--card2); border-color: transparent; font-weight: 600; }
+.pill.ahora { background: var(--accent-soft); color: var(--ink); }
+
+/* Barras de progreso redondas */
+.bar, .bar > i, .timer-barra, .timer-barra i { border-radius: 999px; }
+
+/* Barra de pestañas flotante */
+nav.tabs { left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 10px); padding: 6px; border-radius: 28px; border: 1px solid var(--line); box-shadow: 0 18px 40px -18px rgba(40, 30, 90, 0.45); max-width: 536px; margin: 0 auto; }
+nav.tabs a { min-height: 54px; border-radius: 22px; font-weight: 600; }
+nav.tabs a.on { color: var(--accent); background: var(--accent-soft); }
+.fab.jarvis { bottom: calc(env(safe-area-inset-bottom) + 92px); background: linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #4fd1b0)); color: #fff; box-shadow: 0 14px 28px -12px color-mix(in srgb, var(--accent) 80%, transparent); }
+.fab.plus { bottom: calc(env(safe-area-inset-bottom) + 158px); border: 0; box-shadow: var(--shadow); }
+.toast { bottom: calc(env(safe-area-inset-bottom) + 100px); border-radius: 18px; }
+
+/* JARVIS e inicio con el color protagonista */
+.jv-msg.yo { background: var(--accent); color: var(--accent-ink); }
+.jv-msg.el { background: var(--card2); }
+.jv-mic, .cuentale-orb { background: var(--accent); color: var(--accent-ink); }
+.jv-enviar { color: var(--accent); }
+.jv-orb { background: radial-gradient(circle at 35% 30%, #fff, var(--accent) 50%, color-mix(in srgb, var(--accent) 60%, #000)); box-shadow: 0 0 0 5px var(--accent-soft); }
+.cuentale-barra { border-color: transparent; border-radius: 26px; }
+.cuentale-rapido button { border: 0; background: var(--card); box-shadow: var(--shadow); }
+.sem-dia { border-radius: 16px; }
+.sem-dia.hoy, .mes-dia.hoy.sel { background: var(--accent); color: var(--accent-ink); }
+.mes-dia.hoy span:first-child { color: var(--accent); }
+.mes-dia.sel { border-color: var(--accent); }
+.rpe-grid button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.midia-b.ahora { background: var(--accent-soft); outline-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.midia-b.ahora .midia-hora { color: var(--accent); }
+
+/* Tarjetas de números: color suave de fondo, como las apps de hábitos */
+:root[data-theme="light"] .numero { background: linear-gradient(160deg, color-mix(in srgb, var(--c) 16%, #fff), #fff 75%); }
+.numero-ico { border-radius: 10px; width: 30px; height: 30px; }
+.numero-valor { font-size: 28px; font-weight: 800; }
+:root[data-theme="light"] .sesion-card { background: linear-gradient(160deg, color-mix(in srgb, var(--c) 14%, #fff), #fff 70%); border-left: 0; }
+.sesion-card { border-left-width: 0; }
+.tipo-chip { box-shadow: 0 6px 14px -8px var(--c); }
+.ent-ej .figura, .figura { background: var(--accent-soft); }
+.serie { border-radius: 18px; }
+.descanso { background: var(--accent-soft); border-radius: 22px; }
+.timer { background: var(--accent-soft); border-radius: 28px; }
+.timer.trabajo { background: color-mix(in srgb, var(--green) 16%, var(--card)); }
+.kpi strong { font-weight: 800; }
+.sheet { border-radius: 28px 28px 0 0; }
+:root[data-theme="light"] .sheet { background: var(--bg); }
+:root[data-theme="light"] .sheet .card { background: var(--card); }
+:root[data-theme="light"] .scrim { background: rgba(40, 30, 80, 0.28); }
+.numero-valor { font-size: clamp(20px, 6.4vw, 28px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
