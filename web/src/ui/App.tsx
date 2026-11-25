@@ -8,6 +8,7 @@ import { Bienvenida, Bloqueo } from "./screens/Entrada";
 import { Inicio } from "./screens/Inicio";
 import { alChat, JarvisSheet } from "./screens/Jarvis";
 import { Cardio } from "./screens/Cardio";
+import { MiDia } from "./screens/MiDia";
 import { Mascota } from "./screens/Mascota";
 import { revisarBuzon } from "../jarvis/buzon";
 import { assistant, settings } from "../jarvis/instance";
@@ -130,6 +131,8 @@ export function App() {
         return <Recordatorios />;
       case "/mas/compras":
         return <Compras />;
+      case "/mas/midia":
+        return <MiDia />;
       case "/mas/cardio":
         return <Cardio />;
       case "/mas/mascota":

@@ -56,6 +56,9 @@ export interface Prefs {
   vistaEquilibrio: "barras" | "rueda";
   dificilSugerido: string; // fecha en que dijiste "no, gracias" a la semana difícil
   mascota: string; // nombre de la mascota (su área en Mi vida)
+  partidoPorSemana: Record<string, "sab" | "dom">; // lunes de la semana → día del partido
+  fechaPrueba: string; // fecha de la prueba en el club (AAAA-MM-DD), si ya la sabes
+  miDia: boolean; // ya se cargó el horario de Mi Día como rutina
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -79,6 +82,9 @@ const DEFAULT_PREFS: Prefs = {
   vistaEquilibrio: "rueda",
   dificilSugerido: "",
   mascota: "",
+  partidoPorSemana: {},
+  fechaPrueba: "",
+  miDia: false,
 };
 
 let prefs: Prefs = loadPrefs();

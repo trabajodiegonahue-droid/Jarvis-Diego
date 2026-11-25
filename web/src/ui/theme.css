@@ -438,3 +438,17 @@ h2.lbl { margin: 0; }
 .mes-dia.hoy.sel span:first-child { color: var(--on-accent); }
 .cal-fila { display: grid; grid-template-columns: 92px 10px minmax(0, 1fr); gap: 8px; align-items: center; min-height: 40px; background: none; border: 0; padding: 0; text-align: left; color: var(--ink); font-size: 14px; }
 .cal-fila .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* Mi Día */
+.midia { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.midia-b { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 6px; border-radius: 14px; padding: 2px 4px; }
+.midia-b.ahora { background: color-mix(in srgb, var(--green) 14%, var(--card2)); outline: 1.5px solid color-mix(in srgb, var(--green) 60%, transparent); }
+.midia-b.paso:not(.ok) .midia-txt { opacity: 0.55; }
+.midia-check { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--line); background: none; display: grid; place-items: center; color: var(--on-accent); justify-self: center; }
+.midia-b.ok .midia-check { background: var(--green); border-color: var(--green); }
+.midia-b.ok strong { text-decoration: line-through; color: var(--muted); }
+.midia-txt { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 52px; background: none; border: 0; color: var(--ink); text-align: left; padding: 4px 6px 4px 0; }
+.midia-txt:disabled { opacity: 1; cursor: default; }
+.midia-txt svg { color: var(--muted); }
+.midia-hora { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px; color: var(--muted); }
+.midia-b.ahora .midia-hora { color: var(--green); }

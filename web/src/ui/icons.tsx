@@ -92,6 +92,7 @@ const P: Record<string, JSX.Element> = {
       <circle cx="12" cy="13" r="3.5" />
     </>
   ),
+  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   casa: <path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5H9v5H5a1 1 0 0 1-1-1z" />,
   campana: <path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0" />,
   carro: (

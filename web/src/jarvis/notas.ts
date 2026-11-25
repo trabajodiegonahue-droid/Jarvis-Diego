@@ -14,6 +14,7 @@ export function crearNotar(store: AppStore, clock: () => ChileNow) {
     const propio = typeof args?.texto === "string" ? args.texto : typeof args?.titulo === "string" ? args.titulo : "";
     const id = tool ? areaDeHerramienta(tool, args, propio || texto) : clasificarArea(texto);
     if (ya.includes(id)) return null; // una nota por área en cada frase
+    if ((tool === "tachar_tarea" || tool === "tachar_tareas") && id === "otro") return null; // tachar "Almuerzo" no necesita nota
     // Si dijo "hace 10 minutos", la nota queda a esa hora.
     const hace = typeof args?.hora === "string" && /^\d{2}:\d{2}$/.test(args.hora) ? null : haceCuanto(texto);
     // "saqué al perro a las 15:24": algo que ya pasó, a una hora dicha (si no es futura).
