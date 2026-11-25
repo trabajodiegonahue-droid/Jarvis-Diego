@@ -1,3 +1,4 @@
+import { parsePlan } from "./planTools";
 import { parseEjercicios } from "../training/ejerciciosVoz";
 import { MESES } from "../core/texto";
 import { parseExtras } from "./extrasParser";
@@ -149,6 +150,9 @@ export function parseVida(text: string, hoy: string, ctx: CtxVida = {}): LocalCo
   if (/^(gracias|muchas gracias|grax|vale|buena|bacan|filete|perfecto|genial|ok gracias)( jarvis)?$/.test(t0)) return { tool: "__gracias", args: {} };
   const x = parseExtras(text, ctx);
   if (x) return x;
+  // El plan (Fútbol, Estudio, Comida y Mi Día): "¿qué me toca hoy?", "me tomé la creatina", "peso 70,5".
+  const pl = parsePlan(t0.replace(/[¿?¡!.]/g, "").trim());
+  if (pl) return pl;
   // Mi Día: "ya saqué al perro", "ya almorcé", "me tomé el batido" tachan su bloque (y quedan en su área).
   const md = bloqueMiDia(t0, ctx.rutina || []);
   if (md) return { tool: "tachar_tarea", args: { titulo: md } };

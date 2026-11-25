@@ -27,7 +27,7 @@ import { Recordatorios } from "./screens/Recordatorios";
 import { Compras } from "./screens/Compras";
 import { Areas } from "./screens/Areas";
 import { cerrarAviso, getSonando, iniciarAvisos, onSonando, posponer } from "../jarvis/avisosApp";
-import { go, kv, toast, useApp, useRoute } from "./state";
+import { getPrefs as getPrefsApp, go, kv, toast, useApp, useRoute } from "./state";
 
 const TABS = [
   { path: "/", nombre: "Inicio", icon: "inicio" },
@@ -78,6 +78,8 @@ export function App() {
     abrirDesdeEnlace();
     void buzon();
     iniciarAvisos();
+    // Metas del bloque (una vez, si ya usas Mi Día).
+    if (getPrefsApp().miDia && !kv.get("metasPlan", false)) void import("../jarvis/metasPlan").then(({ crearMetasPlan }) => crearMetasPlan(chileNow().date).then(() => kv.set("metasPlan", true)));
     // Respaldo automático y cifrado (si lo activaste), una vez al día.
     void import("../data/nube").then(({ respaldoDiario }) =>
       respaldoDiario(settings.mode === "worker" && settings.workerUrl && settings.workerToken ? { url: settings.workerUrl, token: settings.workerToken } : null, store.data, kv, chileNow().date),

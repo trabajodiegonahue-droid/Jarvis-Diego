@@ -1,6 +1,8 @@
 // Avisos: qué te avisa JARVIS y cuándo. Lo que se calcula aquí sirve para tres caminos:
 // 1) con la app abierta suena en pantalla; 2) con los avisos activados, el intermediario de Cloudflare
 // manda la notificación al iPhone aunque la app esté cerrada; 3) sin servidor, se exporta al Calendario (.ics).
+import { HORARIO, planDelDia } from "../plan/bloque";
+import { estudioDeHoy } from "../plan/estudio";
 import { areaEfectiva, getNombreMascota } from "../areas/calc";
 import { hhmm, joinY } from "../core/texto";
 import { addDays, dow } from "../core/dates";
@@ -22,6 +24,8 @@ export interface PrefsAvisos {
   noche: string; // HH:MM de "mañana tienes…"
   agua: boolean;
   rutina: boolean;
+  plan?: boolean; // Mi Día cargado: avisos del plan a las 7:30, 9:15, 13:45, 17:00 y 22:30
+  partidoPorSemana?: Record<string, "sab" | "dom">;
 }
 
 const min = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
@@ -63,9 +67,19 @@ export function planAvisos(d: Datos, tasks: Task[], p: PrefsAvisos, ahora: strin
     if (man.length) out.push({ id: `n:${f}`, cuando: `${f}T${p.noche}`, titulo: "Para mañana", cuerpo: `Mañana: ${joinY(man.slice(0, 5))}.` });
     // Cumpleaños: el día antes en la noche ya va en "Para mañana"; tres días antes, un aviso para el regalo.
     for (const x of proximasFechas(d.fechas, f, 3).filter((x) => x.enDias === 3)) out.push({ id: `f:${x.f.id}:${f}`, cuando: `${f}T12:00`, titulo: "Se viene un cumpleaños", cuerpo: `En 3 días es ${min(x.f.nombre)}${x.cumple && x.f.tipo === "cumple" ? ` (cumple ${x.cumple})` : ""}.` });
-    // Rutina: 10 minutos antes de cada tarea.
+    // El plan del día (Mi Día): 5 avisos clave en vez de uno por bloque.
+    if (p.plan) {
+      const pl = planDelDia(f, p.partidoPorSemana || {});
+      const e = estudioDeHoy(f);
+      out.push({ id: `p1:${f}`, cuando: `${f}T07:30`, titulo: "Buenos días, Diego", cuerpo: `${pl.md === 0 ? "Hoy hay partido." : `Mañana: ${pl.manana.titulo}. Tarde: ${pl.tarde.titulo}.`} ${e.materia ? `Estudio: ${e.texto.split(":")[0]}.` : ""} Creatina con el desayuno.`.replace(/\s+/g, " ").trim() });
+      if (pl.manana.tipo !== "descanso") out.push({ id: `p2:${f}`, cuando: `${f}T09:15`, titulo: pl.md === 0 ? "Activación" : "Calentamiento FIFA 11+", cuerpo: pl.md === 0 ? "Activación antes del partido. ¡A jugar!" : `Después: ${pl.manana.titulo}.` });
+      if (e.materia || e.ensayo) out.push({ id: `p3:${f}`, cuando: `${f}T13:45`, titulo: "Estudio", cuerpo: e.texto });
+      if (pl.tarde.tipo !== "descanso" && pl.md !== 0) out.push({ id: `p4:${f}`, cuando: `${f}T17:00`, titulo: "Sesión 2", cuerpo: pl.tarde.titulo });
+      out.push({ id: `p5:${f}`, cuando: `${f}T22:30`, titulo: "Celular fuera", cuerpo: "A las 23:00 a dormir: 8,5 horas para recuperar." });
+    }
+    // Rutina: 10 minutos antes de cada tarea (los bloques de Mi Día ya van en los 5 avisos del plan).
     if (p.rutina)
-      for (const t of tasks.filter((t) => t.days.includes(dow(f)) && !t.done.includes(f))) {
+      for (const t of tasks.filter((t) => t.days.includes(dow(f)) && !t.done.includes(f) && !(p.plan && HORARIO.some((h) => h.titulo === t.title)))) {
         const [h, m] = t.time.split(":").map(Number);
         const antes = h * 60 + m - 10;
         if (antes < 0) continue;

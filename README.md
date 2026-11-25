@@ -292,3 +292,15 @@ Ese repositorio dice MIT en el README, pero no tiene archivo LICENSE, así que n
 
 - **Versión 2 de JARVIS (avisos):** notificaciones push de la PWA. En iOS 16.4 o más nuevo funcionan solo con la app instalada en el inicio y con el permiso pedido desde un botón. Necesitan el intermediario: un cron de Cloudflare envía el aviso a su hora, con una copia mínima de la rutina (nombre, hora y día). Como alternativa sin servidor: exportar los avisos al Calendario del iPhone (.ics).
 - **Versiones 4 y 5 de JARVIS:** memoria de lo que le cuentas, fotos y Google Calendar (solo lectura).
+
+## Plan de 8 semanas: Fútbol, Estudio, Comida y Mi Día
+
+- **Mi Día** (Más › Mi Día): horario de 7:30 a 23:00 como rutina, con checks y el bloque actual destacado. Toca "Usar este horario" la primera vez.
+- **Fútbol › Físico**: Hoy (sesión de la mañana y la tarde según el día al partido, modo entrenamiento y temporizadores), Semana, Ejercicios, Tests y Gráficos. Cada semana marcas si el partido es sábado o domingo (en Mi Día).
+- **Estudio** (Más › Estudios): materia del día con "Empezar 45 min" y subsecciones de Matemática M1, Inglés, Lenguaje, Ventas y Economía.
+- **Comida y suplementos** (Más › Comida): checklist, proteína estimada contra la meta, creatina, agua y peso.
+- **JARVIS** responde "¿qué me toca hoy?", "¿cómo voy esta semana?", "¿cuánta proteína me falta?", "¿qué estudio hoy?", "¿qué errores tengo que repasar?", "¿cuánto mejoré en el sprint?" y anota "me tomé la creatina" o "peso 70,5".
+- **Avisos** del plan a las 7:30, 9:15, 13:45, 17:00 y 22:30 (con los avisos activados en Más › Recordatorios › Avisos).
+- Tus datos personales (peso, fecha de la prueba) se escriben en la app y quedan solo en el teléfono.
+
+Para probar en el computador: `cd web && npm install && npm run dev` y abre la dirección que muestra (en el navegador, modo de teléfono). Pruebas: `npm test`.

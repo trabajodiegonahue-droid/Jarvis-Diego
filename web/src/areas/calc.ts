@@ -78,7 +78,7 @@ const POR_HERRAMIENTA: Record<string, AreaVida> = {
   registrar_entreno: "entreno", registrar_partido: "futbol", registrar_estudio: "estudios", registrar_turno: "trabajo",
   registrar_dia: "salud", marcar_habito: "animo", crear_habito: "animo", agregar_compras: "casa", marcar_compras: "casa",
   agregar_fecha: "social", recordar: "otro", crear_recordatorio: "otro", iniciar_actividad: "otro", registrar_bloque: "otro",
-  agregar_tarea: "otro", tachar_tarea: "otro", tachar_tareas: "otro", semana_dificil: "animo",
+  agregar_tarea: "otro", tachar_tarea: "otro", tachar_tareas: "otro", semana_dificil: "animo", marcar_comida: "salud", anotar_peso: "salud",
 };
 
 // El área de lo que se anotó: si la herramienta lo dice, esa; si es general (recordar, rutina…), por las palabras.
@@ -115,6 +115,8 @@ const SECCION: Record<string, [string, string]> = {
   terminar_actividad: ["Mi tiempo", "/mas/tiempo"],
   registrar_bloque: ["Mi tiempo", "/mas/tiempo"],
   recordar: ["Memoria de JARVIS", "/mas"],
+  marcar_comida: ["Comida", "/mas/comida"],
+  anotar_peso: ["Tests y peso", "/futbol?fisico"],
 };
 export const seccionDe = (tool?: string): { nombre: string; ruta: string } | null => {
   const s = tool ? SECCION[tool] : undefined;

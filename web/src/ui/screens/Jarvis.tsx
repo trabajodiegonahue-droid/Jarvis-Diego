@@ -67,6 +67,11 @@ async function saludo(): Promise<string> {
   const n = chileNow();
   if (kv.get<string>("saludo", "") === n.date) return GREETING;
   kv.set("saludo", n.date);
+  // Con Mi Día cargado, el saludo es el plan del día en 3 líneas.
+  if (getPrefs().miDia) {
+    const p = await tools.call("plan_de_hoy", { saludo: n.minutes < 13 * 60 });
+    if (p.ok) return n.minutes < 13 * 60 ? p.say : `Hola Diego. ${p.say}`;
+  }
   const r = await tools.call("resumen", { tipo: n.minutes < 13 * 60 ? "manana" : "hoy" });
   if (!r.ok) return GREETING;
   return n.minutes < 13 * 60 ? r.say : `Hola Diego. ${r.say}`;

@@ -19,6 +19,7 @@ import { Bars, BarsApiladas, BarsH, Line, Progress, Ring, Rueda } from "../chart
 import { Empty, Sheet } from "../components";
 import { setPrefs, toast, useApp } from "../state";
 import { Estudios } from "./Estudios";
+import { sumarDiaMeta } from "../../jarvis/metasPlan";
 
 type Seccion = "hoy" | MateriaBloque | "otros";
 const inp = { width: "100%", minWidth: 0, minHeight: "48px", borderRadius: "14px", border: "1px solid var(--line)", background: "var(--card2)", color: "var(--ink)", padding: "0 12px", fontSize: "16px" } as const;
@@ -248,6 +249,7 @@ function TimerEstudio({ m, onClose }: { m: MateriaBloque; onClose: () => void })
     const l: EstudioLog = { id: uid(), fecha: hoy, materia: m, minutos, ...(tema.trim() ? { tema: tema.trim() } : {}) };
     await store.put("estudio", l);
     tachar("Estudio", hoy);
+    if (minutos >= 15) void sumarDiaMeta("Estudiar 5 días por semana", hoy);
     toast(`Guardado: ${minutos} min de ${materia(m).corto}.`, () => void store.remove("estudio", l.id));
     onClose();
   }

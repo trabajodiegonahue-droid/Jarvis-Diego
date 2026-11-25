@@ -13,6 +13,7 @@ import { Bars, Line, Ring } from "../charts";
 import { Icon } from "../icons";
 import { getPrefs, setPrefs, toast, useApp } from "../state";
 import { guardarDia } from "./Habitos";
+import { sumarDiaMeta } from "../../jarvis/metasPlan";
 
 const LETRA = ["L", "M", "M", "J", "V", "S", "D"];
 export const configComida = (): ConfigComida => getPrefs().comida;
@@ -26,6 +27,7 @@ export async function marcarComida(k: ItemComida, fecha: string, valor?: boolean
   const t = routine.tasks.find((r) => norm(r.title) === norm(it.rutina));
   const todas = ITEMS.filter((i) => i.rutina === it.rutina).every((i) => nuevo[i.k]);
   if (t && todas && !t.done.includes(fecha)) routine.check(t, fecha);
+  if (k === "creatina" && nuevo.creatina) void sumarDiaMeta("Creatina todos los días", fecha);
   return nuevo;
 }
 

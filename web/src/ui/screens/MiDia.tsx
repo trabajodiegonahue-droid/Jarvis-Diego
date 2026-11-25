@@ -9,6 +9,7 @@ import { routine } from "../../jarvis/instance";
 import { ALL_DAYS, norm, type Task } from "../../routine/routine";
 import { Bars, BarsH, Line, Ring } from "../charts";
 import { Icon } from "../icons";
+import { crearMetasPlan } from "../../jarvis/metasPlan";
 import { go, setPrefs, toast, useApp } from "../state";
 
 const tareaDe = (titulo: string): Task | undefined => routine.tasks.find((t) => norm(t.title) === norm(titulo));
@@ -18,6 +19,7 @@ export function cargarMiDia() {
   routine.removeAll();
   for (const h of HORARIO) routine.add(h.titulo, h.hora, ALL_DAYS);
   setPrefs({ miDia: true });
+  void crearMetasPlan(chileNow().date);
 }
 
 export function MiDia() {
