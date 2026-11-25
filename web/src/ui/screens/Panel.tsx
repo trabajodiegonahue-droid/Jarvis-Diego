@@ -314,3 +314,27 @@ export function PlanInicio({ data }: { data: Datos }) {
     </section>
   );
 }
+
+// ---------- Ahora: el bloque del día en que estás y el que sigue ----------
+export function AhoraCard() {
+  const { prefs } = useApp();
+  const n = chileNow();
+  const bloques = horarioDelDia(n.date, prefs.partidoPorSemana);
+  const { actual, siguiente } = bloqueActual(bloques, hhmm(n.minutes));
+  const hechos = bloques.filter((b) => routine.tasks.find((r) => r.title === b.titulo)?.done.includes(n.date)).length;
+  return (
+    <button class="ahora-card" onClick={() => go("/mas/midia")}>
+      <span class="lbl">Ahora · {hechos} de {bloques.length} listos</span>
+      <strong class="ahora-titulo lujo-titulo">{actual ? actual.titulo : "Tu día parte a las 7:30"}</strong>
+      {actual?.detalle && <span class="small">{actual.detalle}</span>}
+      {siguiente && (
+        <span class="ahora-sig">
+          <span>Después</span>
+          <span>
+            {siguiente.hora} · {siguiente.titulo}
+          </span>
+        </span>
+      )}
+    </button>
+  );
+}

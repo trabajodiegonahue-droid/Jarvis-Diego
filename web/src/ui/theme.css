@@ -733,3 +733,83 @@ nav.tabs a.on { color: var(--accent); background: var(--accent-soft); }
 :root:not([data-theme="light"]) .descanso strong { color: var(--accent); }
 :root:not([data-theme="light"]) nav.tabs a.on::before { background: var(--accent); }
 :root[data-theme="light"] nav.tabs a.on::before { display: none; }
+
+/* =====================================================================
+   Estilo de lujo: negro profundo, dorado champaña, títulos serif (New York
+   en el iPhone), números grandes y finos, bordes casi invisibles.
+   Manda sobre todo lo anterior (solo en el tema oscuro).
+   ===================================================================== */
+:root:not([data-theme="light"]) {
+  --bg: #050505;
+  --card: #0e0e0f;
+  --card2: #171716;
+  --line: rgba(255, 255, 255, 0.07);
+  --ink: #f4efe4;
+  --muted: #8d877b;
+  --accent: #d6b46a;
+  --accent-ink: #15110a;
+  --accent-soft: rgba(214, 180, 106, 0.12);
+  --oro: linear-gradient(135deg, #ecd08f 0%, #d6b46a 45%, #a9843f 100%);
+  --green: #7fc8a0;
+  --red: #e07a6e;
+  --amber: #e0b25a;
+  --blue: #8fb0d8;
+  --nav: rgba(8, 8, 8, 0.9);
+  --r: 22px;
+  --fondo: radial-gradient(120% 60% at 50% -10%, rgba(214, 180, 106, 0.09), transparent 60%), #050505;
+}
+:root:not([data-theme="light"]) body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif; }
+:root:not([data-theme="light"]) .head h1, :root:not([data-theme="light"]) .hero h1, :root:not([data-theme="light"]) .sheet > div > h2, :root:not([data-theme="light"]) .lujo-titulo {
+  font-family: ui-serif, "New York", "Iowan Old Style", Georgia, serif; font-weight: 500; letter-spacing: -0.3px;
+}
+:root:not([data-theme="light"]) .head h1 { font-size: 34px; }
+:root:not([data-theme="light"]) .hero h1 { font-size: 34px; line-height: 1.1; }
+:root:not([data-theme="light"]) .hero .sub { text-transform: uppercase; letter-spacing: 2px; font-size: 11px; color: var(--accent); }
+:root:not([data-theme="light"]) span.lbl, :root:not([data-theme="light"]) h2.lbl, :root:not([data-theme="light"]) .numero-nombre { letter-spacing: 1.6px; font-size: 10.5px; font-weight: 600; color: var(--muted); }
+:root:not([data-theme="light"]) .card, :root:not([data-theme="light"]) .kpi, :root:not([data-theme="light"]) .numero, :root:not([data-theme="light"]) .plan-card, :root:not([data-theme="light"]) .sesion-card, :root:not([data-theme="light"]) .materia-card, :root:not([data-theme="light"]) .cuentale-barra {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)), var(--card);
+  border: 1px solid var(--line); border-top: 1px solid rgba(255, 255, 255, 0.09); border-radius: var(--r); box-shadow: 0 20px 40px -30px rgba(0, 0, 0, 0.9);
+}
+:root:not([data-theme="light"]) .numero, :root:not([data-theme="light"]) .plan-card, :root:not([data-theme="light"]) .materia-card, :root:not([data-theme="light"]) .sesion-card { border-top: 1px solid rgba(255, 255, 255, 0.09); }
+:root:not([data-theme="light"]) .numero-ico, :root:not([data-theme="light"]) .plan-card .numero-ico { color: var(--accent); }
+:root:not([data-theme="light"]) .plan-valor { font-weight: 500; font-size: 17px; letter-spacing: -0.2px; }
+:root:not([data-theme="light"]) .numero-valor, :root:not([data-theme="light"]) .kpi strong, :root:not([data-theme="light"]) .big, :root:not([data-theme="light"]) .timer-num { font-weight: 300; letter-spacing: -1px; }
+:root:not([data-theme="light"]) .btn { background: transparent; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px; font-weight: 500; }
+:root:not([data-theme="light"]) .btn.main { background: var(--oro); color: var(--accent-ink); border: 0; font-weight: 600; letter-spacing: 0.4px; box-shadow: 0 12px 28px -16px rgba(214, 180, 106, 0.7); }
+:root:not([data-theme="light"]) .seg { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); }
+:root:not([data-theme="light"]) .seg button.on { background: var(--accent-soft); color: var(--accent); }
+:root:not([data-theme="light"]) .chips button.on, :root:not([data-theme="light"]) .secciones button.on { background: var(--oro); color: var(--accent-ink); border-color: transparent; }
+:root:not([data-theme="light"]) .secciones button, :root:not([data-theme="light"]) .cuentale-rapido button { background: transparent; border: 1px solid var(--line); font-weight: 500; }
+:root:not([data-theme="light"]) nav.tabs { background: rgba(6, 6, 6, 0.88); border-top: 1px solid var(--line); }
+:root:not([data-theme="light"]) nav.tabs a { font-weight: 500; letter-spacing: 0.3px; }
+:root:not([data-theme="light"]) nav.tabs a.on { color: var(--accent); }
+:root:not([data-theme="light"]) nav.tabs a.on::before { background: var(--accent); }
+:root:not([data-theme="light"]) .fab.jarvis { background: var(--oro); color: var(--accent-ink); box-shadow: 0 14px 30px -14px rgba(214, 180, 106, 0.75); }
+:root:not([data-theme="light"]) .jv-msg.yo { background: var(--oro); color: var(--accent-ink); }
+:root:not([data-theme="light"]) .jv-msg.el { background: var(--card2); border: 1px solid var(--line); }
+:root:not([data-theme="light"]) .jv-mic, :root:not([data-theme="light"]) .cuentale-orb { background: var(--oro); color: var(--accent-ink); }
+:root:not([data-theme="light"]) .jv-orb { background: var(--oro); box-shadow: 0 0 0 6px var(--accent-soft); }
+:root:not([data-theme="light"]) .sem-dia.hoy, :root:not([data-theme="light"]) .mes-dia.hoy.sel { background: var(--oro); color: var(--accent-ink); }
+:root:not([data-theme="light"]) .tipo-chip { color: var(--accent); border-color: rgba(214, 180, 106, 0.45); }
+:root:not([data-theme="light"]) .serie.ok .serie-ok, :root:not([data-theme="light"]) .midia-b.ok .midia-check, :root:not([data-theme="light"]) .creatina-dia.ok, :root:not([data-theme="light"]) .comida-item.ok .comida-check { background: var(--oro); border-color: transparent; color: var(--accent-ink); }
+:root:not([data-theme="light"]) .comida-item.ok { background: var(--accent-soft); }
+:root:not([data-theme="light"]) .timer.trabajo, :root:not([data-theme="light"]) .descanso { background: var(--accent-soft); }
+:root:not([data-theme="light"]) .timer.trabajo .timer-num, :root:not([data-theme="light"]) .descanso strong, :root:not([data-theme="light"]) .tarjeta-trad { color: var(--accent); }
+:root:not([data-theme="light"]) .timer-barra i { background: var(--oro); }
+:root:not([data-theme="light"]) .pill { background: transparent; border: 1px solid var(--line); color: var(--ink); font-weight: 500; }
+:root:not([data-theme="light"]) .pill.ahora { color: var(--accent); border-color: rgba(214, 180, 106, 0.4); }
+:root:not([data-theme="light"]) .ver, :root:not([data-theme="light"]) .link, :root:not([data-theme="light"]) a.ver, :root:not([data-theme="light"]) a { color: var(--accent); }
+:root:not([data-theme="light"]) .sheet { background: #0a0a0a; }
+:root:not([data-theme="light"]) .midia-b.ahora { background: var(--accent-soft); outline-color: rgba(214, 180, 106, 0.4); }
+:root:not([data-theme="light"]) .midia-b.ahora .midia-hora { color: var(--accent); }
+:root:not([data-theme="light"]) .linea-ahora { color: var(--accent); }
+:root:not([data-theme="light"]) .linea-ahora::after { background: var(--accent); }
+
+/* Tarjeta "Ahora" del inicio */
+.ahora-card { display: flex; flex-direction: column; gap: 6px; padding: 22px; border-radius: var(--r); border: 1px solid var(--line); background: var(--card); text-align: left; color: var(--ink); }
+:root:not([data-theme="light"]) .ahora-card { background: radial-gradient(130% 120% at 100% 0%, rgba(214, 180, 106, 0.16), transparent 55%), linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent), var(--card); border-top-color: rgba(214, 180, 106, 0.35); }
+.ahora-titulo { font-size: 26px; line-height: 1.15; }
+.ahora-sig { display: flex; justify-content: space-between; gap: 10px; padding-top: 10px; margin-top: 6px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+.mas-detalles { background: none; border: 0; color: var(--muted); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; min-height: 44px; }
+:root:not([data-theme="light"]) .plan-card .mini rect { fill: var(--accent); }
+:root:not([data-theme="light"]) .materia-card .bar > i, :root:not([data-theme="light"]) .materia-card [role="progressbar"] i { background: var(--accent) !important; }
