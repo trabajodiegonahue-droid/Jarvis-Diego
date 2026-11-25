@@ -34,24 +34,28 @@ function hablar(t: string): Promise<void> {
 
 const inp = { minHeight: "44px", borderRadius: "12px", border: "1px solid var(--line)", background: "var(--card2)", padding: "0 10px", width: "100%" };
 
-export function Fisico() {
+export type SubFisico = "hoy" | "semana" | "ejercicios" | "tests" | "graficos";
+export function Fisico({ sub: subExt }: { sub?: SubFisico } = {}) {
   const { data } = useApp();
   const plan = data.planes.find((p) => p.id === "activo");
   const [gen, setGen] = useState(false);
   const [sesion, setSesion] = useState<SesionPlan | null>(null);
   const [ej, setEj] = useState<string | null>(null);
-  const [sub, setSub] = useState<"hoy" | "semana" | "ejercicios" | "tests" | "graficos">("hoy");
+  const [subInt, setSub] = useState<SubFisico>("hoy");
+  const sub = subExt || subInt;
 
   return (
     <>
       {/* El plan del físico es el bloque de 8 semanas (según el día del partido). */}
-      <div class="seg sub">
-        {(["hoy", "semana", "ejercicios", "tests", "graficos"] as const).map((k) => (
-          <button key={k} class={sub === k ? "on" : ""} onClick={() => setSub(k)}>
-            {{ hoy: "Hoy", semana: "Semana", ejercicios: "Ejercicios", tests: "Tests", graficos: "Gráficos" }[k]}
-          </button>
-        ))}
-      </div>
+      {!subExt && (
+        <div class="seg sub">
+          {(["hoy", "semana", "ejercicios", "tests", "graficos"] as const).map((k) => (
+            <button key={k} class={sub === k ? "on" : ""} onClick={() => setSub(k)}>
+              {{ hoy: "Hoy", semana: "Semana", ejercicios: "Ejercicios", tests: "Tests", graficos: "Gráficos" }[k]}
+            </button>
+          ))}
+        </div>
+      )}
       {sub === "semana" && <SemanaBloque />}
       {sub === "ejercicios" && <EjerciciosBloque />}
       {sub === "tests" && <TestsBloque />}

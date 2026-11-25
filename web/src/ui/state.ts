@@ -60,6 +60,7 @@ export interface Prefs {
   fechaPrueba: string; // fecha de la prueba en el club (AAAA-MM-DD), si ya la sabes
   miDia: boolean; // ya se cargó el horario de Mi Día como rutina
   estiloPastel: boolean; // ya se pasó una vez al estilo claro pastel
+  estiloOscuro: boolean; // ya se pasó una vez al estilo oscuro deportivo
   estudioChecks: Record<string, boolean>; // subtemas y temas hechos, checks diarios de inglés
   quiz: Record<string, number>; // resultado de cada mini-quiz (aciertos de 3)
   comida: { medida: number; meta: number; almuerzo: number; once: number; colacion: number }; // proteína
@@ -67,7 +68,7 @@ export interface Prefs {
 
 const DEFAULT_PREFS: Prefs = {
   onboarded: false,
-  theme: "light",
+  theme: "dark",
   areas: AREAS.map((a) => a.id),
   startMonth: "",
   cards: CARDS.map((c) => ({ id: c.id, on: true })),
@@ -90,6 +91,7 @@ const DEFAULT_PREFS: Prefs = {
   fechaPrueba: "",
   miDia: false,
   estiloPastel: false,
+  estiloOscuro: false,
   estudioChecks: {},
   quiz: {},
   comida: { medida: 24, meta: 110, almuerzo: 25, once: 20, colacion: 8 },
@@ -110,8 +112,10 @@ function loadPrefs(): Prefs {
   p.areasConocidas = AREAS.map((a) => a.id);
   setNombreMascota(p.mascota);
   // Estilo nuevo: una sola vez se pasa al tema claro pastel (después puedes volver al oscuro en Ajustes).
-  if (!p.estiloPastel) {
-    p.theme = "light";
+  // Estilo oscuro deportivo: una sola vez se pasa al tema oscuro (el claro pastel sigue en Ajustes).
+  if (!p.estiloOscuro) {
+    p.theme = "dark";
+    p.estiloOscuro = true;
     p.estiloPastel = true;
   }
   return p;
@@ -135,7 +139,7 @@ export function applyTheme() {
   const t = prefs.theme;
   const light = t === "light" || (t === "auto" && window.matchMedia?.("(prefers-color-scheme: light)").matches);
   document.documentElement.dataset.theme = light ? "light" : "dark";
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", light ? "#F6F3FD" : "#12111C");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", light ? "#F6F3FD" : "#08090B");
 }
 
 // Se redibuja cuando cambian los datos o las preferencias.
