@@ -304,15 +304,15 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
           <button onClick={() => abrirJarvis({ borrador: "¿Qué me toca hoy?", enviar: true })}>Mi día</button>
           <button onClick={() => abrirJarvis({ borrador: "recuérdame " })}>Recordatorio</button>
           <button onClick={() => abrirJarvis({ borrador: "gasté " })}>Gasto</button>
-          <button onClick={() => abrirJarvis({ borrador: "empecé a " })}>Empecé…</button>
-          <button onClick={() => abrirJarvis({ borrador: "¿Qué se viene los próximos días?", enviar: true })}>Lo que viene</button>
+
         </div>
       </div>
+      {/* Con el plan cargado, el inicio es corto: tu plan y lo de hoy. Lo demás está en Más detalles. */}
       {prefs.miDia && <PlanInicio data={data} />}
       <HoyLinea data={data} />
-      <Numeros data={data} />
-      <SemanaFila data={data} />
-      <Graficos data={data} />
+      {!prefs.miDia && <Numeros data={data} />}
+      {!prefs.miDia && <SemanaFila data={data} />}
+      {!prefs.miDia && <Graficos data={data} />}
       {store.hasDemo() && <DemoBanner />}
       <SemanaDificil />
       <LogroNuevo />

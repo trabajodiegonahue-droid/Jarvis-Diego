@@ -30,10 +30,10 @@ import { cerrarAviso, getSonando, iniciarAvisos, onSonando, posponer } from "../
 import { getPrefs as getPrefsApp, go, kv, toast, useApp, useRoute } from "./state";
 
 const TABS = [
-  { path: "/", nombre: "Inicio", icon: "inicio" },
-  { path: "/dinero", nombre: "Dinero", icon: "dinero" },
-  { path: "/areas", nombre: "Mi vida", icon: "corazon" },
+  { path: "/", nombre: "Hoy", icon: "inicio" },
   { path: "/futbol", nombre: "Fútbol", icon: "futbol" },
+  { path: "/mas/estudios", nombre: "Estudio", icon: "libro" },
+  { path: "/mas/comida", nombre: "Comida", icon: "estrella" },
   { path: "/mas", nombre: "Más", icon: "mas" },
 ];
 
@@ -148,7 +148,8 @@ export function App() {
         return <Inicio onAdd={() => setAdd(true)} />;
     }
   })();
-  const tab = TABS.find((t) => (t.path === "/" ? route === "/" : route.startsWith(t.path)))?.path || "/";
+  // La pestaña activa es la de ruta más larga que calce (así /mas/estudios es Estudio y no Más).
+  const tab = [...TABS].sort((a, b) => b.path.length - a.path.length).find((t) => (t.path === "/" ? route === "/" : route.startsWith(t.path)))?.path || "/";
 
   return (
     <>

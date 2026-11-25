@@ -9,29 +9,36 @@ import { Bars, Line } from "../charts";
 import { Empty, Sheet } from "../components";
 import { Icon } from "../icons";
 import { setPrefs, toast, useApp } from "../state";
-import { Fisico } from "./Fisico";
+import { Fisico, type SubFisico } from "./Fisico";
 
-type Tab = "partidos" | "stats" | "fisico" | "clubes";
+type Tab = SubFisico | "partidos" | "stats" | "clubes";
 const inp = { minHeight: "44px", borderRadius: "12px", border: "1px solid var(--line)", background: "var(--card2)", padding: "0 12px", width: "100%" };
+const NOMBRES: Record<Tab, string> = { hoy: "Hoy", semana: "Semana", ejercicios: "Ejercicios", tests: "Tests", graficos: "Gráficos", partidos: "Partidos", stats: "Números", clubes: "Clubes" };
 
+// Una sola fila de pestañas: lo del bloque primero (lo que más usas), después partidos, números y clubes.
 export function Futbol() {
-  const [tab, setTab] = useState<Tab>(() => (location.hash.includes("fisico") ? "fisico" : "partidos"));
+  const [tab, setTab] = useState<Tab>("hoy");
+  const fisico = tab === "hoy" || tab === "semana" || tab === "ejercicios" || tab === "tests" || tab === "graficos";
   return (
     <main class="page">
       <header class="head">
         <h1>Fútbol</h1>
       </header>
-      <Perfil />
-      <div class="seg tabs4" role="tablist" aria-label="Secciones de Fútbol">
-        {(["partidos", "stats", "fisico", "clubes"] as Tab[]).map((t) => (
+      <div class="jv-sugerencias secciones" role="tablist" aria-label="Secciones de Fútbol">
+        {(Object.keys(NOMBRES) as Tab[]).map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} class={tab === t ? "on" : ""} onClick={() => setTab(t)}>
-            {{ partidos: "Partidos", stats: "Números", fisico: "Físico", clubes: "Clubes" }[t]}
+            {NOMBRES[t]}
           </button>
         ))}
       </div>
-      {tab === "partidos" && <Partidos />}
+      {fisico && <Fisico sub={tab as SubFisico} />}
+      {tab === "partidos" && (
+        <>
+          <Perfil />
+          <Partidos />
+        </>
+      )}
       {tab === "stats" && <Stats />}
-      {tab === "fisico" && <Fisico />}
       {tab === "clubes" && <Clubes />}
     </main>
   );

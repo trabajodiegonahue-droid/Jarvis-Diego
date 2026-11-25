@@ -662,3 +662,74 @@ nav.tabs a.on { color: var(--accent); background: var(--accent-soft); }
 .plan-card .numero-ico { background: var(--c); }
 .plan-valor { font-size: 16px; font-weight: 800; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .plan-card .mini { margin-top: auto; }
+
+/* =====================================================================
+   Estilo deportivo oscuro (tipo Whoop / Nike Run Club): fondo casi negro,
+   tarjetas planas con borde fino, un acento fuerte (verde lima),
+   números grandes y etiquetas en mayúscula. Manda sobre todo lo anterior.
+   ===================================================================== */
+:root:not([data-theme="light"]) {
+  --bg: #08090b;
+  --card: #121418;
+  --card2: #1a1d23;
+  --line: #23272e;
+  --ink: #f4f6f8;
+  --muted: #8a919c;
+  --green: #3ddc84;
+  --red: #ff5a5f;
+  --amber: #ffb020;
+  --blue: #4da3ff;
+  --gold: #ffcf4a;
+  --accent: #c8ff2e;
+  --accent-ink: #0a0c08;
+  --accent-soft: #1f2612;
+  --on-accent: #0a0c08;
+  --nav: rgba(14, 16, 19, 0.92);
+  --shadow: none;
+  --r: 18px;
+  --card-hi: transparent;
+  --fondo: #08090b;
+  color-scheme: dark;
+}
+:root:not([data-theme="light"]) body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, system-ui, sans-serif; letter-spacing: 0; }
+:root:not([data-theme="light"]) .head h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.8px; }
+:root:not([data-theme="light"]) span.lbl, :root:not([data-theme="light"]) h2.lbl, :root:not([data-theme="light"]) .numero-nombre, :root:not([data-theme="light"]) .sem-letra, :root:not([data-theme="light"]) .mes-letra { text-transform: uppercase; letter-spacing: 0.8px; font-size: 11.5px; font-weight: 700; color: var(--muted); }
+:root:not([data-theme="light"]) .card, :root:not([data-theme="light"]) .kpi, :root:not([data-theme="light"]) .numero, :root:not([data-theme="light"]) .plan-card, :root:not([data-theme="light"]) .sesion-card, :root:not([data-theme="light"]) .materia-card, :root:not([data-theme="light"]) .cuentale-barra { background: var(--card); border: 1px solid var(--line); box-shadow: none; border-radius: var(--r); }
+:root:not([data-theme="light"]) .numero, :root:not([data-theme="light"]) .plan-card, :root:not([data-theme="light"]) .materia-card, :root:not([data-theme="light"]) .sesion-card { border-top: 3px solid var(--c); }
+:root:not([data-theme="light"]) .numero-ico, :root:not([data-theme="light"]) .plan-card .numero-ico { background: transparent; color: var(--c); width: auto; height: auto; }
+:root:not([data-theme="light"]) .numero-valor, :root:not([data-theme="light"]) .kpi strong, :root:not([data-theme="light"]) .big { font-weight: 800; letter-spacing: -0.8px; }
+:root:not([data-theme="light"]) .btn { border-radius: 14px; background: var(--card2); border-color: var(--line); }
+:root:not([data-theme="light"]) .btn.main { background: var(--accent); color: var(--accent-ink); box-shadow: none; font-weight: 800; letter-spacing: 0.2px; }
+:root:not([data-theme="light"]) .seg { background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+:root:not([data-theme="light"]) .seg button.on { background: var(--card2); color: var(--accent); box-shadow: none; }
+:root:not([data-theme="light"]) .chips button { background: var(--card); }
+:root:not([data-theme="light"]) .chips button.on, :root:not([data-theme="light"]) .secciones button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+:root:not([data-theme="light"]) .secciones button, :root:not([data-theme="light"]) .cuentale-rapido button { background: var(--card); border: 1px solid var(--line); box-shadow: none; }
+:root:not([data-theme="light"]) nav.tabs { left: 0; right: 0; bottom: 0; max-width: none; border-radius: 0; border: 0; border-top: 1px solid var(--line); padding: 6px 8px calc(env(safe-area-inset-bottom) + 6px); box-shadow: none; }
+:root:not([data-theme="light"]) nav.tabs a { border-radius: 14px; }
+:root:not([data-theme="light"]) nav.tabs a.on { background: transparent; color: var(--accent); }
+:root:not([data-theme="light"]) .fab.jarvis { bottom: calc(env(safe-area-inset-bottom) + 80px); background: var(--accent); color: var(--accent-ink); box-shadow: 0 10px 24px -12px rgba(200, 255, 46, 0.55); }
+:root:not([data-theme="light"]) .fab.plus { bottom: calc(env(safe-area-inset-bottom) + 146px); background: var(--card2); border: 1px solid var(--line); }
+:root:not([data-theme="light"]) .jv-msg.yo { background: var(--accent); color: var(--accent-ink); }
+:root:not([data-theme="light"]) .jv-mic, :root:not([data-theme="light"]) .cuentale-orb { background: var(--accent); color: var(--accent-ink); }
+:root:not([data-theme="light"]) .jv-orb { background: var(--accent); box-shadow: 0 0 0 5px var(--accent-soft); }
+:root:not([data-theme="light"]) .sem-dia.hoy, :root:not([data-theme="light"]) .mes-dia.hoy.sel { background: var(--accent); color: var(--accent-ink); }
+:root:not([data-theme="light"]) .tipo-chip { background: transparent; color: var(--c); border: 1px solid var(--c); box-shadow: none; }
+:root:not([data-theme="light"]) .figura { background: var(--card2); }
+:root:not([data-theme="light"]) .timer.trabajo { background: var(--accent-soft); }
+:root:not([data-theme="light"]) .timer.trabajo .timer-num { color: var(--accent); }
+:root:not([data-theme="light"]) .timer-barra i { background: var(--accent); }
+:root:not([data-theme="light"]) .serie.ok .serie-ok { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+:root:not([data-theme="light"]) .serie.ok { border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-soft); }
+:root:not([data-theme="light"]) .midia-b.ok .midia-check { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+:root:not([data-theme="light"]) .tarjeta { background: var(--card2); }
+:root:not([data-theme="light"]) .tarjeta-trad { color: var(--accent); }
+:root:not([data-theme="light"]) .creatina-dia.ok { background: var(--accent); color: var(--accent-ink); }
+:root:not([data-theme="light"]) .sheet { background: var(--bg); border-color: var(--line); border-radius: 24px 24px 0 0; }
+:root:not([data-theme="light"]) .ver, :root:not([data-theme="light"]) .link, :root:not([data-theme="light"]) a.ver { color: var(--accent); }
+:root:not([data-theme="light"]) .pill { background: var(--card2); border: 1px solid var(--line); }
+:root:not([data-theme="light"]) .pill.ahora { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); background: transparent; }
+:root:not([data-theme="light"]) .descanso { background: var(--accent-soft); }
+:root:not([data-theme="light"]) .descanso strong { color: var(--accent); }
+:root:not([data-theme="light"]) nav.tabs a.on::before { background: var(--accent); }
+:root[data-theme="light"] nav.tabs a.on::before { display: none; }

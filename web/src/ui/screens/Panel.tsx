@@ -56,7 +56,10 @@ export function HoyLinea({ data }: { data: Datos }) {
   const ahora = hhmm(n.minutes);
   const items = itemsDelDia(data, n.date);
   const sinHora = items.filter((i) => !i.hora);
-  const conHora = items.filter((i) => i.hora);
+  // Lo que ya pasó se esconde (queda el último), para que la lista sea corta.
+  const todas = items.filter((i) => i.hora);
+  const primero = Math.max(0, todas.findIndex((i) => i.hora! > ahora) - 1);
+  const conHora = todas.slice(todas.findIndex((i) => i.hora! > ahora) < 0 ? Math.max(0, todas.length - 2) : primero).slice(0, 6);
   const iAhora = conHora.findIndex((i) => i.hora! > ahora);
   return (
     <section class="card panel-hoy" aria-labelledby="p-hoy">
