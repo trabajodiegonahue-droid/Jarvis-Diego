@@ -49,3 +49,21 @@ describe("Mi Día", () => {
     expect(bloqueActual(b, "07:00").actual).toBeNull();
   });
 });
+
+describe("gráficos de fútbol", async () => {
+  const c = await import("../src/plan/futbolCalc");
+  const E = (fecha: string, sesion: string, tipoSesion: string, extra = {}) => ({ id: fecha + sesion, fecha, nombre: sesion, items: [], sesion, tipoSesion, ...extra }) as any;
+  it("cumplimiento, sesiones por semana y racha", () => {
+    const ents = [E("2026-11-30", "recuperacion", "recuperacion"), E("2026-11-30", "tecnica", "tecnica"), E("2026-12-01", "fuerzaA", "fuerza", { rpe: 8, seg: 3600 })];
+    expect(c.cumplimiento(ents, "2026-11-30", "2026-12-01", {}, "2026-12-01")).toEqual({ hechas: 3, plan: 4 });
+    const s = c.sesionesPorSemana(ents, "2026-11-30", "2026-12-06", {});
+    expect(s[0]).toMatchObject({ etiqueta: "30/11", plan: 10, tipos: { recuperacion: 1, tecnica: 1, fuerza: 1 } });
+    expect(c.cargaSemanal(ents, "2026-11-30", "2026-12-06")[0].valor).toBe(480);
+    expect(c.racha(ents, "2026-11-30", {}, "2026-11-30")).toBe(1);
+  });
+  it("tests: menos es mejor en sprint", () => {
+    const t = [{ id: "a", fecha: "2026-11-25", semana: 0, sprint10: 1.9, salto: 40 }, { id: "b", fecha: "2026-12-23", semana: 4, sprint10: 1.8, salto: 38 }] as any;
+    expect(c.serieTest(t, "sprint10")).toMatchObject({ cambio: -5.3, mejor: true });
+    expect(c.serieTest(t, "salto")).toMatchObject({ cambio: -5, mejor: false });
+  });
+});

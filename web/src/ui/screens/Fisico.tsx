@@ -1,5 +1,6 @@
 // Preparación física: cómo me siento, rutina generada, sesión guiada, biblioteca y récords.
 import { HoyFutbol } from "./Entrenar";
+import { EjerciciosBloque, GraficosFutbol, SemanaBloque, TestsBloque } from "./FutbolBloque";
 import { enDificil } from "../../extras/calc";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { fechaCorta, lunesDe } from "../../core/dates";
@@ -39,15 +40,27 @@ export function Fisico() {
   const [gen, setGen] = useState(false);
   const [sesion, setSesion] = useState<SesionPlan | null>(null);
   const [ej, setEj] = useState<string | null>(null);
+  const [sub, setSub] = useState<"hoy" | "semana" | "ejercicios" | "tests" | "graficos">("hoy");
 
   return (
     <>
       {/* El plan del físico es el bloque de 8 semanas (según el día del partido). */}
-      <HoyFutbol />
-      <ChequeoCard />
-      <Volumen />
-      <Historial />
-      <Biblioteca onOpen={setEj} />
+      <div class="seg sub">
+        {(["hoy", "semana", "ejercicios", "tests", "graficos"] as const).map((k) => (
+          <button key={k} class={sub === k ? "on" : ""} onClick={() => setSub(k)}>
+            {{ hoy: "Hoy", semana: "Semana", ejercicios: "Ejercicios", tests: "Tests", graficos: "Gráficos" }[k]}
+          </button>
+        ))}
+      </div>
+      {sub === "semana" && <SemanaBloque />}
+      {sub === "ejercicios" && <EjerciciosBloque />}
+      {sub === "tests" && <TestsBloque />}
+      {sub === "graficos" && <GraficosFutbol />}
+      {sub === "hoy" && <HoyFutbol />}
+      {sub === "hoy" && <ChequeoCard />}
+      {sub === "hoy" && <Volumen />}
+      {sub === "hoy" && <Historial />}
+      {sub === "ejercicios" && <Biblioteca onOpen={setEj} />}
       {gen && (
         <Sheet title="Armar mi rutina" onClose={() => setGen(false)}>
           <Generador plan={plan} onDone={() => setGen(false)} />
