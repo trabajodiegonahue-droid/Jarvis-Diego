@@ -16,7 +16,11 @@ import { totalesMes } from "../../money/calc";
 import { clp } from "../../money/format";
 import { Bars } from "../charts";
 import { Icon } from "../icons";
-import { go } from "../state";
+import { getPrefs, go, useApp } from "../state";
+import { bloqueActual, COLOR_SESION, faseDe, horarioDelDia, INICIO_BLOQUE, planDelDia } from "../../plan/bloque";
+import { cumplimiento, planificadas, racha } from "../../plan/futbolCalc";
+import { estudioDeHoy, tocanHoy, todasLasSesiones } from "../../plan/estudio";
+import { proteinaDia } from "../../plan/comida";
 
 const LETRA = ["L", "M", "M", "J", "V", "S", "D"];
 const COLOR: Record<string, string> = { turno: "var(--t2)", partido: "var(--t3)", equipo: "var(--t3)", fisico: "var(--t3)", tarea: "var(--t1)", prueba: "var(--t1)", meta: "var(--gold)", rutina: "var(--t7)", recordatorio: "var(--amber)", cumple: "var(--t5)" };
@@ -32,7 +36,15 @@ export interface Item {
 }
 
 export function itemsDelDia(d: Datos, fecha: string): Item[] {
-  const ev: Item[] = eventosDia(d, routine.tasks, fecha).eventos.map((e: Evento) => ({ id: e.id, hora: e.inicio, fin: e.fin, titulo: e.titulo, color: COLOR[e.tipo] || "var(--blue)", ruta: e.ruta, hecho: e.hecho }));
+  const pr = getPrefs();
+  // Con Mi Día cargado: la rutina ya está en Mi Día y el físico es el del bloque (mañana 9:30 y tarde 17:00).
+  const bloque: Item[] = [];
+  if (pr.miDia) {
+    const p = planDelDia(fecha, pr.partidoPorSemana);
+    if (p.manana.tipo !== "descanso") bloque.push({ id: `bm:${fecha}`, hora: p.md === 0 ? undefined : "09:30", titulo: p.manana.titulo, color: COLOR_SESION[p.manana.tipo], ruta: "/futbol?fisico", hecho: d.entrenos.some((e) => e.fecha === fecha && e.sesion === p.manana.sesion) });
+    if (p.tarde.tipo !== "descanso") bloque.push({ id: `bt:${fecha}`, hora: "17:00", titulo: p.tarde.titulo, color: COLOR_SESION[p.tarde.tipo], ruta: "/futbol?fisico", hecho: d.entrenos.some((e) => e.fecha === fecha && e.sesion === p.tarde.sesion) });
+  }
+  const ev: Item[] = [...bloque, ...eventosDia(d, routine.tasks, fecha).eventos.filter((e: Evento) => !(pr.miDia && (e.tipo === "rutina" || e.tipo === "fisico"))).map((e: Evento) => ({ id: e.id, hora: e.inicio, fin: e.fin, titulo: e.titulo, color: COLOR[e.tipo] || "var(--blue)", ruta: e.ruta, hecho: e.hecho }))];
   for (const r of d.recordatorios.filter((x) => !x.hecho && x.cuando.startsWith(fecha))) ev.push({ id: `r:${r.id}`, hora: r.cuando.slice(11), titulo: r.texto, color: COLOR.recordatorio, ruta: "/mas/recordatorios" });
   for (const f of d.fechas.filter((x) => x.dia === fecha.slice(5))) ev.push({ id: `f:${f.id}`, titulo: f.nombre, color: COLOR.cumple, ruta: "/mas/recordatorios" });
   return ev.sort((a, b) => (a.hora || "00:00").localeCompare(b.hora || "00:00"));
@@ -191,7 +203,7 @@ export function Graficos({ data }: { data: Datos }) {
             Dinero ›
           </a>
         </div>
-        <Bars data={gastos} label="Gastos por día, últimos 7 días" fmt={(x) => (x >= 1000 ? `${Math.round(x / 1000)}k` : String(x))} color="var(--red)" />
+        <Bars data={gastos} label="Gastos por día, últimos 7 días" fmt={(x) => (x >= 1000 ? `${Math.round(x / 1000)}k` : String(x))} color="#f08a7e" />
       </section>
       <section class="card" aria-labelledby="p-sue">
         <div class="between">
@@ -205,5 +217,97 @@ export function Graficos({ data }: { data: Datos }) {
         <Bars data={sueno} label="Horas de sueño por día, últimos 7 días" fmt={(x) => (x ? String(Math.round(x * 10) / 10).replace(".", ",") : "")} meta={7} color="var(--t1)" />
       </section>
     </div>
+  );
+}
+
+// ---------- Tu plan: Fútbol, Estudio, Comida y Mi Día ----------
+export function PlanInicio({ data }: { data: Datos }) {
+  const { prefs } = useApp();
+  const n = chileNow();
+  const hoy = n.date;
+  const lunes = lunesDe(hoy);
+  const p = planDelDia(hoy, prefs.partidoPorSemana);
+  const fase = faseDe(hoy, undefined, prefs.fechaPrueba || null);
+  const cum = cumplimiento(data.entrenos, lunes, addDays(lunes, 6), prefs.partidoPorSemana, hoy);
+  const semPlan = planificadas(lunes, addDays(lunes, 6), prefs.partidoPorSemana).length;
+  const rachaF = racha(data.entrenos, hoy, prefs.partidoPorSemana);
+  const prox = fase.diasPrueba != null ? `Prueba en ${fase.diasPrueba} días` : fase.semana < 4 ? `Tests en ${Math.max(0, 4 * 7 - (fase.semana * 7 + dow(hoy) - dow(INICIO_BLOQUE)))} días` : fase.semana < 8 ? `Tests en ${Math.max(0, 8 * 7 - (fase.semana * 7 + dow(hoy) - dow(INICIO_BLOQUE)))} días` : fase.nombre;
+  const e = estudioDeHoy(hoy);
+  const log = todasLasSesiones(data.estudio, data.sesiones, data.materias);
+  const minSem = log.filter((x) => x.fecha >= lunes).reduce((t, x) => t + x.minutos, 0);
+  const pendientes = tocanHoy(data.tarjetas, hoy).length + tocanHoy(data.errores, hoy).length;
+  const com = data.comidas.find((c) => c.id === hoy);
+  const prot = proteinaDia(com, prefs.comida);
+  const bloques = horarioDelDia(hoy, prefs.partidoPorSemana);
+  const tarea = (t: string) => routine.tasks.find((r) => r.title === t);
+  const hechos = bloques.filter((b) => tarea(b.titulo)?.done.includes(hoy)).length;
+  const sig = bloqueActual(bloques, hhmm(n.minutes)).siguiente;
+  // Mini-gráficos: barras de los últimos 7 días.
+  const dias7 = Array.from({ length: 7 }, (_, i) => addDays(hoy, i - 6));
+  const mini = (vals: number[], color: string, max = Math.max(1, ...vals)) => (
+    <svg viewBox="0 0 70 24" width="70" height="24" aria-hidden="true" class="mini">
+      {vals.map((v, i) => (
+        <rect key={i} x={i * 10 + 1} y={24 - Math.max(2, (v / max) * 22)} width="7" height={Math.max(2, (v / max) * 22)} rx="2" fill={color} opacity={i === 6 ? 1 : 0.55} />
+      ))}
+    </svg>
+  );
+  const tarjetas = [
+    {
+      id: "futbol",
+      ruta: "/futbol?fisico",
+      color: COLOR_SESION[p.manana.tipo],
+      icono: "futbol",
+      titulo: "Fútbol",
+      valor: p.md === 0 ? "Partido" : `${p.mdTxt} · ${p.manana.titulo.split(" (")[0]}`,
+      sub: `${semPlan ? Math.round((cum.hechas / semPlan) * 100) : 0}% de la semana · racha ${rachaF} · ${prox}`,
+      g: mini(dias7.map((f) => data.entrenos.filter((x) => x.fecha === f).length), "#1f9d55", 2),
+    },
+    {
+      id: "estudio",
+      ruta: "/mas/estudios",
+      color: e.materia ? "#3a86c8" : "#7b4fd0",
+      icono: "libro",
+      titulo: "Estudio",
+      valor: e.materia ? e.texto.split(":")[0] : e.ensayo ? "Mini-ensayo" : "Libre",
+      sub: `${minSem} min esta semana${pendientes ? ` · ${pendientes} para repasar` : ""}`,
+      g: mini(dias7.map((f) => log.filter((x) => x.fecha === f).reduce((t, x) => t + x.minutos, 0)), "#3a86c8", 45),
+    },
+    {
+      id: "comida",
+      ruta: "/mas/comida",
+      color: "#e8772e",
+      icono: "estrella",
+      titulo: "Comida",
+      valor: `${prot}/${prefs.comida.meta} g proteína`,
+      sub: com?.creatina ? "Creatina ✓" : "Creatina pendiente",
+      g: mini(dias7.map((f) => proteinaDia(data.comidas.find((c) => c.id === f), prefs.comida)), "#e8772e", prefs.comida.meta),
+    },
+    {
+      id: "midia",
+      ruta: "/mas/midia",
+      color: "#159a9c",
+      icono: "reloj",
+      titulo: "Mi Día",
+      valor: `${Math.round((hechos / bloques.length) * 100)}% cumplido`,
+      sub: sig ? `Próximo: ${sig.hora} ${sig.titulo.toLowerCase()}` : "Día terminado",
+      g: mini(dias7.map((f) => bloques.filter((b) => tarea(b.titulo)?.done.includes(f)).length), "#159a9c", bloques.length),
+    },
+  ];
+  return (
+    <section class="plan-grid" aria-label="Tu plan">
+      {tarjetas.map((t) => (
+        <button key={t.id} class="plan-card" style={{ "--c": t.color } as any} onClick={() => go(t.ruta)}>
+          <span class="numero-top">
+            <span class="numero-ico" aria-hidden="true">
+              <Icon name={t.icono} size={15} />
+            </span>
+            <span class="numero-nombre">{t.titulo}</span>
+          </span>
+          <strong class="plan-valor">{t.valor}</strong>
+          <span class="numero-sub">{t.sub}</span>
+          {t.g}
+        </button>
+      ))}
+    </section>
   );
 }

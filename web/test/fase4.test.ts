@@ -76,7 +76,7 @@ describe("intérprete de la vida: entreno, fútbol, metas, estudio y trabajo", (
   it("no se mete con la rutina", () => {
     expect(p("agrega estudiar a las 18")).toBeNull();
     expect(p("qué me toca ahora")).toBeNull();
-    expect(p("¿qué me toca hoy?")).toEqual({ tool: "resumen", args: { tipo: "hoy" } });
+    expect(p("¿qué me toca hoy?")).toEqual({ tool: "plan_de_hoy", args: {} });
   });
 });
 

@@ -226,6 +226,8 @@ export interface Entreno {
   items: { ejId: string; series: SerieHecha[] }[];
   rpe?: number; // esfuerzo percibido 1 a 10
   nota?: string;
+  sesion?: string; // sesión del bloque (fuerzaA, velocidad…)
+  tipoSesion?: string; // fuerza, velocidad, técnica… (para los gráficos)
   // Cardio (trote, bici, natación): distancia, duración y calorías.
   km?: number;
   seg?: number;
@@ -331,6 +333,85 @@ export interface Nota {
   demo?: boolean;
 }
 
+// ---------- Bloque de 8 semanas: tests físicos y peso ----------
+export interface TestFisico {
+  id: string;
+  fecha: string;
+  semana: number; // semana del bloque (0, 4, 8…)
+  sprint10?: number; // segundos (menos es mejor)
+  sprint30?: number;
+  salto?: number; // cm
+  t5105?: number; // segundos (menos es mejor)
+  paredDer?: number; // pases en 30 s
+  paredIzq?: number;
+  dominadasMala?: number; // dominadas de balón con la pierna mala
+  diezPrimero?: number; // 10×10: primer sprint (s)
+  diezUltimo?: number; // 10×10: último sprint (s)
+  demo?: boolean;
+}
+export interface Peso {
+  id: string; // fecha AAAA-MM-DD
+  kg: number;
+  demo?: boolean;
+}
+
+// ---------- Estudio (PAES, inglés, ventas, economía) ----------
+export type MateriaBloque = "mate" | "ingles" | "lenguaje" | "ventas" | "economia";
+export interface EstudioLog {
+  id: string;
+  fecha: string;
+  materia: MateriaBloque;
+  minutos: number;
+  tema?: string;
+  aciertos?: number;
+  total?: number;
+  habilidad?: "localizar" | "interpretar" | "evaluar";
+  tipoTexto?: "literario" | "no literario";
+  ensayo?: boolean; // mini-ensayo
+  // Ventas: práctica real
+  cliente?: string;
+  oferta?: string;
+  resultado?: "si" | "no" | "pendiente";
+  nota?: string;
+  demo?: boolean;
+}
+export interface ErrorCuaderno {
+  id: string;
+  materia: MateriaBloque;
+  descripcion: string;
+  motivo?: string;
+  fechaCreado: string;
+  proximaRevision: string;
+  intervalo: number; // días
+  resuelto: boolean;
+  demo?: boolean;
+}
+export interface Tarjeta {
+  id: string;
+  palabra: string;
+  traduccion: string;
+  ejemplo?: string;
+  intervalo: number; // días
+  proximaRevision: string;
+  aciertos: number;
+  fallos: number;
+  mazo?: string;
+  demo?: boolean;
+}
+
+// ---------- Comida y suplementos ----------
+export interface Comida {
+  id: string; // fecha AAAA-MM-DD
+  creatina?: boolean;
+  desayuno?: boolean; // avena + proteína
+  batido?: boolean;
+  colacion?: boolean;
+  almuerzo?: boolean;
+  once?: boolean;
+  agua?: number; // vasos
+  demo?: boolean;
+}
+
 export interface Datos {
   movimientos: Movimiento[];
   categorias: Categoria[];
@@ -358,12 +439,18 @@ export interface Datos {
   compras: Compra[];
   recordatorios: Recordatorio[];
   notas: Nota[];
+  tests: TestFisico[];
+  pesos: Peso[];
+  estudio: EstudioLog[];
+  errores: ErrorCuaderno[];
+  tarjetas: Tarjeta[];
+  comidas: Comida[];
 }
 
 export type StoreName = keyof Datos;
-export const STORES: StoreName[] = ["movimientos", "categorias", "presupuestos", "recurrentes", "metas", "aportes", "revisiones", "turnos", "materias", "sesiones", "tareas", "evaluaciones", "partidos", "clubes", "videos", "planes", "entrenos", "chequeos", "habitos", "dias", "actividades", "recuerdos", "fechas", "compras", "recordatorios", "notas"];
+export const STORES: StoreName[] = ["movimientos", "categorias", "presupuestos", "recurrentes", "metas", "aportes", "revisiones", "turnos", "materias", "sesiones", "tareas", "evaluaciones", "partidos", "clubes", "videos", "planes", "entrenos", "chequeos", "habitos", "dias", "actividades", "recuerdos", "fechas", "compras", "recordatorios", "notas", "tests", "pesos", "estudio", "errores", "tarjetas", "comidas"];
 
-export const emptyDatos = (): Datos => ({ movimientos: [], categorias: [], presupuestos: [], recurrentes: [], metas: [], aportes: [], revisiones: [], turnos: [], materias: [], sesiones: [], tareas: [], evaluaciones: [], partidos: [], clubes: [], videos: [], planes: [], entrenos: [], chequeos: [], habitos: [], dias: [], actividades: [], recuerdos: [], fechas: [], compras: [], recordatorios: [], notas: [] });
+export const emptyDatos = (): Datos => ({ movimientos: [], categorias: [], presupuestos: [], recurrentes: [], metas: [], aportes: [], revisiones: [], turnos: [], materias: [], sesiones: [], tareas: [], evaluaciones: [], partidos: [], clubes: [], videos: [], planes: [], entrenos: [], chequeos: [], habitos: [], dias: [], actividades: [], recuerdos: [], fechas: [], compras: [], recordatorios: [], notas: [], tests: [], pesos: [], estudio: [], errores: [], tarjetas: [], comidas: [] });
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 

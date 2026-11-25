@@ -56,11 +56,18 @@ export interface Prefs {
   vistaEquilibrio: "barras" | "rueda";
   dificilSugerido: string; // fecha en que dijiste "no, gracias" a la semana difícil
   mascota: string; // nombre de la mascota (su área en Mi vida)
+  partidoPorSemana: Record<string, "sab" | "dom">; // lunes de la semana → día del partido
+  fechaPrueba: string; // fecha de la prueba en el club (AAAA-MM-DD), si ya la sabes
+  miDia: boolean; // ya se cargó el horario de Mi Día como rutina
+  estiloPastel: boolean; // ya se pasó una vez al estilo claro pastel
+  estudioChecks: Record<string, boolean>; // subtemas y temas hechos, checks diarios de inglés
+  quiz: Record<string, number>; // resultado de cada mini-quiz (aciertos de 3)
+  comida: { medida: number; meta: number; almuerzo: number; once: number; colacion: number }; // proteína
 }
 
 const DEFAULT_PREFS: Prefs = {
   onboarded: false,
-  theme: "dark",
+  theme: "light",
   areas: AREAS.map((a) => a.id),
   startMonth: "",
   cards: CARDS.map((c) => ({ id: c.id, on: true })),
@@ -79,6 +86,13 @@ const DEFAULT_PREFS: Prefs = {
   vistaEquilibrio: "rueda",
   dificilSugerido: "",
   mascota: "",
+  partidoPorSemana: {},
+  fechaPrueba: "",
+  miDia: false,
+  estiloPastel: false,
+  estudioChecks: {},
+  quiz: {},
+  comida: { medida: 24, meta: 110, almuerzo: 25, once: 20, colacion: 8 },
 };
 
 let prefs: Prefs = loadPrefs();
@@ -95,6 +109,11 @@ function loadPrefs(): Prefs {
   if (nuevas.length && kv.get("prefs", null)) p.areas = [...new Set([...p.areas, ...nuevas])];
   p.areasConocidas = AREAS.map((a) => a.id);
   setNombreMascota(p.mascota);
+  // Estilo nuevo: una sola vez se pasa al tema claro pastel (después puedes volver al oscuro en Ajustes).
+  if (!p.estiloPastel) {
+    p.theme = "light";
+    p.estiloPastel = true;
+  }
   return p;
 }
 
@@ -116,7 +135,7 @@ export function applyTheme() {
   const t = prefs.theme;
   const light = t === "light" || (t === "auto" && window.matchMedia?.("(prefers-color-scheme: light)").matches);
   document.documentElement.dataset.theme = light ? "light" : "dark";
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", light ? "#F5F6F9" : "#0B0F1A");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", light ? "#F6F3FD" : "#12111C");
 }
 
 // Se redibuja cuando cambian los datos o las preferencias.

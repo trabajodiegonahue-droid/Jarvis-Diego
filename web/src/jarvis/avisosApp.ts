@@ -204,7 +204,7 @@ export async function sincronizarPush(forzar = false): Promise<boolean> {
     const sub = await reg.pushManager.getSubscription();
     if (!sub) return false;
     const n = chileNow();
-    const avisos = planAvisos(store.data, routine.tasks, p, ahoraIso(n.date, n.minutes)).map((a) => ({ id: a.id, t: chileAUtc(a.cuando), titulo: a.titulo, cuerpo: a.cuerpo }));
+    const avisos = planAvisos(store.data, routine.tasks, { ...p, plan: getPrefs().miDia, partidoPorSemana: getPrefs().partidoPorSemana }, ahoraIso(n.date, n.minutes)).map((a) => ({ id: a.id, t: chileAUtc(a.cuando), titulo: a.titulo, cuerpo: a.cuerpo }));
     // Agenda de los próximos 7 días (sin plata) para que Siri responda "¿qué tengo mañana?" sin abrir la app.
     const agenda = Object.fromEntries(Array.from({ length: 8 }, (_, i) => addDays(n.date, i)).map((f) => [f, agendaDia(store.data, routine.tasks, f, true)]));
     const cuerpo = JSON.stringify({ ...aparato(), suscripcion: sub.toJSON(), avisos, agenda, mascota: getPrefs().mascota || "" });

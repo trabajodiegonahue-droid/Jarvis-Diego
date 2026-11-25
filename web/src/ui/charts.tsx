@@ -324,3 +324,121 @@ export function Rueda({ data, label }: { data: { nombre: string; valor: number |
     </svg>
   );
 }
+
+// Barras apiladas (por ejemplo, sesiones por tipo), con una marca de lo planificado. Tocas una barra y ves el detalle.
+export function BarsApiladas({ data, series, label, plan }: { data: ({ etiqueta: string } & Record<string, number | string>)[]; series: { k: string; nombre: string; color: string }[]; label: string; plan?: number[] }) {
+  const [sel, setSel] = useState<number | null>(null);
+  const W = 320;
+  const H = 130;
+  const TOP = 18;
+  const total = (d: Record<string, number | string>) => series.reduce((t, s) => t + (Number(d[s.k]) || 0), 0);
+  const max = Math.max(1, ...data.map(total), ...(plan || []));
+  const slot = W / Math.max(1, data.length);
+  const bw = Math.min(26, slot - 6);
+  const y = (v: number) => H - (v / max) * (H - TOP);
+  const usadas = series.filter((s) => data.some((d) => Number(d[s.k]) > 0));
+  const paso = Math.ceil(data.length / 8);
+  const d = sel != null ? data[sel] : null;
+  return (
+    <figure class="viz" style={{ margin: 0 }}>
+      <div class="leyenda" aria-hidden="true">
+        {usadas.map((s) => (
+          <span key={s.k}>
+            <i style={{ background: s.color }} />
+            {s.nombre}
+          </span>
+        ))}
+        {plan && (
+          <span>
+            <i style={{ height: "2px", width: "14px", background: "var(--muted)" }} />
+            Planificadas
+          </span>
+        )}
+      </div>
+      <svg viewBox={`0 0 ${W} ${H + 22}`} width="100%" role="img" aria-label={`${label}. ${data.map((x, k) => `${x.etiqueta}: ${total(x)}${plan ? ` de ${plan[k]}` : ""}`).join(", ")}`}>
+        <line x1="0" x2={W} y1={H + 0.5} y2={H + 0.5} stroke={AX} />
+        {data.map((x, k) => {
+          const cx = k * slot + slot / 2;
+          let acum = 0;
+          return (
+            <g key={x.etiqueta + k} onClick={() => setSel(sel === k ? null : k)} style={{ cursor: "pointer" }} opacity={sel != null && sel !== k ? 0.45 : 1}>
+              <rect x={k * slot} y={0} width={slot} height={H + 22} fill="transparent" />
+              {series.map((s) => {
+                const v = Number(x[s.k]) || 0;
+                if (!v) return null;
+                const y1 = y(acum + v);
+                const h = y(acum) - y1;
+                acum += v;
+                return <rect key={s.k} x={cx - bw / 2} y={y1 + 0.5} width={bw} height={Math.max(0, h - 1)} rx="2" fill={s.color} />;
+              })}
+              {plan && plan[k] > 0 && <line x1={cx - bw / 2 - 3} x2={cx + bw / 2 + 3} y1={y(plan[k])} y2={y(plan[k])} stroke="var(--muted)" stroke-width="2" />}
+              {(k % paso === 0 || k === data.length - 1 || k === sel) && (
+                <text x={cx} y={H + 16} text-anchor="middle" font-size="11" fill={k === sel ? "var(--ink)" : "var(--muted)"}>
+                  {x.etiqueta}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+      {d && (
+        <span class="small" style={{ display: "block" }}>
+          {d.etiqueta}: {usadas.map((s) => `${s.nombre} ${Number(d[s.k]) || 0}`).join(" · ")}
+          {plan ? ` · ${total(d)} de ${plan[sel!]} planificadas` : ""}
+        </span>
+      )}
+      <Datos columnas={["", ...usadas.map((s) => s.nombre)]} filas={data.map((x) => [x.etiqueta, ...usadas.map((s) => String(Number(x[s.k]) || 0))])} />
+    </figure>
+  );
+}
+
+// Calendario tipo GitHub: un cuadrito por día, más intenso cuanto más entrenaste. Semanas en columnas, de lunes a domingo.
+export function Heatmap({ dias, label, color = "var(--green)", hoy }: { dias: { fecha: string; n: number }[]; label: string; color?: string; hoy: string }) {
+  const [sel, setSel] = useState<string | null>(null);
+  const cols = Math.ceil(dias.length / 7);
+  const C = 14;
+  const G = 3;
+  const W = cols * (C + G);
+  const H = 7 * (C + G);
+  const max = Math.max(1, ...dias.map((d) => d.n));
+  const s = sel ? dias.find((d) => d.fecha === sel) : null;
+  return (
+    <figure class="viz" style={{ margin: 0 }}>
+      <div style={{ overflowX: "auto" }}>
+        <svg viewBox={`0 0 ${W + 16} ${H}`} width={Math.max(W + 16, 120)} height={H} role="img" aria-label={`${label}: ${dias.filter((d) => d.n).length} días entrenados de ${dias.filter((d) => d.fecha <= hoy).length}`}>
+          {["L", "", "M", "", "V", "", "D"].map((l, i) => (
+            <text key={i} x="0" y={i * (C + G) + C - 3} font-size="9" fill="var(--muted)">
+              {l}
+            </text>
+          ))}
+          {dias.map((d, k) => {
+            const col = Math.floor(k / 7);
+            const row = k % 7;
+            const futuro = d.fecha > hoy;
+            return (
+              <rect
+                key={d.fecha}
+                x={16 + col * (C + G)}
+                y={row * (C + G)}
+                width={C}
+                height={C}
+                rx="3"
+                fill={futuro ? "transparent" : d.n ? color : "var(--card2)"}
+                opacity={futuro ? 1 : d.n ? 0.4 + 0.6 * (d.n / max) : 1}
+                stroke={d.fecha === hoy ? "var(--ink)" : futuro ? "var(--line)" : "none"}
+                stroke-width="1"
+                onClick={() => setSel(d.fecha)}
+                style={{ cursor: "pointer" }}
+              />
+            );
+          })}
+        </svg>
+      </div>
+      {s && (
+        <span class="small">
+          {Number(s.fecha.slice(8))}/{Number(s.fecha.slice(5, 7))}: {s.n ? `${s.n} ${s.n === 1 ? "sesión" : "sesiones"}` : "sin entreno"}
+        </span>
+      )}
+    </figure>
+  );
+}

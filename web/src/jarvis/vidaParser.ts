@@ -1,3 +1,4 @@
+import { parsePlan } from "./planTools";
 import { parseEjercicios } from "../training/ejerciciosVoz";
 import { MESES } from "../core/texto";
 import { parseExtras } from "./extrasParser";
@@ -149,6 +150,12 @@ export function parseVida(text: string, hoy: string, ctx: CtxVida = {}): LocalCo
   if (/^(gracias|muchas gracias|grax|vale|buena|bacan|filete|perfecto|genial|ok gracias)( jarvis)?$/.test(t0)) return { tool: "__gracias", args: {} };
   const x = parseExtras(text, ctx);
   if (x) return x;
+  // El plan (Fútbol, Estudio, Comida y Mi Día): "¿qué me toca hoy?", "me tomé la creatina", "peso 70,5".
+  const pl = parsePlan(t0.replace(/[¿?¡!.]/g, "").trim());
+  if (pl) return pl;
+  // Mi Día: "ya saqué al perro", "ya almorcé", "me tomé el batido" tachan su bloque (y quedan en su área).
+  const md = bloqueMiDia(t0, ctx.rutina || []);
+  if (md) return { tool: "tachar_tarea", args: { titulo: md } };
   const r = parseVidaBase(text, hoy, ctx);
   if (r) return r;
   // "anota que dormí 7 horas", "pon que gasté 5 lucas", "registra que hice gym": se saca el "anota que".
@@ -485,4 +492,24 @@ export function cardio(x: string): { km?: number; minutos?: number; segundos?: n
   const kcal = x.match(/\b(\d{2,4}) ?(?:calorias|kcal|cal)\b/);
   if (kcal) out.calorias = Number(kcal[1]);
   return out;
+}
+
+// Lo que dices en pasado → el bloque de Mi Día que corresponde (si está en tu rutina).
+const MI_DIA: [RegExp, string][] = [
+  [/\b(saque|pasee|saqué|paseé|ya salio|salio|salí con|sali con)\b.*\b(perro|perrita|perrito|apolo|mascota|gato)\b|\b(perro|apolo|mascota)\b.*\b(salio|paseo|ya salio)\b/, "Sacar al perro"],
+  [/\b(me tome|tome|tomé|me tomé|hice) (el |mi )?batido\b/, "Batido: proteína + avena"],
+  [/\b(almorce|almorcé|ya almorce)\b/, "Almuerzo"],
+  [/\b(desayune|desayuné|tome la creatina|tomé la creatina|me tome la creatina)\b/, "Despertar + desayuno + creatina"],
+  [/\b(tome|tomé|comi|comí) (la |mi )?colacion\b|\bcolacion lista\b/, "Colación"],
+  [/\b(tome once|tomé once|ya tome once|cene|cené)\b/, "Once / comida"],
+  [/\b(dormi|dormí|tome|tomé|hice) (la |una )?siesta\b/, "Siesta 20–30 min"],
+  [/\b(lave la loza|lavé la loza|aspire|aspiré|ordene la casa|ordené la casa|me duche|me duché)\b/, "Casa + ducha"],
+  [/\b(estire|estiré|hice core|hice el core)\b/, "Estirar + core"],
+  [/\b(busque pega|busqué pega|postule|postulé|mande curriculum|mandé currículum|mande cv)\b/, "Buscar pega / proyectos"],
+  [/\b(deje el celular|dejé el celular|guarde el celular|guardé el celular)\b/, "Celular fuera"],
+];
+function bloqueMiDia(t: string, rutina: string[]): string | null {
+  if (/\?|^(que|cuando|a que hora)\b|\b(tengo que|hay que|debo|recuerdame|avisame)\b/.test(t)) return null;
+  for (const [re, titulo] of MI_DIA) if (re.test(t) && rutina.some((r) => suave(r.toLowerCase()) === suave(titulo.toLowerCase()))) return titulo;
+  return null;
 }

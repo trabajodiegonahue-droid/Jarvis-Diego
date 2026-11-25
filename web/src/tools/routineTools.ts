@@ -54,8 +54,9 @@ export function routineTools(r: Routine, clock: () => ChileNow = chileNow): Tool
         const n = clock();
         const t = r.find(String(titulo || ""), n.dow);
         if (!t) return notFound(titulo);
+        const ya = t.done.includes(n.date);
         r.check(t, n.date);
-        return { ok: true, say: `Listo, tachado ${t.title}. Bien ahí.`, data: t };
+        return { ok: true, say: `Listo, tachado ${t.title}. Bien ahí.`, data: t, ...(ya ? {} : { undo: () => r.uncheck(t, n.date) }) };
       },
     },
     {

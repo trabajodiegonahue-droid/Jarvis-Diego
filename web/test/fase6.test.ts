@@ -13,6 +13,7 @@ import { montoEn, parseVida } from "../src/jarvis/vidaParser";
 import { vidaTools } from "../src/jarvis/vidaTools";
 import { extrasTools } from "../src/jarvis/extrasTools";
 import { crearNotar } from "../src/jarvis/notas";
+import { planTools } from "../src/jarvis/planTools";
 import { esPregunta } from "../src/areas/calc";
 import { Routine } from "../src/routine/routine";
 import { ToolRegistry } from "../src/tools/registry";
@@ -77,7 +78,7 @@ describe("JARVIS con los datos de ejemplo (modo práctica)", () => {
     const reloj = () => clock();
     const reg = new ToolRegistry();
     let dif: any[] = [];
-    reg.register(...routineTools(routine, reloj), ...vidaTools({ store, routine, clock: reloj }), ...diaTools({ store, routine, clock: reloj }), ...extrasTools({ store, routine, clock: reloj, dificil: { get: () => dif, set: (p) => (dif = p) } }));
+    reg.register(...routineTools(routine, reloj), ...vidaTools({ store, routine, clock: reloj }), ...diaTools({ store, routine, clock: reloj }), ...extrasTools({ store, routine, clock: reloj, dificil: { get: () => dif, set: (p) => (dif = p) } }), ...planTools({ store, routine, clock: reloj, prefs: () => ({ partidoPorSemana: {}, fechaPrueba: "", comida: { medida: 24, meta: 110, almuerzo: 25, once: 20, colacion: 8 } }) }));
     const a = new Assistant(reg, routine, () => ({ mode: "key", apiKey: "" }) as any, kv, reloj, { stream: vi.fn(), ask: vi.fn() } as any, {
       parse: (t, n) => parseVida(t, n.date, { habitos: store.data.habitos.map((h) => h.nombre), rutina: routine.tasks.map((x) => x.title), corriendo: store.data.actividades.find((x) => !x.fin)?.cat ?? null, compras: store.data.compras.filter((c) => !c.hecho).map((c) => c.texto), dificil: dif.length > 0, minutos: n.minutes }),
       notar: crearNotar(store, reloj),

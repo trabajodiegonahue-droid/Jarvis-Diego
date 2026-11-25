@@ -11,7 +11,7 @@ import { eventosDia } from "../../calendar/calc";
 import { Empty } from "../components";
 import { Icon } from "../icons";
 import { abrirJarvis } from "./Jarvis";
-import { Graficos, HoyLinea, Numeros, SemanaFila } from "./Panel";
+import { Graficos, HoyLinea, Numeros, PlanInicio, SemanaFila } from "./Panel";
 import { AREAS, cardReady, go, useApp, type CardId, getPrefs } from "../state";
 import { diffDays, fechaCorta } from "../../core/dates";
 import { equilibrioMetas, metasPrincipales } from "../../goals/calc";
@@ -308,6 +308,7 @@ export function Inicio({ onAdd }: { onAdd: () => void }) {
           <button onClick={() => abrirJarvis({ borrador: "¿Qué se viene los próximos días?", enviar: true })}>Lo que viene</button>
         </div>
       </div>
+      {prefs.miDia && <PlanInicio data={data} />}
       <HoyLinea data={data} />
       <Numeros data={data} />
       <SemanaFila data={data} />

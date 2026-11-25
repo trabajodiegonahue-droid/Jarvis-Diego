@@ -1,3 +1,5 @@
+import { planTools } from "./planTools";
+import { sumarDiaMeta } from "./metasPlan";
 import { esPregunta } from "../areas/calc";
 import { crearNotar } from "./notas";
 // JARVIS dentro de la app: una sola instancia compartida por todas las pantallas.
@@ -31,6 +33,7 @@ tools.register(
   ...knowledgeTools(() => settings.about, () => settings),
   ...vidaTools({ store, routine, clock: chileNow, clima: climaAhora }),
   ...diaTools({ store, routine, clock: chileNow, clima: climaAhora, aguaMeta: () => getPrefs().aguaMeta }),
+  ...planTools({ store, routine, clock: chileNow, prefs: () => getPrefs(), metaHabito: (nombre, fecha) => void sumarDiaMeta(nombre, fecha) }),
   ...extrasTools({ store, routine, clock: chileNow, dificil: { get: () => getPrefs().dificil, set: (p) => setPrefs({ dificil: p }) }, mascota: { get: () => getPrefs().mascota, set: (n) => setPrefs({ mascota: n }) } }),
 );
 export const assistant = new Assistant(tools, routine, () => settings, localKV, chileNow, undefined, {

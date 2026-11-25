@@ -18,10 +18,12 @@ const GRUPOS: { titulo: string; items: { path: string; nombre: string; detalle: 
   {
     titulo: "Tu día",
     items: [
+      { path: "/mas/midia", nombre: "Mi Día", detalle: "Tu horario de 7:30 a 23:00, con checks", icon: "reloj", color: "#1F9D55" },
       { path: "/metas", nombre: "Metas", detalle: "Ahorro, hábitos, cantidades y pasos, con simulador", icon: "metas", color: "#C9A227" },
       { path: "/mas/recordatorios", nombre: "Recordatorios", detalle: "Avisos, cumpleaños y lo que JARVIS recuerda", icon: "campana", color: "#E0A23B" },
       { path: "/mas/calendario", nombre: "Calendario", detalle: "Tu semana y lo que se cruza", icon: "calendario", color: "#E15A5A" },
       { path: "/mas/tiempo", nombre: "Mi tiempo", detalle: "Tu día al minuto, el mes y el año", icon: "reloj", color: "#4C8DF6" },
+      { path: "/mas/comida", nombre: "Comida y suplementos", detalle: "Proteína, creatina, agua y peso", icon: "estrella", color: "#E8772E" },
       { path: "/mas/habitos", nombre: "Hábitos y bienestar", detalle: "Rachas, sueño, ánimo y agua", icon: "habitos", color: "#1FA463" },
       { path: "/mas/compras", nombre: "Lista de compras", detalle: "Se llena hablándole a JARVIS", icon: "carro", color: "#D9775B" },
     ],
