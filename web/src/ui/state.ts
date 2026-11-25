@@ -60,6 +60,8 @@ export interface Prefs {
   fechaPrueba: string; // fecha de la prueba en el club (AAAA-MM-DD), si ya la sabes
   miDia: boolean; // ya se cargó el horario de Mi Día como rutina
   estiloPastel: boolean; // ya se pasó una vez al estilo claro pastel
+  estudioChecks: Record<string, boolean>; // subtemas y temas hechos, checks diarios de inglés
+  quiz: Record<string, number>; // resultado de cada mini-quiz (aciertos de 3)
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -87,6 +89,8 @@ const DEFAULT_PREFS: Prefs = {
   fechaPrueba: "",
   miDia: false,
   estiloPastel: false,
+  estudioChecks: {},
+  quiz: {},
 };
 
 let prefs: Prefs = loadPrefs();

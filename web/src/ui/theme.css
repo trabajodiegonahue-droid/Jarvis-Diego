@@ -617,3 +617,28 @@ nav.tabs a.on { color: var(--accent); background: var(--accent-soft); }
 :root[data-theme="light"] .sheet .card { background: var(--card); }
 :root[data-theme="light"] .scrim { background: rgba(40, 30, 80, 0.28); }
 .numero-valor { font-size: clamp(20px, 6.4vw, 28px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* Estudio */
+.secciones button { white-space: nowrap; flex: none; min-height: 40px; padding: 0 14px; border-radius: 20px; border: 0; background: var(--card); color: var(--ink); font-size: 14px; font-weight: 650; box-shadow: var(--shadow); }
+.secciones button.on { background: var(--accent); color: var(--accent-ink); }
+.estudio-hoy { --c: var(--accent); }
+:root[data-theme="light"] .estudio-hoy { background: linear-gradient(160deg, color-mix(in srgb, var(--c) 16%, #fff), #fff 70%); }
+.materias-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.materias-grid .materia-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.materia-card { --c: var(--accent); display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: var(--r); border: 1px solid var(--line); background: var(--card); color: var(--ink); text-align: left; }
+:root[data-theme="light"] .materia-card { border-color: transparent; box-shadow: var(--shadow); background: linear-gradient(160deg, color-mix(in srgb, var(--c) 14%, #fff), #fff 75%); }
+.materia-emoji { font-size: 26px; }
+.error-item { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 16px; background: var(--card2); }
+.tarjeta { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 170px; padding: 20px; border-radius: 24px; border: 0; background: linear-gradient(150deg, var(--accent-soft), color-mix(in srgb, #1f9d55 14%, var(--card))); color: var(--ink); text-align: center; }
+.tarjeta strong { font-size: 26px; }
+.tarjeta-trad { font-size: 20px; font-weight: 700; color: var(--accent); }
+.hab-fila { display: grid; grid-template-columns: minmax(0, 1fr) 64px auto 64px; align-items: center; gap: 6px; }
+.hab-fila input { min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--card2); color: var(--ink); text-align: center; font-size: 16px; min-width: 0; }
+.tema { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 8px; border-radius: 14px; border: 0; background: none; color: var(--ink); text-align: left; }
+.tema.actual { background: var(--accent-soft); }
+.tema-n { width: 30px; height: 30px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--card2); font-weight: 800; font-size: 13px; }
+.tema.ok .tema-n { background: var(--green); color: #fff; }
+.quiz-op { min-height: 46px; padding: 0 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--card2); color: var(--ink); text-align: left; }
+.quiz-op.bien { background: color-mix(in srgb, var(--green) 20%, var(--card2)); border-color: var(--green); }
+.quiz-op.mal { background: color-mix(in srgb, var(--red) 18%, var(--card2)); border-color: var(--red); }
+.quiz-op:disabled { opacity: 1; cursor: default; }

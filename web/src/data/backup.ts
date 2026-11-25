@@ -4,7 +4,7 @@ import { toCSV } from "../money/csv";
 import type { KV } from "../core/storage";
 import { STORES, type Datos } from "./types";
 
-const KV_KEYS = ["routine", "settings", "prefs", "summary"]; // lo de JARVIS y las preferencias
+const KV_KEYS = ["routine", "settings", "prefs", "summary", "repasosIngles"]; // lo de JARVIS y las preferencias
 const SECRET = ["apiKey", "workerToken"];
 // Al restaurar, la conexión (a quién se le manda tu código) no se toma del archivo: se queda la de este teléfono.
 const CONEXION = ["mode", "apiKey", "workerUrl", "workerToken"];

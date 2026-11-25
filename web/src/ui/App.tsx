@@ -9,6 +9,7 @@ import { Inicio } from "./screens/Inicio";
 import { alChat, JarvisSheet } from "./screens/Jarvis";
 import { Cardio } from "./screens/Cardio";
 import { MiDia } from "./screens/MiDia";
+import { Estudio } from "./screens/Estudio";
 import { Mascota } from "./screens/Mascota";
 import { revisarBuzon } from "../jarvis/buzon";
 import { assistant, settings } from "../jarvis/instance";
@@ -16,7 +17,6 @@ import { chileNow } from "../core/time";
 import { Ajustes, Mas } from "./screens/Mas";
 import { Metas } from "./screens/Metas";
 import { Trabajo } from "./screens/Trabajo";
-import { Estudios } from "./screens/Estudios";
 import { Registrar } from "./screens/Registrar";
 import { Futbol } from "./screens/Futbol";
 import { Habitos } from "./screens/Habitos";
@@ -118,7 +118,7 @@ export function App() {
       case "/mas/ajustes":
         return <Ajustes />;
       case "/mas/estudios":
-        return <Estudios />;
+        return <Estudio />;
       case "/mas/trabajo":
         return <Trabajo />;
       case "/mas/habitos":

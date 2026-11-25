@@ -368,6 +368,10 @@ export interface EstudioLog {
   habilidad?: "localizar" | "interpretar" | "evaluar";
   tipoTexto?: "literario" | "no literario";
   ensayo?: boolean; // mini-ensayo
+  // Ventas: práctica real
+  cliente?: string;
+  oferta?: string;
+  resultado?: "si" | "no" | "pendiente";
   nota?: string;
   demo?: boolean;
 }
